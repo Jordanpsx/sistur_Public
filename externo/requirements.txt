@@ -1,0 +1,24 @@
+# Dependências do totem de ponto local (externo/)
+# Instale com: pip install -r requirements.txt
+
+opencv-python>=4.9.0
+pyzbar>=0.1.9
+requests>=2.31.0
+certifi>=2024.0.0
+
+# Impressão térmica e sons (Windows apenas — ignorar no Linux)
+# pip install pywin32 pillow
+pillow>=10.0.0
+# pywin32 deve ser instalado separadamente via: pip install pywin32
+
+# Saudação de voz em tempo real
+python-socketio>=5.11.0      # cliente WebSocket
+python-engineio>=4.9.0
+websocket-client>=1.7.0       # transporte WebSocket
+edge-tts>=6.1.9               # TTS de alta qualidade (voz AntonioNeural)
+pygame>=2.5.2                  # reprodução de áudio não-bloqueante
+
+# Importador de ponto (importador_ponto.py) — leitura do relatório .xls do relógio.
+# xlrd 2.x lê exclusivamente .xls (BIFF/Excel 97-2003), que é o formato exportado
+# pelo aparelho. Se um dia ele passar a exportar .xlsx, aí entra openpyxl.
+xlrd>=2.0.1

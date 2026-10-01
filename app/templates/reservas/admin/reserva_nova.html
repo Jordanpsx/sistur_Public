@@ -1,0 +1,1188 @@
+{% extends 'reservas/reservas_base.html' %}
+{# Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved #}
+
+{% block html_title %}Nova Reserva — Balcão{% endblock %}
+
+{% block page_title %}Nova Reserva{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">Atendimento no Balcão (PDV)</p>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.index') }}"
+   class="inline-flex items-center px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  &#8592; Voltar ao Dashboard
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+<div class="max-w-2xl">
+
+  {# ── Erro ── #}
+  {% if error %}
+  <div class="flex items-start gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-red-500 text-base shrink-0 mt-0.5" aria-hidden="true"><svg class="r-icon r-icon-danger" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+    <span class="text-red-800 font-medium">{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <form method="POST"
+        action="{{ url_for('reservas.admin_nova_reserva_submit') }}"
+        id="nova-form">
+
+    {# ── Local e Categoria ── #}
+    <div id="local-section" class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4 inline-flex items-center gap-2"><svg class="r-icon r-icon-resource" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Local &amp; Categoria</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="r-label r-label-req" for="source_id">Local / Venue</label>
+          <select id="source_id" name="source_id" class="r-input" required>
+            <option value="">— Selecione —</option>
+            {% for src in catalogo %}
+            <option value="{{ src.id }}"
+              {% if form_values.get('source_id')|string == src.id|string %}selected{% endif %}>
+              {{ src.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="r-label r-label-req" for="category_id">Categoria</label>
+          <select id="category_id" name="category_id" class="r-input" required>
+            <option value="">— Selecione o local primeiro —</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {# ── Reserva de Balcão — toggle ── #}
+    <div class="flex items-center gap-4 px-5 py-4 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800
+                rounded-xl mb-5" id="balcao-toggle-card">
+      <input type="checkbox" id="chk-balcao"
+             class="w-5 h-5 accent-teal-600 cursor-pointer shrink-0 mt-0.5" />
+      <div class="flex-1 min-w-0">
+        <label for="chk-balcao"
+               class="text-sm font-bold text-teal-800 cursor-pointer select-none">
+          <span class="inline-flex items-center gap-2"><svg class="r-icon r-icon-primary" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/><path d="M9 9h.01"/><path d="M15 9h.01"/></svg> Reserva de Balcão</span>
+        </label>
+        <p class="text-xs text-teal-600 dark:text-teal-300 mt-0.5">
+          Dados pessoais ficam opcionais e o check-in é preenchido automaticamente com hoje.
+        </p>
+      </div>
+      <input type="hidden" name="is_balcao_mode" id="is_balcao_mode" value="0" />
+    </div>
+
+    {# ── Status inicial (apenas no modo Balcão) ── #}
+    <div id="balcao-status-section"
+         class="hidden bg-surface rounded-xl border border-line shadow-sm p-5 mb-5">
+      <h2 class="text-sm font-bold text-content mb-3"><svg class="r-icon r-icon-info" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Status Inicial da Reserva</h2>
+      <select id="balcao_status" name="balcao_status" class="r-select">
+        <option value="">— Padrão (Pago) —</option>
+        {% for sc in status_configs %}
+        <option value="{{ sc.internal_name }}"
+          {% if form_values.get('balcao_status') == sc.internal_name %}selected{% endif %}>
+          {{ sc.label }}{% if sc.is_system_reserved %} (sistema){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      <p class="r-hint mt-1">Status aplicado ao criar a reserva. Altere aqui se necessário.</p>
+    </div>
+
+    {# ── Dados do Cliente ── #}
+    <div id="cliente-section" class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4 flex items-center gap-2" id="cliente-section-title">
+        <svg class="r-icon r-icon-primary" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg> Dados do Cliente
+        <span class="section-optional-badge items-center gap-1 text-xs font-semibold
+                     text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-800/40 px-2 py-0.5 rounded-full">
+          opcional no modo balcão
+        </span>
+      </h2>
+
+      <div class="mb-4">
+        <label class="r-label r-label-req" for="customer_name">Nome Completo</label>
+        <input type="text"
+               id="customer_name"
+               name="customer_name"
+               class="r-input"
+               value="{{ form_values.get('customer_name', '') }}"
+               required />
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="r-label" for="customer_document">
+            CPF / CNPJ <span class="text-content-muted font-normal">(opcional)</span>
+          </label>
+          <input type="text"
+                 id="customer_document"
+                 name="customer_document"
+                 class="r-input font-mono"
+                 value="{{ form_values.get('customer_document', '') }}"
+                 placeholder="000.000.000-00" />
+        </div>
+        <div>
+          <label class="r-label" for="telefone">
+            Telefone <span class="text-content-muted font-normal">(opcional)</span>
+          </label>
+          <input type="tel"
+                 id="telefone"
+                 name="telefone"
+                 class="r-input"
+                 value="{{ form_values.get('telefone', '') }}"
+                 placeholder="(00) 00000-0000" />
+        </div>
+      </div>
+
+      <div>
+        <label class="r-label" for="email">
+          E-mail <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <input type="email"
+               id="email"
+               name="email"
+               class="r-input"
+               value="{{ form_values.get('email', '') }}"
+               placeholder="cliente@email.com" />
+      </div>
+    </div>
+
+    {# ── Datas ── #}
+    <div id="datas-section" class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4 inline-flex items-center gap-2"><svg class="r-icon r-icon-info" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Datas</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="r-label r-label-req" for="check_in_date">Check-in</label>
+          <input type="datetime-local"
+                 id="check_in_date"
+                 name="check_in_date"
+                 class="r-input"
+                 step="60"
+                 value="{{ form_values.get('check_in_date', '') }}"
+                 required />
+        </div>
+        <div>
+          <label class="r-label" for="check_out_date">
+            Check-out <span class="text-content-muted font-normal">(opcional)</span>
+          </label>
+          <input type="datetime-local"
+                 id="check_out_date"
+                 name="check_out_date"
+                 class="r-input"
+                 step="60"
+                 value="{{ form_values.get('check_out_date', '') }}" />
+          <p class="r-hint">Para Day Use, pode ser igual ao check-in ou deixar em branco.</p>
+        </div>
+      </div>
+    </div>
+
+    {# ── Itens / Tarifas ── #}
+    <div id="itens-section"
+         class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5 hidden">
+      <h2 class="text-sm font-bold text-content mb-1 inline-flex items-center gap-2"><svg class="r-icon r-icon-payment" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h7.72a2 2 0 0 0 2-1.61L20 7H5.12"/></svg> Itens da Reserva</h2>
+      <p class="text-xs text-content-muted mb-4">
+        Defina a quantidade de cada item. Recurso físico é opcional — pode ser atribuído depois via Editar.
+      </p>
+
+      <div id="itens-lista" class="divide-y divide-line"></div>
+
+      {# placeholder — previsão agora em painel dedicado abaixo #}
+
+      <div id="itens-vazio" class="py-6 text-center text-sm text-content-muted hidden">
+        Nenhum item disponível para esta categoria.
+      </div>
+    </div>
+
+    {# ── Simulação de Preço ── #}
+    <div id="preview-section"
+         class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5 hidden">
+
+      <h2 class="text-sm font-bold text-content mb-4 inline-flex items-center gap-2"><svg class="r-icon r-icon-success" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg> Simulação de Preço</h2>
+
+      {# Loading #}
+      <div id="preview-loading" class="hidden py-6 flex items-center justify-center gap-2 text-content-muted text-sm">
+        <svg class="animate-spin w-4 h-4 text-teal-500" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        Calculando...
+      </div>
+
+      {# Error #}
+      <div id="preview-error" class="hidden text-sm text-red-600 dark:text-red-400 py-2"></div>
+
+      {# Content #}
+      <div id="preview-content" class="hidden">
+
+        {# Item rows #}
+        <table class="w-full text-sm mb-4" id="preview-items-table">
+          <thead>
+            <tr class="text-xs text-content-muted uppercase tracking-wide border-b border-line">
+              <th class="text-left pb-1.5 font-medium">Item</th>
+              <th class="text-center pb-1.5 font-medium w-12">Qtd</th>
+              <th class="text-right pb-1.5 font-medium">Unitário</th>
+              <th class="text-right pb-1.5 font-medium">Total</th>
+            </tr>
+          </thead>
+          <tbody id="preview-items-body" class="divide-y divide-line"></tbody>
+        </table>
+
+        {# Subtotals block #}
+        <div class="space-y-1.5 text-sm border-t border-line pt-3">
+
+          {# Subtotal #}
+          <div class="flex justify-between text-content-muted">
+            <span>Subtotal</span>
+            <span id="preview-subtotal" class="font-medium tabular-nums">—</span>
+          </div>
+
+          {# Automatic discounts (rendered by JS) #}
+          <div id="preview-auto-discounts"></div>
+
+          {# Manual discount row — percentage input #}
+          <div class="flex items-center justify-between gap-3 py-1 px-3 bg-amber-50 dark:bg-amber-900/30
+                      border border-amber-200 dark:border-amber-800 rounded-lg mt-2">
+            <label for="manual-discount-input"
+                   class="text-sm font-semibold text-amber-800 shrink-0 cursor-pointer select-none">
+              <span class="inline-flex items-center gap-2"><svg class="r-icon r-icon-warning" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Desconto Manual (%)</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <span id="manual-discount-value"
+                    class="text-xs text-amber-600 dark:text-amber-300 font-medium tabular-nums hidden"></span>
+              <div class="relative">
+                <input type="number"
+                       id="manual-discount-input"
+                       min="0" max="100" step="0.01" placeholder="0"
+                       value="{{ form_values.get('manual_discount_percent', '0') }}"
+                       class="pl-2 pr-7 py-1.5 text-right text-sm font-mono font-semibold
+                              border border-amber-300 rounded-lg w-24 focus:outline-none
+                              focus:ring-2 focus:ring-amber-400 bg-surface text-amber-900" />
+                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-content-muted text-xs
+                             pointer-events-none select-none">%</span>
+              </div>
+              <input type="hidden" name="manual_discount_percent" id="manual_discount_percent"
+                     value="{{ form_values.get('manual_discount_percent', '0') }}" />
+            </div>
+          </div>
+
+          {# Service fee #}
+          <div id="preview-fee-row"
+               class="flex justify-between text-content-muted hidden">
+            <span id="preview-fee-label">Taxa de Serviço</span>
+            <span id="preview-fee" class="tabular-nums">—</span>
+          </div>
+
+        </div>
+
+        {# Total final #}
+        <div class="flex justify-between items-center mt-4 pt-3 border-t-2 border-line">
+          <span class="text-base font-bold text-content">Total Estimado</span>
+          <span id="preview-total"
+                class="text-2xl font-extrabold text-teal-700 dark:text-teal-300 tabular-nums">—</span>
+        </div>
+
+        <p class="text-xs text-content-muted mt-2">
+          <span class="inline-flex items-start gap-1.5"><svg class="r-icon r-icon-info shrink-0 mt-0.5" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Valores calculados em tempo real pelo servidor. O total é validado novamente no momento da criação.</span>
+        </p>
+
+      </div>{# /preview-content #}
+    </div>
+
+    {# Campo oculto: quando o operador confirma criar mesmo assim #}
+    <input type="hidden" name="force_overbooking" id="force_overbooking" value="0">
+    <input type="hidden" name="force_notice_override" id="force_notice_override" value="0">
+
+    {# ── Ações ── #}
+    <div id="acoes-section" class="flex items-center gap-3">
+      <button type="submit"
+              id="btn-submit"
+              disabled
+              class="inline-flex items-center gap-2 px-5 py-2.5
+                     bg-teal-600 hover:bg-teal-700 disabled:bg-surface-2 disabled:cursor-not-allowed
+                     text-white text-sm font-semibold rounded-lg transition-colors">
+        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg> Criar Reserva
+      </button>
+      <a href="{{ url_for('reservas.index') }}"
+         class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-content-muted
+                bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+</div>
+
+{# ── Modal de Confirmação de Overbooking ── #}
+{% if conflito %}
+<div id="overbooking-modal"
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+  <div class="bg-surface rounded-xl shadow-2xl max-w-md w-full p-6">
+
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-amber-500 text-2xl shrink-0" aria-hidden="true"><svg class="r-icon r-icon-warning" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+      <div>
+        <h2 class="text-base font-bold text-content">Recurso já reservado</h2>
+        <p class="text-sm text-content-muted mt-1">
+          O recurso <strong>{{ conflito.resource_name }}</strong> está ocupado
+          no período selecionado pelas reservas abaixo:
+        </p>
+      </div>
+    </div>
+
+    <div class="space-y-2 mb-5">
+      {% for c in conflito.conflitos %}
+      <div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2 text-sm">
+        <div class="font-semibold text-content">{{ c.customer_name }}</div>
+        <div class="text-content-muted text-xs mt-0.5">
+          Check-in: <span class="font-medium">{{ c.check_in }}</span>
+          {% if c.check_out and c.check_out != '-' %}
+          &mdash; Check-out: <span class="font-medium">{{ c.check_out }}</span>
+          {% endif %}
+        </div>
+        <div class="text-content-muted text-xs">Status: {{ c.status }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <p class="text-sm text-content-muted mb-5">
+      Deseja criar a reserva mesmo assim? Esta ação gera overbooking intencional
+      e ficará registrada no log de auditoria.
+    </p>
+
+    <div class="flex gap-3">
+      <button id="btn-confirmar-overbooking" type="button"
+              class="flex-1 inline-flex justify-center items-center gap-2
+                     px-4 py-2.5 bg-amber-600 hover:bg-amber-700
+                     text-white text-sm font-semibold rounded-lg transition-colors">
+        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Criar mesmo assim
+      </button>
+      <button id="btn-cancelar-overbooking" type="button"
+              class="flex-1 inline-flex justify-center items-center
+                     px-4 py-2.5 bg-surface-2 hover:bg-surface-2
+                     text-content text-sm font-semibold rounded-lg transition-colors">
+        Cancelar
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var modal = document.getElementById('overbooking-modal');
+  var btnConfirm = document.getElementById('btn-confirmar-overbooking');
+  var btnCancel = document.getElementById('btn-cancelar-overbooking');
+  var forceInput = document.getElementById('force_overbooking');
+  var form = document.getElementById('nova-form');
+
+  btnConfirm.addEventListener('click', function () {
+    forceInput.value = '1';
+    modal.remove();
+    form.submit();
+  });
+
+  btnCancel.addEventListener('click', function () {
+    modal.remove();
+  });
+})();
+</script>
+{% endif %}
+
+{# ── Modal de Confirmação de Aviso de Bloqueio (manutenção, feriado fechado etc.) ── #}
+{% if aviso_bloqueio %}
+<div id="notice-modal"
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+  <div class="bg-surface rounded-xl shadow-2xl max-w-md w-full p-6">
+
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-amber-500 text-2xl shrink-0" aria-hidden="true"><svg class="r-icon r-icon-warning" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+      <div>
+        <h2 class="text-base font-bold text-content">Aviso de bloqueio ativo</h2>
+        <p class="text-sm text-content-muted mt-1">
+          {{ aviso_bloqueio.notice_text }}
+        </p>
+      </div>
+    </div>
+
+    <p class="text-sm text-content-muted mb-5">
+      Não é um conflito de disponibilidade — é uma restrição operacional (manutenção,
+      fechamento etc.). Deseja criar a reserva mesmo assim? Isso fica registrado na
+      reserva e no log de auditoria.
+    </p>
+
+    <div class="flex gap-3">
+      <button id="btn-confirmar-aviso" type="button"
+              class="flex-1 inline-flex justify-center items-center gap-2
+                     px-4 py-2.5 bg-amber-600 hover:bg-amber-700
+                     text-white text-sm font-semibold rounded-lg transition-colors">
+        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Criar mesmo assim
+      </button>
+      <button id="btn-cancelar-aviso" type="button"
+              class="flex-1 inline-flex justify-center items-center
+                     px-4 py-2.5 bg-surface-2 hover:bg-surface-2
+                     text-content text-sm font-semibold rounded-lg transition-colors">
+        Cancelar
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var modal = document.getElementById('notice-modal');
+  var btnConfirm = document.getElementById('btn-confirmar-aviso');
+  var btnCancel = document.getElementById('btn-cancelar-aviso');
+  var forceInput = document.getElementById('force_notice_override');
+  var form = document.getElementById('nova-form');
+
+  btnConfirm.addEventListener('click', function () {
+    forceInput.value = '1';
+    modal.remove();
+    form.submit();
+  });
+
+  btnCancel.addEventListener('click', function () {
+    modal.remove();
+  });
+})();
+</script>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<style>
+  /* check_in_date no modo Balcão — visual de somente-leitura */
+  .r-input.balcao-readonly {
+    background: #f1f5f9;
+    color: #64748b;
+    cursor: not-allowed;
+    border-color: #e2e8f0;
+  }
+  /* Badge "Opcional" no título do card de Dados do Cliente */
+  #cliente-section.balcao-mode .section-optional-badge { display: inline-flex; }
+  #cliente-section .section-optional-badge { display: none; }
+  /* Transição suave ao mover o card */
+  #cliente-section { transition: box-shadow 0.2s ease; }
+  #cliente-section.balcao-mode {
+    border-color: #99f6e4;
+    background: #f0fdfa;
+  }
+</style>
+<script>
+(function () {
+  "use strict";
+
+  // ── Dados embutidos (JSON do servidor) ───────────────────────────────────
+  var CATALOGO         = {{ catalogo_json | safe }};
+  var RECURSOS_SOURCE  = {{ recursos_json | safe }};   // {"source_id": [{id, name, group_id}]}
+  var GRUPOS           = {{ grupos_json | safe }};     // [{id, name, parent_id}]
+
+  var grupoMap = {};
+  GRUPOS.forEach(function (g) { grupoMap[g.id] = g; });
+
+  // Valores preservados em caso de erro de validação (POST)
+  var SAVED_SOURCE   = {{ form_values.get('source_id', '')|tojson }};
+  var SAVED_CATEGORY = {{ form_values.get('category_id', '')|tojson }};
+  var SAVED_ITEMS    = {};
+  var SAVED_RESOURCES = {};
+  {% for key, val in request.form.items() %}
+  {% if key.startswith('items_') %}SAVED_ITEMS[{{ key[6:]|int }}] = {{ val|int }};
+  {% endif %}
+  {% if key.startswith('resource_') %}SAVED_RESOURCES[{{ key[9:]|int }}] = {{ val|int }};
+  {% endif %}
+  {% endfor %}
+
+  var selSource    = document.getElementById('source_id');
+  var selCategory  = document.getElementById('category_id');
+  var itensSection = document.getElementById('itens-section');
+  var itensLista   = document.getElementById('itens-lista');
+  var itensVazio   = document.getElementById('itens-vazio');
+  var btnSubmit    = document.getElementById('btn-submit');
+
+  var currentSourceId = null;
+  var loadTimer = null;
+  var availabilityMap = {};
+
+  // ── Cascade: source → categories ─────────────────────────────────────────
+  function populateCategories(sourceId, selectedCategoryId) {
+    selCategory.innerHTML = '<option value="">— Selecione —</option>';
+    currentSourceId = sourceId ? parseInt(sourceId, 10) : null;
+
+    if (!sourceId) return;
+
+    var src = CATALOGO.find(function (s) { return String(s.id) === String(sourceId); });
+    if (!src) return;
+
+    src.categories.forEach(function (cat) {
+      var opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      if (String(cat.id) === String(selectedCategoryId)) opt.selected = true;
+      selCategory.appendChild(opt);
+    });
+
+    if (selectedCategoryId) {
+      populateItems(sourceId, selectedCategoryId);
+    }
+  }
+
+  // ── Render a single item row (stepper + optional resource accordion) ────────
+  function renderItemRow(item, sourceResources) {
+    var savedQty = SAVED_ITEMS[item.id] || 0;
+    var billingLabel = item.billing_type === 'PER_DAY' ? '/ dia'
+                     : item.billing_type === 'PER_HOUR' ? '/ hora'
+                     : item.billing_type === 'DAILY_PRORATED_HOURLY' ? '/ diária+h'
+                     : 'fixo';
+
+    var stepperHtml =
+      '<div class="flex items-center gap-4">' +
+        '<div class="flex-1 min-w-0">' +
+          '<div class="text-sm font-semibold text-content">' + escHtml(item.name) + '</div>' +
+          '<div class="text-xs text-content-muted mt-0.5">' +
+            'R\u00a0' + item.price.toFixed(2).replace('.', ',') + '\u00a0' + billingLabel +
+          '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-2 shrink-0">' +
+          '<button type="button" data-action="dec" data-target="qty_' + item.id + '" ' +
+                  'class="qty-btn w-8 h-8 rounded-lg border border-line bg-surface-2 ' +
+                         'hover:bg-surface-2 text-content-muted font-bold text-lg ' +
+                         'flex items-center justify-center transition-colors">&#8722;</button>' +
+          '<input type="number" id="qty_' + item.id + '" name="items_' + item.id + '" ' +
+                 'value="' + savedQty + '" min="0" max="999" ' +
+                 'class="w-16 text-center text-sm font-semibold border border-line ' +
+                        'rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 ' +
+                        'focus:ring-teal-400 qty-input" ' +
+                 'data-price="' + item.price + '" data-billing="' + item.billing_type + '" />' +
+          '<button type="button" data-action="inc" data-target="qty_' + item.id + '" ' +
+                  'class="qty-btn w-8 h-8 rounded-lg border border-line bg-surface-2 ' +
+                         'hover:bg-surface-2 text-content-muted font-bold text-lg ' +
+                         'flex items-center justify-center transition-colors">+</button>' +
+        '</div>' +
+      '</div>';
+
+    var resourceHtml = '';
+    if (item.group_id && sourceResources.length > 0) {
+      var groupResources = sourceResources.filter(function (r) {
+        return r.group_id === item.group_id;
+      });
+      if (groupResources.length > 0) {
+        var savedRes = SAVED_RESOURCES[item.id] || null;
+        resourceHtml = buildResourceAccordion(item.id, groupResources, savedRes);
+      }
+    }
+
+    return '<div class="py-3">' + stepperHtml + resourceHtml + '</div>';
+  }
+
+  // ── Build grouped accordion HTML for a category's items ──────────────────
+  function buildGroupedItems(items, sourceResources) {
+    // Index items by group_id
+    var byGroup = {};
+    var ungrouped = [];
+    items.forEach(function (item) {
+      if (item.group_id) {
+        if (!byGroup[item.group_id]) byGroup[item.group_id] = [];
+        byGroup[item.group_id].push(item);
+      } else {
+        ungrouped.push(item);
+      }
+    });
+
+    // Check if a group (or any descendant) has at least one item
+    function hasItems(gid) {
+      if (byGroup[gid] && byGroup[gid].length > 0) return true;
+      return GRUPOS.some(function (g) { return g.parent_id === gid && hasItems(g.id); });
+    }
+
+    // Count items recursively (for the badge)
+    function countItems(gid) {
+      var n = (byGroup[gid] || []).length;
+      GRUPOS.forEach(function (g) { if (g.parent_id === gid) n += countItems(g.id); });
+      return n;
+    }
+
+    // Render one group accordion recursively (depth drives padding)
+    function renderGroup(gid, depth) {
+      if (!hasItems(gid)) return '';
+      var g = grupoMap[gid];
+      if (!g) return '';
+
+      var childGroups = GRUPOS.filter(function (c) { return c.parent_id === gid && hasItems(c.id); });
+      var childrenHtml = '';
+      childGroups.forEach(function (c) { childrenHtml += '<div class="py-1">' + renderGroup(c.id, depth + 1) + '</div>'; });
+
+      var directItemsHtml = (byGroup[gid] || []).map(function (item) {
+        return renderItemRow(item, sourceResources);
+      }).join('');
+
+      var cnt = countItems(gid);
+      var paddingLeft = depth > 0 ? ' style="padding-left: ' + (16 + depth * 16) + 'px;"' : '';
+
+      return (
+        '<details class="rounded-lg border border-line overflow-hidden">' +
+          '<summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer select-none ' +
+                          'bg-surface-2 hover:bg-surface-2 transition-colors list-none"' + paddingLeft + '>' +
+            '<svg class="w-4 h-4 shrink-0 transition-transform details-chevron text-content-muted" ' +
+                 'fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">' +
+              '<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />' +
+            '</svg>' +
+            '<span class="text-sm font-semibold text-content">' + escHtml(g.name) + '</span>' +
+            '<span class="ml-auto text-xs text-content-muted font-normal">' +
+              cnt + ' item' + (cnt !== 1 ? 's' : '') +
+            '</span>' +
+          '</summary>' +
+          '<div class="px-2 divide-y divide-line">' + childrenHtml + directItemsHtml + '</div>' +
+        '</details>'
+      );
+    }
+
+    // Root groups: have items and whose parent either doesn't exist or has no items
+    var rootIds = [];
+    GRUPOS.forEach(function (g) {
+      if (!hasItems(g.id)) return;
+      if (!g.parent_id || !hasItems(g.parent_id)) rootIds.push(g.id);
+    });
+    rootIds = rootIds.filter(function (id, i) { return rootIds.indexOf(id) === i; }); // dedupe
+
+    var html = '<div class="space-y-2">';
+    rootIds.forEach(function (gid) { html += renderGroup(gid, 0); });
+
+    // Ungrouped items
+    if (ungrouped.length > 0) {
+      var ungroupedHtml = ungrouped.map(function (item) { return renderItemRow(item, sourceResources); }).join('');
+      if (rootIds.length > 0) {
+        var cnt2 = ungrouped.length;
+        html +=
+          '<div class="rounded-lg border border-line overflow-hidden">' +
+            '<div class="px-4 py-2.5 bg-surface-2 border-b border-line flex items-center gap-2">' +
+              '<span class="text-sm font-semibold text-content">Outros</span>' +
+              '<span class="ml-auto text-xs text-content-muted font-normal">' + cnt2 + ' item' + (cnt2 !== 1 ? 's' : '') + '</span>' +
+            '</div>' +
+            '<div class="px-2 divide-y divide-line">' + ungroupedHtml + '</div>' +
+          '</div>';
+      } else {
+        html += '<div class="rounded-lg border border-line overflow-hidden">' +
+                  '<div class="px-2 divide-y divide-line">' + ungroupedHtml + '</div>' +
+                '</div>';
+      }
+    }
+
+    return html + '</div>';
+  }
+
+  // ── Items section ─────────────────────────────────────────────────────────
+  function populateItems(sourceId, categoryId) {
+    itensLista.innerHTML = '';
+    availabilityMap = {};
+    itensSection.classList.remove('hidden');
+    itensVazio.classList.add('hidden');
+
+    var src = CATALOGO.find(function (s) { return String(s.id) === String(sourceId); });
+    if (!src) return;
+    var cat = src.categories.find(function (c) { return String(c.id) === String(categoryId); });
+    if (!cat || !cat.items || cat.items.length === 0) {
+      itensVazio.classList.remove('hidden');
+      updateSubmitState();
+      return;
+    }
+
+    var sourceResources = RECURSOS_SOURCE[String(sourceId)] || [];
+    itensLista.innerHTML = buildGroupedItems(cat.items, sourceResources);
+
+    // Bind qty events
+    itensLista.querySelectorAll('.qty-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        var val = parseInt(input.value, 10) || 0;
+        val = btn.dataset.action === 'inc' ? Math.min(val + 1, 999) : Math.max(val - 1, 0);
+        input.value = val;
+        updatePricePreview();
+        updateSubmitState();
+      });
+    });
+    itensLista.querySelectorAll('.qty-input').forEach(function (inp) {
+      inp.addEventListener('input', function () { updatePricePreview(); updateSubmitState(); });
+    });
+
+    // Bind resource radio events
+    itensLista.querySelectorAll('.resource-option input[type="radio"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        var accordion = radio.closest('.resource-accordion-wrap');
+        if (!accordion) return;
+        accordion.querySelectorAll('.resource-option').forEach(function (opt) {
+          opt.classList.remove('border-teal-300', 'bg-teal-50', 'dark:bg-teal-900/30');
+          opt.classList.add('border-transparent');
+        });
+        var lbl = radio.closest('.resource-option');
+        if (lbl) { lbl.classList.remove('border-transparent'); lbl.classList.add('border-teal-300', 'bg-teal-50', 'dark:bg-teal-900/30'); }
+        updateResourceSummaryLabel(accordion, radio);
+      });
+    });
+
+    // Bind accordion chevron
+    itensLista.querySelectorAll('details').forEach(function (el) {
+      el.addEventListener('toggle', function () {
+        var chevron = el.querySelector('.details-chevron');
+        if (chevron) chevron.style.transform = el.open ? 'rotate(90deg)' : '';
+      });
+    });
+
+    updatePricePreview();
+    updateSubmitState();
+    loadResourceAvailability();
+  }
+
+  // ── Build resource accordion HTML ─────────────────────────────────────────
+  // resources: já filtrados para o grupo correto do item
+  function buildResourceAccordion(itemId, resources, savedResId) {
+    var savedRes = savedResId ? parseInt(savedResId, 10) : null;
+    var savedName = null;
+    if (savedRes) {
+      var found = resources.find(function (r) { return r.id === savedRes; });
+      if (found) savedName = found.name;
+    }
+
+    var summaryLabel = savedName
+      ? 'Recurso selecionado — ' + escHtml(savedName)
+      : 'Selecionar recurso físico (opcional)';
+
+    var optionsHtml = '';
+    resources.forEach(function (r) {
+      optionsHtml += renderResourceOption(r, itemId, savedRes);
+    });
+
+    return (
+      '<details class="mt-2 resource-item-details" data-item-id="' + itemId + '">' +
+        '<summary class="flex items-center gap-1.5 text-xs font-semibold text-teal-600 dark:text-teal-300 ' +
+                         'cursor-pointer list-none hover:text-teal-700 dark:hover:text-teal-300 select-none">' +
+          '<svg class="w-3.5 h-3.5 shrink-0 transition-transform details-chevron" ' +
+               'fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">' +
+            '<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />' +
+          '</svg>' +
+          '<span class="resource-summary-label">' + summaryLabel + '</span>' +
+        '</summary>' +
+        '<div class="mt-2 space-y-1 pl-1 resource-accordion-wrap" data-item-id="' + itemId + '">' +
+          optionsHtml +
+        '</div>' +
+      '</details>'
+    );
+  }
+
+  function renderResourceOption(r, itemId, savedResId) {
+    var isSelected = savedResId && r.id === savedResId;
+    var borderClass = isSelected ? 'border-teal-300 bg-teal-50 dark:bg-teal-900/30' : 'border-transparent hover:border-line hover:bg-surface-2';
+    return (
+      '<label class="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer ' +
+              'border transition-colors resource-option ' + borderClass + '" ' +
+              'data-resource-id="' + r.id + '">' +
+        '<input type="radio" name="resource_' + itemId + '" value="' + r.id + '" ' +
+               'class="accent-teal-600 shrink-0" ' + (isSelected ? 'checked' : '') + ' />' +
+        '<div class="flex-1 min-w-0">' +
+          '<div class="flex items-center gap-2 flex-wrap">' +
+            '<span class="text-sm font-semibold text-content">' + escHtml(r.name) + '</span>' +
+            '<span class="availability-badge text-xs font-medium px-1.5 py-0.5 rounded-full ' +
+                         'bg-surface-2 text-content-muted" data-resource-id="' + r.id + '">...</span>' +
+          '</div>' +
+        '</div>' +
+      '</label>'
+    );
+  }
+
+  function updateResourceSummaryLabel(accordion, radio) {
+    var details = accordion.closest('details.resource-item-details');
+    if (!details) return;
+    var lbl = details.querySelector('.resource-summary-label');
+    if (!lbl) return;
+    var namEl = radio.closest('.resource-option')?.querySelector('.text-sm.font-semibold');
+    lbl.textContent = namEl ? 'Recurso selecionado — ' + namEl.textContent.trim() : 'Recurso selecionado';
+  }
+
+  // ── Price preview (AJAX simulate) ────────────────────────────────────────
+  var previewSection    = document.getElementById('preview-section');
+  var previewLoading    = document.getElementById('preview-loading');
+  var previewError      = document.getElementById('preview-error');
+  var previewContent    = document.getElementById('preview-content');
+  var previewItemsBody  = document.getElementById('preview-items-body');
+  var previewSubtotal   = document.getElementById('preview-subtotal');
+  var previewAutoDisc   = document.getElementById('preview-auto-discounts');
+  var previewFeeRow     = document.getElementById('preview-fee-row');
+  var previewFeeLabel   = document.getElementById('preview-fee-label');
+  var previewFee        = document.getElementById('preview-fee');
+  var previewTotal      = document.getElementById('preview-total');
+  var manualInput       = document.getElementById('manual-discount-input');
+  var manualHidden      = document.getElementById('manual_discount_percent');
+  var manualValueHint   = document.getElementById('manual-discount-value');
+  var previewTimer      = null;
+  var lastPreviewData   = null;
+
+  // Restore manual discount percent after POST error
+  var savedManual = parseFloat(manualHidden.value) || 0;
+  if (savedManual > 0) manualInput.value = savedManual;
+
+  function fmtBRL(val) {
+    return 'R$\u00a0' + Number(val).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+
+  function collectSimulatePayload() {
+    var sourceId   = selSource.value;
+    var categoryId = selCategory.value;
+    var ciVal      = document.getElementById('check_in_date').value;
+    var coVal      = document.getElementById('check_out_date').value;
+    if (!sourceId || !categoryId || !ciVal) return null;
+
+    var items = [];
+    itensLista.querySelectorAll('.qty-input').forEach(function (inp) {
+      var qty = parseInt(inp.value, 10) || 0;
+      if (qty <= 0) return;
+      // item_id is encoded in the input name: items_<id>
+      var match = inp.name.match(/^items_(\d+)$/);
+      if (match) items.push({ item_id: parseInt(match[1], 10), quantity: qty });
+    });
+    if (items.length === 0) return null;
+
+    var payload = {
+      source_id:             parseInt(sourceId, 10),
+      category_id:           parseInt(categoryId, 10),
+      check_in_date:         ciVal.split('T')[0],
+      check_out_date:        (coVal || ciVal).split('T')[0],
+      items:                 items,
+      manual_discount_percent: parseFloat(manualInput.value) || 0,
+    };
+    return payload;
+  }
+
+  function showPreviewLoading() {
+    previewSection.classList.remove('hidden');
+    previewLoading.classList.remove('hidden');
+    previewContent.classList.add('hidden');
+    previewError.classList.add('hidden');
+  }
+
+  function showPreviewContent(data) {
+    lastPreviewData = data;
+    previewLoading.classList.add('hidden');
+    previewError.classList.add('hidden');
+    previewContent.classList.remove('hidden');
+
+    // Item rows
+    previewItemsBody.innerHTML = '';
+    (data.items_breakdown || []).forEach(function (row) {
+      var billingNote = '';
+      if (row.num_days) billingNote = ' <span class="text-content-muted">× ' + row.num_days + 'd</span>';
+      var unitCell = row.unit_price != null
+        ? fmtBRL(row.unit_price) + billingNote
+        : '<span class="text-content-muted text-xs">ver dias</span>';
+      var tr = '<tr>' +
+        '<td class="py-1.5 pr-2 text-content">' + escHtml(row.item_name) + '</td>' +
+        '<td class="py-1.5 text-center text-content-muted">' + row.quantity + '</td>' +
+        '<td class="py-1.5 text-right text-content-muted tabular-nums">' + unitCell + '</td>' +
+        '<td class="py-1.5 text-right font-medium text-content tabular-nums pl-3">' + fmtBRL(row.item_total) + '</td>' +
+        '</tr>';
+      previewItemsBody.insertAdjacentHTML('beforeend', tr);
+    });
+
+    // Subtotal
+    previewSubtotal.textContent = fmtBRL(data.subtotal);
+
+    // Auto discounts
+    previewAutoDisc.innerHTML = '';
+    var details = data.discount_details || {};
+    if (details.advance_booking) {
+      var ab = details.advance_booking;
+      previewAutoDisc.insertAdjacentHTML('beforeend',
+        '<div class="flex justify-between text-green-700 dark:text-green-300">' +
+          '<span>&#127881; Reserva Antecipada (' + ab.percent + '%) — ' +
+            ab.days_in_advance + 'd antecedência</span>' +
+          '<span class="font-medium tabular-nums">− ' + fmtBRL(ab.amount) + '</span>' +
+        '</div>'
+      );
+    }
+    if (details.flat_discount) {
+      previewAutoDisc.insertAdjacentHTML('beforeend',
+        '<div class="flex justify-between text-green-700 dark:text-green-300">' +
+          '<span>Desconto (' + details.flat_discount.percent + '%)</span>' +
+          '<span class="font-medium tabular-nums">− ' + fmtBRL(details.flat_discount.amount) + '</span>' +
+        '</div>'
+      );
+    }
+    if (details.manual_discount && details.manual_discount.amount > 0) {
+      previewAutoDisc.insertAdjacentHTML('beforeend',
+        '<div class="flex justify-between text-amber-700 dark:text-amber-300">' +
+          '<span>&#9999;&#65039; Desconto Manual (' + details.manual_discount.percent + '%)</span>' +
+          '<span class="font-medium tabular-nums">− ' + fmtBRL(details.manual_discount.amount) + '</span>' +
+        '</div>'
+      );
+    }
+
+    // Update manual discount R$ hint
+    updateManualValueHint(data.subtotal);
+
+    // Service fee
+    if (data.service_fee && data.service_fee > 0) {
+      previewFeeRow.classList.remove('hidden');
+      var feePct = data.service_fee_details ? data.service_fee_details.percent : '';
+      previewFeeLabel.textContent = 'Taxa de Serviço' + (feePct ? ' (' + feePct + '%)' : '');
+      previewFee.textContent = '+ ' + fmtBRL(data.service_fee);
+    } else {
+      previewFeeRow.classList.add('hidden');
+    }
+
+    // Total
+    previewTotal.textContent = fmtBRL(data.total);
+  }
+
+  function showPreviewError(msg) {
+    previewLoading.classList.add('hidden');
+    previewContent.classList.add('hidden');
+    previewError.classList.remove('hidden');
+    previewError.textContent = msg || 'Erro ao calcular preço.';
+  }
+
+  function hidePreview() {
+    previewSection.classList.add('hidden');
+    lastPreviewData = null;
+  }
+
+  function updateManualValueHint(subtotal) {
+    var pct = parseFloat(manualInput.value) || 0;
+    if (pct > 0 && subtotal > 0) {
+      var valor = (subtotal * pct / 100);
+      manualValueHint.textContent = '≈ ' + fmtBRL(valor);
+      manualValueHint.classList.remove('hidden');
+    } else {
+      manualValueHint.classList.add('hidden');
+    }
+  }
+
+  function triggerPreviewFetch(delay) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function () {
+      var payload = collectSimulatePayload();
+      if (!payload) { hidePreview(); return; }
+      showPreviewLoading();
+      fetch('/reservas/api/public/simular', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      .then(function (resp) { return resp.json().then(function (d) { return { ok: resp.ok, data: d }; }); })
+      .then(function (r) {
+        if (r.ok) showPreviewContent(r.data);
+        else showPreviewError(r.data.erro || 'Erro ao simular preço.');
+      })
+      .catch(function () { showPreviewError('Erro de conexão ao calcular preço.'); });
+    }, delay || 400);
+  }
+
+  function updatePricePreview() {
+    // Update manual discount hidden input before triggering
+    manualHidden.value = parseFloat(manualInput.value) || 0;
+    triggerPreviewFetch(400);
+  }
+
+  // Manual discount input events — sync hidden field and refresh preview
+  manualInput.addEventListener('input', function () {
+    var pct = parseFloat(this.value) || 0;
+    manualHidden.value = pct;
+    if (lastPreviewData) updateManualValueHint(lastPreviewData.subtotal);
+    triggerPreviewFetch(600);
+  });
+
+  // ── Submit button state ───────────────────────────────────────────────────
+  function updateSubmitState() {
+    var hasQty = false;
+    itensLista.querySelectorAll('.qty-input').forEach(function (inp) {
+      if ((parseInt(inp.value, 10) || 0) > 0) hasQty = true;
+    });
+    btnSubmit.disabled = !hasQty;
+  }
+
+  // ── AJAX: disponibilidade de recursos ─────────────────────────────────────
+  function loadResourceAvailability() {
+    if (!currentSourceId) return;
+    var ciVal = document.getElementById('check_in_date').value;
+    var coVal = document.getElementById('check_out_date').value;
+    if (!ciVal) return;
+
+    clearTimeout(loadTimer);
+    loadTimer = setTimeout(function () {
+      var params = new URLSearchParams({
+        source_id: currentSourceId,
+        check_in: ciVal.split('T')[0],
+        check_out: (coVal || ciVal).split('T')[0],
+      });
+
+      document.querySelectorAll('.availability-badge').forEach(function (badge) {
+        badge.textContent = '...';
+        badge.className = 'availability-badge text-xs font-medium px-1.5 py-0.5 rounded-full bg-surface-2 text-content-muted';
+      });
+
+      fetch('/reservas/api/recursos/disponibilidade?' + params.toString(), {
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(function (resp) { return resp.ok ? resp.json() : null; })
+      .then(function (data) {
+        if (!data || !data.recursos) return;
+        availabilityMap = {};
+        data.recursos.forEach(function (r) { availabilityMap[r.resource_id] = r; });
+        updateAvailabilityBadges();
+      })
+      .catch(function () {
+        document.querySelectorAll('.availability-badge').forEach(function (b) { b.textContent = '?'; });
+      });
+    }, 300);
+  }
+
+  function updateAvailabilityBadges() {
+    document.querySelectorAll('.availability-badge').forEach(function (badge) {
+      var rid = parseInt(badge.dataset.resourceId, 10);
+      var info = availabilityMap[rid];
+      if (!info) return;
+      if (info.is_available) {
+        badge.textContent = info.stock_quantity !== null ? 'Disponivel (' + info.available + ')' : 'Disponivel';
+        badge.className = 'availability-badge text-xs font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:text-green-300';
+      } else {
+        badge.textContent = 'Indisponivel';
+        badge.className = 'availability-badge text-xs font-medium px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-800/40 text-red-600 dark:text-red-400';
+      }
+    });
+  }
+
+  // ── Reserva de Balcão ────────────────────────────────────────────────────
+  // ── Preferências do operador (injetadas pelo servidor) ───────────────────
+  var PREF_STATUS = {{ form_values.get('balcao_status', '') | tojson }};
+
+  var chkBalcao            = document.getElementById('chk-balcao');
+  var inpBalcaoMode        = document.getElementById('is_balcao_mode');
+  var clienteSection       = document.getElementById('cliente-section');
+  var acoesSection         = document.getElementById('acoes-section');
+  var inpCheckIn           = document.getElementById('check_in_date');
+  var lblNome              = document.querySelector('label[for="customer_name"]');
+  var inpNome              = document.getElementById('customer_name');
+  var balcaoStatusSection  = document.getElementById('balcao-status-section');
+  var selBalcaoStatus      = document.getElementById('balcao_status');
+  var _clienteNextEl       = clienteSection.nextElementSibling; // original position anchor
+  var _balcaoAutoFilled    = false;
+
+  function todayDateTimeLocal() {
+    var d   = new Date();
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+           'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  chkBalcao.addEventListener('change', function () {
+    var form = document.getElementById('nova-form');
+
+    if (this.checked) {
+      // 1. Move Dados do Cliente visualmente para baixo (antes das Ações)
+      form.insertBefore(clienteSection, acoesSection);
+
+      // 2. Tornar customer_name opcional (remove required + asterisco)
+      inpNome.removeAttribute('required');
+      lblNome.classList.remove('r-label-req');
+
+      // 3. Estilo do card de cliente
+      clienteSection.classList.add('balcao-mode');
+
+      // 4. Preencher check_in_date com hoje e travar
+      if (!inpCheckIn.value) {
+        inpCheckIn.value = todayDateTimeLocal();
+        _balcaoAutoFilled = true;
+        // Dispara recálculo de preço e disponibilidade
+        updatePricePreview();
+        loadResourceAvailability();
+      }
+      inpCheckIn.readOnly = true;
+      inpCheckIn.classList.add('balcao-readonly');
+
+      // 5. Flag para o backend
+      inpBalcaoMode.value = '1';
+
+      // 6. Mostrar seletor de status
+      balcaoStatusSection.classList.remove('hidden');
+
+    } else {
+      // 1. Restaurar Dados do Cliente na posição original
+      form.insertBefore(clienteSection, _clienteNextEl);
+
+      // 2. Restaurar customer_name como obrigatório
+      inpNome.setAttribute('required', '');
+      lblNome.classList.add('r-label-req');
+
+      // 3. Remover estilo de balcão do card
+      clienteSection.classList.remove('balcao-mode');
+
+      // 4. Desbloquear check_in_date e limpar se foi auto-preenchido
+      inpCheckIn.readOnly = false;
+      inpCheckIn.classList.remove('balcao-readonly');
+      if (_balcaoAutoFilled) {
+        inpCheckIn.value  = '';
+        _balcaoAutoFilled = false;
+        hidePreview();
+      }
+
+      // 5. Limpar flag
+      inpBalcaoMode.value = '0';
+
+      // 6. Ocultar seletor de status
+      balcaoStatusSection.classList.add('hidden');
+    }
+  });
+
+  // ── Event listeners ───────────────────────────────────────────────────────
+  selSource.addEventListener('change', function () {
+    populateCategories(this.value, '');
+    itensSection.classList.add('hidden');
+    itensLista.innerHTML = '';
+    hidePreview();
+    updateSubmitState();
+  });
+
+  selCategory.addEventListener('change', function () {
+    if (this.value) populateItems(selSource.value, this.value);
+  });
+
+  document.getElementById('check_in_date').addEventListener('change', function () {
+    updatePricePreview(); loadResourceAvailability();
+  });
+  document.getElementById('check_out_date').addEventListener('change', function () {
+    updatePricePreview(); loadResourceAvailability();
+  });
+
+  // ── Helper ────────────────────────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Init: pré-preencher a partir de preferências (ou restaurar após erro POST) ──
+  // SAVED_SOURCE / SAVED_CATEGORY chegam via form_values:
+  //   • GET inicial → valores das predefinições do operador
+  //   • POST com erro → valores submetidos (para não perder o que foi digitado)
+  if (SAVED_SOURCE) {
+    selSource.value = String(SAVED_SOURCE);
+    populateCategories(SAVED_SOURCE, SAVED_CATEGORY);
+  }
+
+  // Pré-selecionar status de balcão a partir da preferência (fica pronto quando o
+  // operador ativar o modo Balcão — a seção aparece e o valor já está selecionado)
+  if (PREF_STATUS && selBalcaoStatus) {
+    selBalcaoStatus.value = PREF_STATUS;
+  }
+
+})();
+</script>
+{% endblock %}

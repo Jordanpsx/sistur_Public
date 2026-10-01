@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Central de Relatórios{% endblock %}
+{% block content %}
+<div style="max-width: 640px; margin: 0 auto; padding: 16px;">
+
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px;">
+        <a href="{{ url_for('rh.dashboard') }}" style="min-height:44px; display:flex; align-items:center; color: var(--primary); text-decoration:none;">&larr; RH</a>
+        <h1 style="font-size:18px; font-weight:700; margin:0;">Central de Relatórios</h1>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for categoria, mensagem in messages %}
+    <div style="padding:10px 14px; border-radius:8px; margin-bottom:12px; font-size:14px;
+                background: {{ '#fee2e2' if categoria == 'erro' else '#dcfce7' }};
+                color: {{ '#991b1b' if categoria == 'erro' else '#166534' }};">
+        {{ mensagem }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <form method="get" action="{{ url_for('relatorios.preview') }}" target="_blank" style="display:flex; flex-direction:column; gap:14px;">
+
+        <div>
+            <label for="tipo" style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Tipo de Relatório</label>
+            <select id="tipo" name="tipo" onchange="atualizarCampos()" style="width:100%; min-height:44px; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+                <option value="funcionarios_ativos" {{ 'selected' if tipo == 'funcionarios_ativos' }}>Funcionários Ativos do Dia</option>
+                <option value="folgas" {{ 'selected' if tipo == 'folgas' }}>Folgas no Período</option>
+                <option value="escala" {{ 'selected' if tipo == 'escala' }}>Escala no Período</option>
+                <option value="equipe" {{ 'selected' if tipo == 'equipe' }}>Relatório de Equipe</option>
+            </select>
+        </div>
+
+        <div id="campo-data" style="display:none;">
+            <label for="data" style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Data</label>
+            <input type="date" id="data" name="data" value="{{ hoje.isoformat() }}" style="width:100%; min-height:44px; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+        </div>
+
+        <div id="campo-periodo" style="display:none; gap:14px; flex-direction:column;">
+            <div>
+                <label for="data_inicio" style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Início do Período</label>
+                <input type="date" id="data_inicio" name="data_inicio" value="{{ hoje.isoformat() }}" style="width:100%; min-height:44px; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+            </div>
+            <div>
+                <label for="data_fim" style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Fim do Período</label>
+                <input type="date" id="data_fim" name="data_fim" value="{{ hoje.isoformat() }}" style="width:100%; min-height:44px; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+            </div>
+        </div>
+
+        <div id="campo-area" style="display:none;">
+            <label for="area_id" style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Área (opcional)</label>
+            <select id="area_id" name="area_id" style="width:100%; min-height:44px; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+                <option value="">Todas</option>
+                {% for area in areas %}
+                <option value="{{ area.id }}">{{ area.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div id="campo-equipe" style="display:none;">
+            <label for="equipe_id" style="display:block; font-size:12px; font-weight:600; color:#64748b; margin-bottom:4px;">Equipe</label>
+            <select id="equipe_id" name="equipe_id" style="width:100%; min-height:44px; padding:8px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px;">
+                <option value="">Selecione</option>
+                {% for equipe in equipes %}
+                <option value="{{ equipe.id }}">{{ equipe.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+
+        <div style="display:flex; gap:10px; margin-top:6px;">
+            <button type="submit" formaction="{{ url_for('relatorios.preview') }}"
+                    style="flex:1; min-height:44px; border:1px solid var(--primary); background:#fff; color: var(--primary); border-radius:8px; font-size:14px; font-weight:600;">
+                Pré-visualizar
+            </button>
+            <button type="submit" formaction="{{ url_for('relatorios.pdf') }}"
+                    style="flex:1; min-height:44px; border:none; background: var(--primary); color:#fff; border-radius:8px; font-size:14px; font-weight:600;">
+                Baixar PDF
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+<script>
+    function atualizarCampos() {
+        var tipo = document.getElementById('tipo').value;
+        document.getElementById('campo-data').style.display = (tipo === 'funcionarios_ativos') ? 'block' : 'none';
+        document.getElementById('campo-periodo').style.display = (tipo !== 'funcionarios_ativos') ? 'flex' : 'none';
+        document.getElementById('campo-area').style.display = (tipo === 'equipe') ? 'none' : 'block';
+        document.getElementById('campo-equipe').style.display = (tipo === 'escala' || tipo === 'equipe') ? 'block' : 'none';
+    }
+    atualizarCampos();
+</script>
+{% endblock %}

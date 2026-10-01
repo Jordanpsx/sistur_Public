@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Avisos — Central de Notificações do Colaborador
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Notificações</title>
+
+  {% include '_design_system.html' %}
+
+  <style>
+    /* ─── Base ───────────────────────────────────────────────────────────── */
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--c-bg);
+      margin: 0;
+      color: var(--c-text);
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: color-mix(in srgb, var(--c-surface) 90%, transparent);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .topbar-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn-back {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--c-text-muted);
+      text-decoration: none;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--c-border);
+      transition: all 0.15s;
+      min-height: 44px;
+    }
+
+    .btn-back:hover {
+      background: var(--c-surface-2);
+      color: var(--c-primary);
+      border-color: var(--c-primary);
+    }
+
+    .topbar-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--c-text);
+      flex: 1;
+    }
+
+    /* ── Content ─────────────────────────────────────────────────────────── */
+    .content {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+
+    /* ── Flash messages ──────────────────────────────────────────────────── */
+    .flash {
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
+
+    .flash-sucesso {
+      background: color-mix(in srgb, #16a34a 10%, var(--c-surface));
+      color: color-mix(in srgb, #16a34a 90%, var(--c-text));
+      border: 1px solid color-mix(in srgb, #16a34a 30%, transparent);
+    }
+
+    .flash-erro {
+      background: var(--c-danger-bg);
+      color: var(--c-danger-fg);
+      border: 1px solid color-mix(in srgb, var(--c-danger-fg) 30%, transparent);
+    }
+
+    .flash-aviso {
+      background: var(--c-warning-bg);
+      color: var(--c-warning-fg);
+      border: 1px solid color-mix(in srgb, var(--c-warning-fg) 30%, transparent);
+    }
+
+    /* ── Section header & tab nav ────────────────────────────────────────── */
+    .section-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--c-text);
+      margin: 0 0 1rem;
+    }
+
+    .tab-nav {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 2px solid var(--c-border);
+      padding-bottom: 0.5rem;
+      overflow-x: auto;
+    }
+
+    .tab-link {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .tab-link-active {
+      background: var(--c-primary);
+      color: #fff;
+    }
+
+    .tab-link-inactive {
+      background: transparent;
+      color: var(--c-text-muted);
+    }
+
+    .tab-link-inactive:hover {
+      background: var(--c-surface-2);
+      color: var(--c-text);
+    }
+
+    .tab-badge-red {
+      background: #ef4444;
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.1rem 0.4rem;
+      font-size: 0.7rem;
+      margin-left: 0.25rem;
+    }
+
+    .tab-badge-amber {
+      background: #f59e0b;
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.1rem 0.4rem;
+      font-size: 0.7rem;
+      margin-left: 0.25rem;
+    }
+
+    /* ── Action bar ──────────────────────────────────────────────────────── */
+    .action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .count-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--c-text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .btn-mark-all {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--c-primary);
+      background: color-mix(in srgb, var(--c-primary) 10%, var(--c-surface));
+      border: 1px solid color-mix(in srgb, var(--c-primary) 25%, transparent);
+      border-radius: 8px;
+      padding: 0.5rem 0.875rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      min-height: 44px;
+    }
+
+    .btn-mark-all:hover {
+      background: color-mix(in srgb, var(--c-primary) 18%, var(--c-surface));
+    }
+
+    /* ── Aviso cards ─────────────────────────────────────────────────────── */
+    .aviso-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .aviso-card {
+      background: var(--c-surface);
+      border-radius: 14px;
+      border: 1px solid var(--c-border);
+      border-left: 4px solid var(--c-border);
+      padding: 1rem 1.125rem;
+      position: relative;
+      transition: box-shadow 0.15s;
+    }
+
+    .aviso-card.unread {
+      border-left-color: var(--c-primary);
+    }
+
+    .aviso-card.tipo-ATRASO      { border-left-color: #f59e0b; }
+    .aviso-card.tipo-ATRASO.unread { border-left-color: #d97706; }
+    .aviso-card.tipo-FALTA       { border-left-color: #ef4444; }
+    .aviso-card.tipo-FALTA.unread  { border-left-color: #dc2626; }
+    .aviso-card.tipo-SISTEMA     { border-left-color: #3b82f6; }
+    .aviso-card.tipo-SISTEMA.unread { border-left-color: #2563eb; }
+    .aviso-card.tipo-AJUSTE      { border-left-color: #f59e0b; }
+
+    .aviso-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.375rem;
+    }
+
+    .aviso-titulo {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--c-text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .dot-unread {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--c-primary);
+      flex-shrink: 0;
+    }
+
+    .dot-amber {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #d97706;
+      flex-shrink: 0;
+    }
+
+    .aviso-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+    }
+
+    .badge-ATRASO {
+      background: color-mix(in srgb, #d97706 12%, var(--c-surface));
+      color: color-mix(in srgb, #d97706 90%, var(--c-text));
+    }
+
+    .badge-FALTA {
+      background: color-mix(in srgb, var(--c-danger-fg) 12%, var(--c-surface));
+      color: var(--c-danger-fg);
+    }
+
+    .badge-SISTEMA {
+      background: color-mix(in srgb, #2563eb 12%, var(--c-surface));
+      color: color-mix(in srgb, #2563eb 90%, var(--c-text));
+    }
+
+    .badge-PENDENTE {
+      background: color-mix(in srgb, #d97706 12%, var(--c-surface));
+      color: color-mix(in srgb, #d97706 90%, var(--c-text));
+    }
+
+    .badge-status-approved {
+      background: color-mix(in srgb, #059669 12%, var(--c-surface));
+      color: color-mix(in srgb, #059669 90%, var(--c-text));
+    }
+
+    .badge-status-rejected {
+      background: color-mix(in srgb, var(--c-danger-fg) 12%, var(--c-surface));
+      color: var(--c-danger-fg);
+    }
+
+    .badge-status-pending {
+      background: color-mix(in srgb, #d97706 12%, var(--c-surface));
+      color: color-mix(in srgb, #d97706 90%, var(--c-text));
+    }
+
+    .aviso-ir {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: .5rem;
+      min-height: 40px;
+      padding: 0 .75rem;
+      border-radius: 9px;
+      background: color-mix(in srgb, var(--primary) 12%, transparent);
+      color: var(--primary);
+      font-size: .8rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .aviso-ir:hover { background: color-mix(in srgb, var(--primary) 20%, transparent); }
+
+    .aviso-mensagem {
+      font-size: 0.82rem;
+      color: var(--c-text-muted);
+      line-height: 1.5;
+      margin-bottom: 0.75rem;
+    }
+
+    .aviso-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .aviso-ts {
+      font-size: 0.72rem;
+      color: var(--c-text-muted);
+    }
+
+    .aviso-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.375rem 0.75rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+      min-height: 36px;
+      font-family: inherit;
+    }
+
+    .btn-lido {
+      background: color-mix(in srgb, var(--c-primary) 10%, var(--c-surface));
+      color: var(--c-primary);
+      border: 1px solid color-mix(in srgb, var(--c-primary) 25%, transparent);
+    }
+
+    .btn-lido:hover {
+      background: color-mix(in srgb, var(--c-primary) 18%, var(--c-surface));
+    }
+
+    .btn-delete {
+      background: var(--c-surface);
+      color: var(--c-text-muted);
+      border: 1px solid var(--c-border);
+    }
+
+    .btn-delete:hover {
+      background: var(--c-danger-bg);
+      color: var(--c-danger-fg);
+      border-color: color-mix(in srgb, var(--c-danger-fg) 35%, transparent);
+    }
+
+    /* ── Ajuste detail info ───────────────────────────────────────────────── */
+    .ajuste-info {
+      font-size: 0.85rem;
+      color: var(--c-text-muted);
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+    }
+
+    .ajuste-info p { margin: 0 0 0.2rem; }
+    .ajuste-info strong { color: var(--c-text); }
+
+    .badge-sub {
+      background: var(--c-surface-2);
+      color: var(--c-text-muted);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    .badge-new {
+      background: color-mix(in srgb, #16a34a 10%, var(--c-surface));
+      color: color-mix(in srgb, #16a34a 80%, var(--c-text));
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    .ajuste-footer-border {
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--c-border);
+      align-items: flex-start;
+    }
+
+    .rejection-form {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    .rejection-input {
+      flex: 1;
+      padding: 0.375rem 0.625rem;
+      font-size: 0.8rem;
+      font-family: inherit;
+      border: 1px solid var(--c-border);
+      border-radius: 6px;
+      background: var(--c-surface-2);
+      color: var(--c-text);
+      transition: border-color 0.15s;
+    }
+
+    .rejection-input:focus {
+      outline: none;
+      border-color: var(--c-primary);
+      background: var(--c-surface);
+    }
+
+    .btn-reject {
+      background: var(--c-danger-bg);
+      color: var(--c-danger-fg);
+      border: 1px solid color-mix(in srgb, var(--c-danger-fg) 30%, transparent);
+    }
+
+    .btn-reject:hover {
+      background: color-mix(in srgb, var(--c-danger-fg) 18%, var(--c-surface));
+    }
+
+    .btn-approve {
+      background: var(--c-primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .btn-approve:hover {
+      background: color-mix(in srgb, var(--c-primary) 82%, #000);
+    }
+
+    .rejection-box {
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--c-danger-bg);
+      border-radius: 6px;
+      color: var(--c-danger-fg);
+      border: 1px dashed color-mix(in srgb, var(--c-danger-fg) 35%, transparent);
+      font-size: 0.82rem;
+    }
+
+    .approved-notice {
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+      color: color-mix(in srgb, #059669 85%, var(--c-text));
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    /* ── Reserva links injected by JS ────────────────────────────────────── */
+    .reserva-link {
+      color: var(--c-primary);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .reserva-link:hover {
+      text-decoration: underline;
+    }
+
+    /* ── Empty state ─────────────────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--c-text-muted);
+      font-size: 0.9rem;
+    }
+
+    .empty svg {
+      margin: 0 auto 1rem;
+      display: block;
+      opacity: 0.35;
+    }
+
+    /* ── Pagination ──────────────────────────────────────────────────────── */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .page-btn {
+      padding: 0.5rem 0.875rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--c-text-muted);
+      border: 1px solid var(--c-border);
+      background: var(--c-surface);
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      transition: all 0.15s;
+    }
+
+    .page-btn:hover {
+      background: var(--c-surface-2);
+      border-color: var(--c-primary);
+      color: var(--c-primary);
+    }
+
+    .page-btn.active {
+      background: var(--c-primary);
+      color: #fff;
+      border-color: var(--c-primary);
+    }
+
+    .page-ellipsis {
+      padding: 0.5rem;
+      color: var(--c-text-muted);
+    }
+
+    @media (max-width: 640px) {
+      .topbar-inner {
+        padding: 0 1rem;
+      }
+
+      .content {
+        padding: 1.25rem 1rem 2.5rem;
+      }
+
+      .aviso-card {
+        padding: 0.875rem 1rem;
+      }
+
+      .aviso-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      .rejection-form {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ url_for('portal.dashboard') }}" class="btn-back">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+          <path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+        Início
+      </a>
+      <span class="topbar-title">Central de Avisos</span>
+      {% include '_avisos_bell.html' %}
+    </div>
+  </header>
+
+  <!-- ── Main content ────────────────────────────────────────────────────── -->
+  <main class="content">
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}" role="alert">{{ message | e }}</div>
+    {% endfor %}
+    {% endwith %}
+
+    <!-- ── Header & Tabs ─────────────────────────────────────────────────── -->
+    <div class="section-header">
+      <h1 class="section-title">Notificações e Ajustes</h1>
+
+      <div class="tab-nav">
+        <a href="{{ url_for('avisos.index', tab='notificacoes') }}"
+           class="tab-link {{ 'tab-link-active' if tab == 'notificacoes' else 'tab-link-inactive' }}">
+          Avisos Gerais
+          {% if avisos_nao_lidos > 0 %}
+          <span class="tab-badge-red">{{ avisos_nao_lidos }}</span>
+          {% endif %}
+        </a>
+
+        {% if tem_permissao_aprovar %}
+        <a href="{{ url_for('avisos.index', tab='aprovacoes') }}"
+           class="tab-link {{ 'tab-link-active' if tab == 'aprovacoes' else 'tab-link-inactive' }}">
+          Aprovar Ajustes
+          {% if ajustes_pendentes_count > 0 %}
+          <span class="tab-badge-amber">{{ ajustes_pendentes_count }}</span>
+          {% endif %}
+        </a>
+        {% endif %}
+
+        <a href="{{ url_for('avisos.index', tab='minhas') }}"
+           class="tab-link {{ 'tab-link-active' if tab == 'minhas' else 'tab-link-inactive' }}">
+          Minhas Solicitações
+        </a>
+      </div>
+    </div>
+
+    <!-- ── TAB: NOTIFICAÇÕES ──────────────────────────────────────────────── -->
+    {% if tab == 'notificacoes' %}
+    <div class="action-bar">
+      <span class="count-label">
+        {% if avisos.total == 1 %}
+        1 notificação
+        {% else %}
+        {{ avisos.total }} notificações
+        {% endif %}
+      </span>
+      {% if avisos_nao_lidos > 0 %}
+      <form method="POST" action="{{ url_for('avisos.marcar_todos') }}">
+        <button type="submit" class="btn-mark-all">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+          Marcar todos como lido
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if avisos.items %}
+    <div class="aviso-list" role="list">
+      {% for aviso in avisos.items %}
+      <article class="aviso-card tipo-{{ aviso.tipo.value }}{% if not aviso.is_lido %} unread{% endif %}"
+        role="listitem">
+        <div class="aviso-header">
+          <div class="aviso-titulo">
+            {% if not aviso.is_lido %}
+            <span class="dot-unread" aria-hidden="true"></span>
+            {% endif %}
+            {{ aviso.titulo | e }}
+          </div>
+          <span class="aviso-badge badge-{{ aviso.tipo.value }}">{{ aviso.tipo.value }}</span>
+        </div>
+
+        {% if aviso.mensagem %}
+        <p class="aviso-mensagem">{{ aviso.mensagem | e }}</p>
+        {% endif %}
+
+        <div class="aviso-footer">
+          <time class="aviso-ts" datetime="{{ aviso.criado_em.isoformat() }}">
+            {{ aviso.criado_em.strftime('%d/%m/%Y às %H:%M') }}
+          </time>
+          <div class="aviso-actions">
+            {% if not aviso.is_lido %}
+            <form method="POST" action="{{ url_for('avisos.marcar_lido', aviso_id=aviso.id) }}">
+              <button type="submit" class="btn-action btn-lido">Marcar como Lido</button>
+            </form>
+            {% endif %}
+            <form method="POST" action="{{ url_for('avisos.deletar', aviso_id=aviso.id) }}"
+              onsubmit="return confirm('Excluir este aviso?');">
+              <button type="submit" class="btn-action btn-delete">Excluir</button>
+            </form>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+
+    <!-- Paginação de avisos -->
+    {% if avisos.pages > 1 %}
+    <div class="pagination">
+      {% if avisos.has_prev %}
+      <a href="{{ url_for('avisos.index', page=avisos.prev_num, tab='notificacoes') }}" class="page-btn">Anterior</a>
+      {% endif %}
+
+      {% for p in avisos.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+      {% if p %}
+      <a href="{{ url_for('avisos.index', page=p, tab='notificacoes') }}"
+        class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
+      {% else %}
+      <span class="page-ellipsis">&hellip;</span>
+      {% endif %}
+      {% endfor %}
+
+      {% if avisos.has_next %}
+      <a href="{{ url_for('avisos.index', page=avisos.next_num, tab='notificacoes') }}" class="page-btn">Próxima</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+      Sua caixa de notificações está vazia.
+    </div>
+    {% endif %}
+
+
+    <!-- ── TAB: APROVAÇÕES DE AJUSTES ──────────────────────────────────────── -->
+    {% elif tab == 'aprovacoes' and tem_permissao_aprovar %}
+    {% if ajustes_pendentes or pdv_turnos_pendentes %}
+    <div class="aviso-list">
+      {% if pdv_turnos_pendentes %}
+      {% for turno in pdv_turnos_pendentes %}
+      <article class="aviso-card tipo-SISTEMA">
+        <div class="aviso-header">
+          <div class="aviso-titulo">
+            <span class="dot-amber" aria-hidden="true"></span>
+            Quebra de Caixa PDV — Turno #{{ turno.id }}
+          </div>
+          <span class="aviso-badge badge-PENDENTE">PENDENTE</span>
+        </div>
+
+        <div class="ajuste-info">
+          <p><strong>Venue:</strong> {{ turno.source_name or '—' }}</p>
+          <p><strong>Operador:</strong> {{ turno.operador_nome or ('#' ~ turno.operador_id) }}</p>
+          <p><strong>Gaveta:</strong>
+            esperado R$ {{ '%.2f'|format(turno.closing_expected_amount or 0) }} ·
+            contado R$ {{ '%.2f'|format(turno.closing_counted_amount or 0) }} ·
+            diferença R$ {{ '%+.2f'|format(turno.diff_cash or 0) }}
+          </p>
+          <p><strong>PIX troco:</strong>
+            esperado R$ {{ '%.2f'|format(turno.closing_expected_pix or 0) }} ·
+            contado R$ {{ '%.2f'|format(turno.closing_counted_pix or 0) }} ·
+            diferença R$ {{ '%+.2f'|format(turno.diff_pix or 0) }}
+          </p>
+          <p><strong>Motivo:</strong> {{ turno.discrepancy_reason }}</p>
+          <p style="margin-top:0.25rem;"><span class="badge-sub">Fechamento aguardando aprovação</span></p>
+        </div>
+
+        <div class="aviso-footer ajuste-footer-border">
+          {% set opened_at = turno.opened_at or '' %}
+          <span class="aviso-ts">
+            Aberto em {{ opened_at[8:10] ~ '/' ~ opened_at[5:7] ~ '/' ~ opened_at[0:4] ~ ' às ' ~ opened_at[11:16] if opened_at|length >= 16 else '—' }}
+          </span>
+          {% if tem_permissao_pdv %}
+          <form method="POST" action="{{ url_for('avisos.aprovar_pdv_turno', shift_id=turno.id) }}"
+            onsubmit="return confirm('Deseja aprovar esta quebra de caixa PDV?');">
+            <button type="submit" class="btn-action btn-approve">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Aprovar Fechamento
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
+      {% endif %}
+
+      {% if ajustes_pendentes %}
+      {% for ajuste in ajustes_pendentes %}
+      <article class="aviso-card tipo-AJUSTE">
+        <div class="aviso-header">
+          <div class="aviso-titulo">
+            <span class="dot-amber" aria-hidden="true"></span>
+            Solicitação de Ajuste — {{ ajuste.funcionario.nome }}
+          </div>
+          <span class="aviso-badge badge-PENDENTE">PENDENTE</span>
+        </div>
+
+        <div class="ajuste-info">
+          <p><strong>Data:</strong> {{ ajuste.data_solicitada.strftime('%d/%m/%Y') }}</p>
+          <p><strong>Horário Solicitado:</strong> {{ ajuste.horario_solicitado.strftime('%H:%M') }}</p>
+          <p><strong>Tipo:</strong> {% if ajuste.tipo_ponto == 'clock_in' %}Entrada{% else %}Saída{% endif %}</p>
+          <p><strong>Motivo:</strong> {{ ajuste.motivo }}</p>
+          {% if ajuste.time_entry_id %}
+          <p style="margin-top:0.25rem;"><span class="badge-sub">Substituição de batida existente</span></p>
+          {% else %}
+          <p style="margin-top:0.25rem;"><span class="badge-new">Nova batida</span></p>
+          {% endif %}
+        </div>
+
+        <div class="aviso-footer ajuste-footer-border">
+          <div style="flex: 1; min-width: 200px;">
+            <form method="POST" action="{{ url_for('avisos.rejeitar_ajuste', ajuste_id=ajuste.id) }}"
+              class="rejection-form">
+              <input type="text" name="motivo_rejeicao" placeholder="Motivo da rejeição (obrigatório)" required
+                class="rejection-input">
+              <button type="submit" class="btn-action btn-reject">Rejeitar</button>
+            </form>
+          </div>
+          <form method="POST" action="{{ url_for('avisos.aprovar_ajuste', ajuste_id=ajuste.id) }}"
+            onsubmit="return confirm('Deseja aprovar este ajuste e atualizar a folha de ponto?');">
+            <button type="submit" class="btn-action btn-approve">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+              Aprovar
+            </button>
+          </form>
+        </div>
+      </article>
+      {% endfor %}
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="empty">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Tudo certo! Nenhuma solicitação pendente para aprovação.
+    </div>
+    {% endif %}
+
+
+    <!-- ── TAB: MINHAS SOLICITAÇÕES ──────────────────────────────────────── -->
+    {% elif tab == 'minhas' %}
+    {% if minhas_solicitacoes %}
+    <div class="aviso-list">
+      {% for ajuste in minhas_solicitacoes %}
+      {% if ajuste.status == 'APPROVED' %}
+        {% set card_class = 'status-approved' %}
+        {% set border_color = '#059669' %}
+        {% set badge_class = 'badge-status-approved' %}
+        {% set badge_label = 'APROVADO' %}
+      {% elif ajuste.status == 'REJECTED' %}
+        {% set card_class = 'status-rejected' %}
+        {% set border_color = '#dc2626' %}
+        {% set badge_class = 'badge-status-rejected' %}
+        {% set badge_label = 'REJEITADO' %}
+      {% else %}
+        {% set card_class = 'status-pending' %}
+        {% set border_color = '#d97706' %}
+        {% set badge_class = 'badge-status-pending' %}
+        {% set badge_label = 'PENDENTE' %}
+      {% endif %}
+
+      <article class="aviso-card" style="border-left-color: {{ border_color }};">
+        <div class="aviso-header">
+          <div class="aviso-titulo">
+            Ajuste para {{ ajuste.data_solicitada.strftime('%d/%m/%Y') }} às {{
+            ajuste.horario_solicitado.strftime('%H:%M') }}
+          </div>
+          <span class="aviso-badge {{ badge_class }}">{{ badge_label }}</span>
+        </div>
+
+        <div class="ajuste-info">
+          <p><strong>Tipo:</strong> {% if ajuste.tipo_ponto == 'clock_in' %}Entrada{% else %}Saída{% endif %}</p>
+          <p><strong>Seu Motivo:</strong> {{ ajuste.motivo }}</p>
+
+          {% if ajuste.status == 'REJECTED' and ajuste.motivo_rejeicao %}
+          <div class="rejection-box">
+            <strong>Motivo da Rejeição:</strong> {{ ajuste.motivo_rejeicao }}
+          </div>
+          {% endif %}
+
+          {% if ajuste.status == 'APPROVED' %}
+          <p class="approved-notice">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Batida oficial inserida com sucesso.
+          </p>
+          {% endif %}
+        </div>
+
+        <div class="aviso-footer">
+          <time class="aviso-ts" datetime="{{ ajuste.criado_em.isoformat() }}">
+            Solicitado em {{ ajuste.criado_em.strftime('%d/%m/%Y às %H:%M') }}
+          </time>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Você não enviou nenhuma solicitação de ajuste de ponto.
+    </div>
+    {% endif %}
+    {% endif %}
+
+  </main>
+
+  <!-- AJAX: marcar como lido sem recarregar a página -->
+  <script>
+    document.querySelectorAll("form[action*='/marcar-lido']").forEach(function (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        fetch(form.action, {
+          method: "POST",
+          headers: { "Accept": "application/json" },
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok) {
+              var card = form.closest(".aviso-card");
+              if (card) {
+                card.classList.remove("unread");
+                var dot = card.querySelector(".dot-unread");
+                if (dot) dot.remove();
+              }
+              form.remove();
+              var badge = document.querySelector("[role='status']");
+              if (badge) {
+                var count = parseInt(badge.textContent.trim(), 10);
+                if (!isNaN(count) && count > 1) {
+                  badge.textContent = count - 1;
+                } else {
+                  badge.closest("span") && badge.closest("span").remove();
+                }
+              }
+            }
+          })
+          .catch(function () { form.submit(); });
+      });
+    });
+  </script>
+
+  <script>
+  // Linkifica #NNNN → link para a reserva em títulos e mensagens de avisos
+  (function () {
+    var BASE = '{{ url_for("reservas.detalhe", reserva_id=0) }}'.replace('/0', '/');
+    var re = /#(\d+)/g;
+    document.querySelectorAll('.aviso-titulo, .aviso-mensagem').forEach(function (el) {
+      if (!re.test(el.textContent)) return;
+      re.lastIndex = 0;
+      el.innerHTML = el.innerHTML.replace(/#(\d+)/g, function (_, id) {
+        return '<a href="' + BASE + id + '" target="_blank" class="reserva-link">#' + id + '</a>';
+      });
+    });
+  })();
+  </script>
+
+</body>
+
+</html>

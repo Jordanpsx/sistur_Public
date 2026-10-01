@@ -1,0 +1,422 @@
+{% extends "reservas/reservas_base.html" %}
+{#
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Reservas — Controle de Itens
+#}
+
+{% block html_title %}Controle de Itens{% endblock %}
+{% block page_title %}<svg class="r-icon r-icon-resource" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Controle de Itens{% endblock %}
+{% block page_subtitle %}
+  <p class="text-xs text-content-muted leading-tight mt-0.5 hidden sm:block">
+    Itens solicitados nas reservas do período com controle de entrega
+  </p>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# ── Filtros ─────────────────────────────────────────────────────────────── #}
+<div class="bg-surface border border-line rounded-xl p-4 mb-5">
+  <form method="GET" action="{{ url_for('reservas.controle_itens') }}" id="filter-form">
+    <input type="hidden" name="view" value="{{ view_mode }}" id="hidden-view" />
+
+    {# Busca livre #}
+    <div class="mb-3">
+      <label for="q" class="r-label">Buscar reserva</label>
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted pointer-events-none"
+             fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="q" name="q"
+               value="{{ q }}"
+               placeholder="Nome, CPF, telefone ou #ID da reserva…"
+               class="r-input pl-9 {% if q %}pr-9{% endif %}" />
+        {% if q %}
+        <a href="{{ url_for('reservas.controle_itens', start_date=start_date.isoformat(), end_date=end_date.isoformat(), view=view_mode) }}"
+           class="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-muted
+                  transition-colors" title="Limpar busca">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Período #}
+    <div class="flex flex-wrap gap-3 items-end">
+      <div class="flex flex-col gap-1 flex-1 min-w-[140px]">
+        <label for="start_date" class="r-label">Data inicial</label>
+        <input type="date" id="start_date" name="start_date"
+               value="{{ start_date.isoformat() }}" class="r-input" />
+      </div>
+      <div class="flex flex-col gap-1 flex-1 min-w-[140px]">
+        <label for="end_date" class="r-label">Data final</label>
+        <input type="date" id="end_date" name="end_date"
+               value="{{ end_date.isoformat() }}" class="r-input" />
+      </div>
+      <button type="submit"
+              class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700
+                     text-white font-bold text-sm rounded-lg px-5 py-2.5 min-h-[44px]
+                     transition-colors shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+        </svg>
+        Consultar
+      </button>
+    </div>
+  </form>
+
+  {# Banner de busca ativa #}
+  {% if q %}
+  <div class="mt-3 flex items-center gap-2 px-3 py-2 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-lg text-sm">
+    <svg class="w-4 h-4 text-teal-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+    </svg>
+    <span class="text-teal-700 dark:text-teal-300">Buscando por <strong>{{ q }}</strong></span>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Abas de visualização ────────────────────────────────────────────────── #}
+<div class="flex gap-1 mb-5 bg-surface-2 p-1 rounded-xl">
+  <a href="{{ url_for('reservas.controle_itens', start_date=start_date.isoformat(), end_date=end_date.isoformat(), view='por_dia', q=q) }}"
+     class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold
+            transition-colors {{ 'bg-surface text-content shadow-sm' if view_mode == 'por_dia' else 'text-content-muted hover:text-content' }}">
+    <svg class="r-icon r-icon-resource w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
+    </svg>
+    Por Item
+  </a>
+  <a href="{{ url_for('reservas.controle_itens', start_date=start_date.isoformat(), end_date=end_date.isoformat(), view='por_reserva', q=q) }}"
+     class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold
+            transition-colors {{ 'bg-surface text-content shadow-sm' if view_mode == 'por_reserva' else 'text-content-muted hover:text-content' }}">
+    <svg class="r-icon r-icon-info w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+    </svg>
+    Por Reserva
+  </a>
+</div>
+
+{# ════════════════════════════════════════════════════════════════════════════
+   VISÃO POR ITEM (agregado)
+   ════════════════════════════════════════════════════════════════════════════ #}
+{% if view_mode == 'por_dia' %}
+
+  {% if not itens_agregados %}
+  <div class="bg-surface border border-line rounded-xl flex flex-col items-center
+              justify-center py-14 text-center">
+    <svg class="w-12 h-12 text-line mb-3" fill="none" stroke="currentColor" stroke-width="1.5"
+         viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
+    </svg>
+    <p class="text-content-muted font-medium text-sm">Nenhum item encontrado para o período.</p>
+    <p class="text-xs text-content-muted mt-1">Reservas canceladas e arquivadas são excluídas.</p>
+  </div>
+
+  {% else %}
+
+  {# Legenda #}
+  <div class="flex items-center gap-4 mb-3 px-1 flex-wrap">
+    <div class="flex items-center gap-1.5">
+      <span class="w-3 h-3 rounded-full bg-emerald-400 shrink-0"></span>
+      <span class="text-xs text-content-muted">Entregue</span>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <span class="w-3 h-3 rounded-full bg-amber-400 shrink-0"></span>
+      <span class="text-xs text-content-muted">Pendente</span>
+    </div>
+  </div>
+
+  <div class="bg-surface border border-line rounded-xl overflow-hidden" id="itens-table">
+    {% for it in itens_agregados %}
+    {% set pct = ((it.total_entregue / it.total_qty) * 100) | int if it.total_qty > 0 else 0 %}
+    <div class="item-row cursor-pointer select-none
+                {{ 'border-t border-line' if not loop.first else '' }}"
+         data-item-id="{{ it.item_id }}"
+         onclick="toggleDrilldown(this)">
+
+      <div class="flex items-center gap-4 px-4 py-3.5">
+        {# Emoji #}
+        <span class="text-2xl leading-none w-9 text-center shrink-0">
+          {{ it.emoji_label or '▫️' }}
+        </span>
+
+        {# Nome + barra de progresso #}
+        <div class="flex-1 min-w-0">
+          <span class="text-sm font-semibold text-content">{{ it.item_name }}</span>
+          {% if it.total_entregue > 0 or it.total_pendente > 0 %}
+          <div class="flex items-center gap-2 mt-1.5">
+            <div class="flex-1 bg-surface-2 rounded-full h-1.5 overflow-hidden">
+              <div class="h-1.5 rounded-full transition-all duration-500
+                          {{ 'bg-emerald-400' if pct == 100 else 'bg-emerald-400' }}"
+                   style="width: {{ pct }}%;"></div>
+            </div>
+            <span class="text-[10px] font-semibold text-content-muted tabular-nums shrink-0">
+              {{ it.total_entregue }}/{{ it.total_qty }}
+            </span>
+          </div>
+          {% endif %}
+        </div>
+
+        {# Contadores #}
+        <div class="flex items-center gap-2 shrink-0">
+          {% if it.total_entregue > 0 %}
+          <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300
+                       bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 rounded-lg px-2 py-1">
+            <svg class="r-icon r-icon-success" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> {{ it.total_entregue }}
+          </span>
+          {% endif %}
+          {% if it.total_pendente > 0 %}
+          <span class="inline-flex items-center text-[11px] font-bold text-amber-700 dark:text-amber-300
+                       bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2 py-1">
+            <svg class="r-icon r-icon-warning" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg> {{ it.total_pendente }}
+          </span>
+          {% endif %}
+        </div>
+
+        {# Seta drill-down #}
+        <svg class="chevron w-4 h-4 text-content-muted shrink-0 transition-transform duration-200"
+             viewBox="0 0 24 24" fill="none">
+          <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      {# Drill-down (carregado por AJAX) #}
+      <div class="detail-row hidden border-t border-line bg-surface-2"
+           id="detail-{{ it.item_id }}">
+        <div class="p-4" id="detail-inner-{{ it.item_id }}">
+          <p class="text-sm text-content-muted">Carregando reservas…</p>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+   VISÃO POR RESERVA
+   ════════════════════════════════════════════════════════════════════════════ #}
+{% elif view_mode == 'por_reserva' %}
+
+  {% if not reservas_com_itens %}
+  <div class="bg-surface border border-line rounded-xl flex flex-col items-center
+              justify-center py-14 text-center">
+    <svg class="w-12 h-12 text-line mb-3" fill="none" stroke="currentColor" stroke-width="1.5"
+         viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+    </svg>
+    <p class="text-content-muted font-medium text-sm">Nenhuma reserva com itens no período.</p>
+  </div>
+
+  {% else %}
+  <div class="space-y-3">
+    {% for r in reservas_com_itens %}
+    {% set sv = r.status.value %}
+    {% set scfg = status_config_map.get(sv) %}
+    {% set cor = scfg.color_hex if scfg else '#94a3b8' %}
+    {% set ns_links = namespace(ativos=[], entregues=0, total=0) %}
+    {% for lk in r.items %}
+      {% if not lk.deleted_at %}
+        {% set ns_links.total = ns_links.total + 1 %}
+        {% if lk.entregue_em %}{% set ns_links.entregues = ns_links.entregues + 1 %}{% endif %}
+        {% set ns_links.ativos = ns_links.ativos + [lk] %}
+      {% endif %}
+    {% endfor %}
+    {% set pct = ((ns_links.entregues / ns_links.total) * 100) | int if ns_links.total > 0 else 0 %}
+
+    <div class="bg-surface border rounded-xl overflow-hidden"
+         style="border-color: {{ cor }}44;"
+         data-reserva="{{ r.id }}">
+
+      {# Header #}
+      <div class="flex items-center gap-3 px-4 py-3"
+           style="background-color: {{ cor }}0d;">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-bold text-content text-sm">{{ r.customer_name }}</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                  style="background-color: {{ cor }}22; color: {{ cor }};">
+              {{ scfg.label if scfg else sv }}
+            </span>
+          </div>
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-xs text-content-muted">
+              {{ r.check_in_date.strftime('%d/%m/%Y') if r.check_in_date else '—' }}
+            </span>
+            <div class="flex-1 bg-surface-2 rounded-full h-1.5">
+              <div class="h-1.5 rounded-full transition-all duration-500
+                          {{ 'bg-emerald-500' if pct == 100 else 'bg-amber-400' }}"
+                   style="width: {{ pct }}%;"
+                   id="rprog-{{ r.id }}"></div>
+            </div>
+            <span class="text-[10px] font-bold text-content-muted tabular-nums shrink-0"
+                  id="rprog-lbl-{{ r.id }}">
+              {{ ns_links.entregues }}/{{ ns_links.total }}
+            </span>
+          </div>
+        </div>
+        <a href="{{ url_for('reservas.detalhe', reserva_id=r.id) }}"
+           class="text-xs font-semibold text-teal-600 dark:text-teal-300 hover:underline shrink-0">#{{ r.id }}</a>
+      </div>
+
+      {# Itens #}
+      {% for lk in ns_links.ativos %}
+      {% if lk.item %}
+      <div class="flex items-center gap-3 px-4 py-3 border-t border-line
+                  {{ 'bg-emerald-50 dark:bg-emerald-900/30/30' if lk.entregue_em else '' }}"
+           id="ci-link-row-{{ lk.id }}">
+        <span class="text-xl w-7 text-center shrink-0">{{ lk.item.emoji_label or '▫️' }}</span>
+        <span class="flex-1 text-sm font-medium text-content
+                     {{ 'line-through opacity-50' if lk.entregue_em else '' }}">
+          {{ lk.item.name }}
+        </span>
+        <span class="text-sm font-bold text-content-muted tabular-nums shrink-0">×{{ lk.quantity }}</span>
+        {% if lk.entregue_em and lk.entregue_por %}
+        <span class="text-[10px] text-content-muted shrink-0 hidden sm:block">
+          {{ lk.entregue_por.nome | truncate(12, true, '…') }}
+        </span>
+        {% endif %}
+        <button type="button"
+                onclick="toggleEntregaCI({{ lk.id }}, this)"
+                class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs
+                       font-bold border transition-colors min-h-[36px]
+                       {{ 'bg-emerald-100 text-emerald-700 dark:text-emerald-300 border-emerald-300 hover:bg-surface-2 hover:text-content-muted hover:border-line' if lk.entregue_em
+                          else 'bg-surface text-content-muted border-line hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-700 dark:hover:text-emerald-300 hover:border-emerald-300' }}"
+                data-entregue="{{ 'true' if lk.entregue_em else 'false' }}">
+          {{ '<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Entregue' if lk.entregue_em else 'Entregar' }}
+        </button>
+      </div>
+      {% endif %}
+      {% endfor %}
+
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+{% endif %}
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+  const START = "{{ start_date.isoformat() }}";
+  const END   = "{{ end_date.isoformat() }}";
+
+  // ── Drill-down (visão por item) ──────────────────────────────────────────
+  const _loaded = {};
+  const _open   = {};
+
+  function toggleDrilldown(row) {
+    const itemId    = row.dataset.itemId;
+    if (!itemId) return;
+    const detailEl  = document.getElementById('detail-' + itemId);
+    const isOpen    = _open[itemId];
+
+    document.querySelectorAll('.item-row.row-open').forEach(function (r) {
+      const oid = r.dataset.itemId;
+      if (oid !== itemId) {
+        r.classList.remove('row-open');
+        r.querySelector('.chevron').style.transform = '';
+        document.getElementById('detail-' + oid).classList.add('hidden');
+        _open[oid] = false;
+      }
+    });
+
+    if (isOpen) {
+      row.classList.remove('row-open');
+      row.querySelector('.chevron').style.transform = '';
+      detailEl.classList.add('hidden');
+      _open[itemId] = false;
+      return;
+    }
+
+    row.classList.add('row-open');
+    row.querySelector('.chevron').style.transform = 'rotate(90deg)';
+    detailEl.classList.remove('hidden');
+    _open[itemId] = true;
+
+    if (_loaded[itemId]) return;
+
+    const url = '/reservas/controle-itens/' + itemId + '/reservas-detalhe?start_date=' + START + '&end_date=' + END;
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _loaded[itemId] = true;
+        renderDrilldown(itemId, data);
+      })
+      .catch(function () {
+        document.getElementById('detail-inner-' + itemId).innerHTML =
+          '<p class="text-sm text-red-500">Erro ao carregar. Tente novamente.</p>';
+      });
+  }
+
+  const STATUS_LABELS = { PENDING:'Pendente', PARTIALLY_PAID:'Parc. Pago', PAID:'Pago', COMPLETED:'Concluída' };
+  const STATUS_CLS    = { PENDING:'bg-amber-100 text-amber-700 dark:text-amber-300', PARTIALLY_PAID:'bg-blue-100 text-blue-700 dark:text-blue-300',
+                           PAID:'bg-green-100 text-green-700 dark:text-green-300', COMPLETED:'bg-teal-100 dark:bg-teal-800/40 text-teal-700 dark:text-teal-300' };
+
+  function renderDrilldown(itemId, data) {
+    const container = document.getElementById('detail-inner-' + itemId);
+    const list = data.reservations || [];
+    if (!list.length) {
+      container.innerHTML = '<p class="text-sm text-content-muted">Nenhuma reserva encontrada.</p>';
+      return;
+    }
+    const rows = list.map(function (r) {
+      const label = STATUS_LABELS[r.status] || r.status;
+      const cls   = STATUS_CLS[r.status] || 'bg-surface-2 text-content-muted';
+      const entBadge = r.entregue_em
+        ? '<span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 rounded px-1.5 py-0.5 ml-1"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>'
+        : '<span class="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5 ml-1"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg></span>';
+      return '<tr class="border-t border-line hover:bg-surface">'
+        + '<td class="py-2 px-3"><a href="' + escHtml(r.detail_url) + '" target="_blank" class="text-teal-600 dark:text-teal-300 hover:underline font-semibold">#' + r.reserva_id + '</a></td>'
+        + '<td class="py-2 px-3 text-sm text-content">' + escHtml(r.customer_name) + '</td>'
+        + '<td class="py-2 px-3 text-sm text-content-muted">' + (r.check_in_date || '—') + '</td>'
+        + '<td class="py-2 px-3"><span class="inline-block px-2 py-0.5 rounded text-xs font-bold uppercase ' + cls + '">' + label + '</span></td>'
+        + '<td class="py-2 px-3 text-right font-mono font-bold text-teal-600 dark:text-teal-300">' + r.quantity + entBadge + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = '<div class="overflow-x-auto rounded-lg border border-line">'
+      + '<table class="w-full text-sm border-collapse">'
+      + '<thead><tr class="bg-surface-2">'
+      + '<th class="py-2 px-3 text-left text-xs font-bold text-content-muted uppercase">Reserva</th>'
+      + '<th class="py-2 px-3 text-left text-xs font-bold text-content-muted uppercase">Cliente</th>'
+      + '<th class="py-2 px-3 text-left text-xs font-bold text-content-muted uppercase">Check-in</th>'
+      + '<th class="py-2 px-3 text-left text-xs font-bold text-content-muted uppercase">Status</th>'
+      + '<th class="py-2 px-3 text-right text-xs font-bold text-content-muted uppercase">Qtd</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
+
+  // ── Toggle entrega (visão por reserva) ──────────────────────────────────
+  window.toggleEntregaCI = function (linkId, btn) {
+    btn.disabled = true;
+    btn.textContent = '…';
+    fetch('/reservas/controle-itens/link/' + linkId + '/entregar', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { btn.disabled = false; btn.textContent = 'Erro'; return; }
+        window.location.reload();
+      })
+      .catch(function () { btn.disabled = false; btn.textContent = 'Erro'; });
+  };
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Mantém a aba ativa ao submeter o formulário de filtro
+  document.getElementById('hidden-view').value = new URLSearchParams(window.location.search).get('view') || 'por_dia';
+</script>
+{% endblock %}

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}Timeline de Equipes{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6">
+
+  <style>
+    .tl-nav-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 44px; min-height: 44px; border-radius: var(--radius-sm);
+      border: 1px solid var(--c-border); background: var(--c-surface);
+      color: var(--c-text); font-weight: 700; text-decoration: none;
+    }
+    .tl-nav-btn:hover { background: var(--c-surface-2); }
+    .tl-visao {
+      display: inline-flex; align-items: center; padding: .55rem 1rem;
+      min-height: 44px; border-radius: var(--radius-md); font-size: .8rem;
+      font-weight: 600; color: var(--slate-500); text-decoration: none; white-space: nowrap;
+    }
+    .tl-visao--ativa { background: var(--c-surface); color: var(--indigo-700); box-shadow: var(--shadow-sm); }
+    .tl-grid { border-collapse: separate; border-spacing: 0; width: 100%; }
+    .tl-grid th, .tl-grid td { border-bottom: 1px solid var(--c-border); padding: 0; }
+    .tl-grid th {
+      font-size: .68rem; font-weight: 600; color: var(--c-text-muted);
+      text-align: center; padding: .4rem .15rem; min-width: 30px;
+    }
+    .tl-grid th.tl-hoje { color: var(--c-primary); }
+    .tl-equipe-cell {
+      position: sticky; left: 0; background: var(--c-surface); z-index: 1;
+      padding: .5rem .6rem !important; min-width: 130px; max-width: 180px;
+    }
+    .tl-seg { display: block; height: 26px; margin: 6px 1px; border-radius: 6px; border: 1px solid; }
+    .tl-seg--inicio { border-top-left-radius: 999px; border-bottom-left-radius: 999px; }
+    .tl-seg--fim { border-top-right-radius: 999px; border-bottom-right-radius: 999px; }
+    .tl-col-hoje { box-shadow: inset 2px 0 0 var(--c-primary); }
+  </style>
+
+  <!-- Cabeçalho -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+    <div>
+      <a href="{{ url_for('organizacao.listar_equipes') }}" class="text-sm text-content-muted hover:text-primary">&larr; Equipes</a>
+      <h1 class="text-xl font-bold text-content mt-1">Timeline de Equipes</h1>
+    </div>
+    {% if has_permission(session.get('funcionario_id'), 'equipes', 'edit') %}
+    <button type="button" onclick="document.getElementById('form-agendar').toggleAttribute('hidden')"
+            class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white"
+            style="background:var(--primary);min-height:44px">
+      + Agendar Equipe
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Form de agendamento (colapsado) -->
+  {% if has_permission(session.get('funcionario_id'), 'equipes', 'edit') %}
+  <div id="form-agendar" hidden class="mb-5 bg-surface p-5 rounded-2xl border border-line shadow-sm">
+    <form method="post" action="{{ url_for('organizacao.agendar_equipe') }}"
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-content-muted mb-1">Equipe</label>
+        <select name="equipe_id" required
+                class="w-full px-3 py-2.5 rounded-xl border border-line bg-surface text-sm text-content">
+          {% for eq in equipes_ativas %}
+          <option value="{{ eq.id }}">{{ eq.nome }}{% if eq.area %} ({{ eq.area.name }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-content-muted mb-1">Início</label>
+        <input type="date" name="data_inicio" required value="{{ inicio.isoformat() }}"
+               class="w-full px-3 py-2.5 rounded-xl border border-line bg-surface text-sm text-content" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-content-muted mb-1">Fim</label>
+        <input type="date" name="data_fim" required value="{{ fim.isoformat() }}"
+               class="w-full px-3 py-2.5 rounded-xl border border-line bg-surface text-sm text-content" />
+      </div>
+      <div class="flex items-end">
+        <button type="submit" class="ds-btn ds-btn-primary w-full">Agendar</button>
+      </div>
+      <div class="sm:col-span-2 lg:col-span-4">
+        <input type="text" name="observacao" placeholder="Observação (opcional)"
+               class="w-full px-3 py-2.5 rounded-xl border border-line bg-surface text-sm text-content" />
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- Navegação: visão + período -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+    <nav style="display:flex;gap:.25rem;background:var(--slate-100);border-radius:var(--radius-lg);padding:.3rem;width:fit-content;">
+      {% for v, rotulo in [('dia','Dia'), ('semana','Semana'), ('mes','Mês')] %}
+      <a href="{{ url_for('organizacao.timeline_equipes', visao=v, data=ancora.isoformat()) }}"
+         class="tl-visao {{ 'tl-visao--ativa' if visao == v else '' }}">{{ rotulo }}</a>
+      {% endfor %}
+    </nav>
+    <div class="flex items-center gap-2">
+      <a class="tl-nav-btn" title="Anterior"
+         href="{{ url_for('organizacao.timeline_equipes', visao=visao, data=ancora_ant.isoformat()) }}">‹</a>
+      <span class="text-sm font-semibold text-content px-1">
+        {% if visao == 'dia' %}{{ dow_pt[inicio.weekday()] }} {{ inicio.strftime('%d/%m/%Y') }}
+        {% elif visao == 'semana' %}{{ inicio.strftime('%d/%m') }} – {{ fim.strftime('%d/%m/%Y') }}
+        {% else %}{{ '%02d/%d' | format(inicio.month, inicio.year) }}{% endif %}
+      </span>
+      <a class="tl-nav-btn" title="Próximo"
+         href="{{ url_for('organizacao.timeline_equipes', visao=visao, data=ancora_prx.isoformat()) }}">›</a>
+      <a href="{{ url_for('organizacao.timeline_equipes', visao=visao) }}"
+         class="text-xs font-medium ml-1" style="color:var(--primary)">Hoje</a>
+    </div>
+  </div>
+
+  <!-- Flash -->
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+    {% if cat == 'sucesso' %}bg-green-50 dark:bg-green-900/30 text-green-800 border border-green-200
+    {% elif cat == 'erro' %}bg-red-50 dark:bg-red-900/30 text-red-800 border border-red-200 dark:border-red-800
+    {% else %}bg-blue-50 dark:bg-blue-900/30 text-blue-800 border border-blue-200{% endif %}">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
+
+  {% if agendamentos %}
+
+  {% if visao == 'dia' %}
+  <!-- Visão DIA: cards das equipes ativas na data -->
+  <div class="space-y-3">
+    {% for ag in agendamentos %}
+    <a href="{{ url_for('organizacao.timeline_equipes', visao='dia', data=ancora.isoformat(), detalhe=ag.id) }}"
+       class="block bg-surface rounded-xl border border-line p-4 hover:bg-surface-2" style="text-decoration:none;">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-semibold text-content">{{ ag.equipe.nome }}</p>
+          <p class="text-xs text-content-muted mt-0.5">
+            {% if ag.equipe.area %}
+            <span class="area-chip area-c{{ ag.equipe.area.cor_indice }}">{{ ag.equipe.area.name }}</span> ·
+            {% endif %}
+            {{ ag.data_inicio.strftime('%d/%m') }} – {{ ag.data_fim.strftime('%d/%m') }}
+            {% if ag.observacao %} · {{ ag.observacao }}{% endif %}
+          </p>
+        </div>
+        <span class="text-xs text-content-muted">detalhes →</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Visão SEMANA/MÊS: grade com barras -->
+  <div class="bg-surface rounded-2xl border border-line shadow-sm p-3">
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <table class="tl-grid">
+        <thead>
+          <tr>
+            <th class="tl-equipe-cell" style="text-align:left;">Equipe</th>
+            {% for d in dias %}
+            <th class="{{ 'tl-hoje' if d == hoje else '' }}">
+              <div>{{ d.day }}</div>
+              <div style="font-weight:400;">{{ dow_pt[d.weekday()] }}</div>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for ag in agendamentos %}
+          {% set cor = 'area-c' ~ ag.equipe.area.cor_indice if ag.equipe.area else '' %}
+          <tr>
+            <td class="tl-equipe-cell">
+              <a href="{{ url_for('organizacao.timeline_equipes', visao=visao, data=ancora.isoformat(), detalhe=ag.id) }}"
+                 class="text-xs font-semibold text-content hover:text-primary" style="text-decoration:none;">
+                {{ ag.equipe.nome }}
+              </a>
+              {% if ag.equipe.area %}
+              <div class="mt-0.5"><span class="area-chip area-c{{ ag.equipe.area.cor_indice }}">{{ ag.equipe.area.name }}</span></div>
+              {% endif %}
+            </td>
+            {% for d in dias %}
+            <td class="{{ 'tl-col-hoje' if d == hoje else '' }}">
+              {% if ag.data_inicio <= d <= ag.data_fim %}
+              <a href="{{ url_for('organizacao.timeline_equipes', visao=visao, data=ancora.isoformat(), detalhe=ag.id) }}"
+                 class="tl-seg {{ cor if cor else 'bg-surface-2 border-line' }}
+                        {{ 'tl-seg--inicio' if d == ag.data_inicio else '' }}
+                        {{ 'tl-seg--fim' if d == ag.data_fim else '' }}"
+                 title="{{ ag.equipe.nome }}: {{ ag.data_inicio.strftime('%d/%m') }}–{{ ag.data_fim.strftime('%d/%m') }}"></a>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="text-center py-16 text-content-muted">
+    <div class="text-4xl mb-3" style="color:var(--primary)">
+      <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+    </div>
+    <p class="text-sm">Nenhuma equipe agendada neste período.</p>
+  </div>
+  {% endif %}
+
+  <!-- Detalhe: composição membro × dia -->
+  {% if detalhe %}
+  <div class="mt-6 bg-surface rounded-2xl border border-line shadow-sm p-5">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+      <div>
+        <h2 class="text-base font-bold text-content">
+          {{ detalhe.equipe.nome }}
+          {% if detalhe.equipe.area %}
+          <span class="area-chip area-c{{ detalhe.equipe.area.cor_indice }} ml-1">{{ detalhe.equipe.area.name }}</span>
+          {% endif %}
+        </h2>
+        <p class="text-xs text-content-muted mt-0.5">
+          {{ detalhe.agendamento.data_inicio.strftime('%d/%m/%Y') }} – {{ detalhe.agendamento.data_fim.strftime('%d/%m/%Y') }}
+          {% if detalhe.agendamento.observacao %} · {{ detalhe.agendamento.observacao }}{% endif %}
+        </p>
+      </div>
+      {% if has_permission(session.get('funcionario_id'), 'equipes', 'edit') %}
+      <form method="post" action="{{ url_for('organizacao.cancelar_agendamento', agendamento_id=detalhe.agendamento.id) }}">
+        <input type="hidden" name="data" value="{{ ancora.isoformat() }}" />
+        <button type="button"
+                data-confirm-titulo="Cancelar agendamento?"
+                data-confirm-msg="O período de {{ detalhe.agendamento.data_inicio.strftime('%d/%m') }} a {{ detalhe.agendamento.data_fim.strftime('%d/%m') }} da equipe &quot;{{ detalhe.equipe.nome }}&quot; será cancelado e os membros avisados."
+                onclick="abrirConfirm(this)"
+                class="px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg
+                       hover:bg-red-50 dark:hover:bg-red-900/30" style="min-height:44px">Cancelar agendamento</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if detalhe.membros %}
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+      <table class="tl-grid" style="font-size:.75rem;">
+        <thead>
+          <tr>
+            <th class="tl-equipe-cell" style="text-align:left;">Membro</th>
+            {% for d in detalhe.dias %}
+            <th class="{{ 'tl-hoje' if d == hoje else '' }}">
+              <div>{{ d.day }}</div>
+              <div style="font-weight:400;">{{ dow_pt[d.weekday()] }}</div>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in detalhe.membros %}
+          <tr>
+            <td class="tl-equipe-cell">
+              <span class="text-xs font-semibold text-content">{{ m.funcionario.nome.split()[0] }}
+                {%- if m.funcionario.nome.split()|length > 1 %} {{ m.funcionario.nome.split()[-1] }}{% endif %}</span>
+              {% if m.funcao %}<div class="text-xs text-content-muted">{{ m.funcao.nome }}</div>{% endif %}
+            </td>
+            {% for d in detalhe.dias %}
+            {% set motivo = m.indisponibilidades.get(d) %}
+            <td style="text-align:center;padding:.35rem .2rem;" class="{{ 'tl-col-hoje' if d == hoje else '' }}">
+              {% if motivo %}
+              <span title="{{ motivo }}"
+                    style="display:inline-block;min-width:22px;padding:.1rem .3rem;border-radius:6px;
+                           background:var(--c-danger-bg);color:var(--c-danger-fg);
+                           border:1px solid var(--c-danger-bd);font-size:.65rem;font-weight:700;">✗</span>
+              {% else %}
+              <span style="color:var(--c-success-fg);font-weight:700;">✓</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% set indisp_total = detalhe.membros | map(attribute='indisponibilidades') | map('length') | sum %}
+    {% if indisp_total > 0 %}
+    <p class="text-xs text-content-muted mt-3">
+      ✗ = indisponível (folga, férias ou atestado no dia — passe o mouse para ver o motivo).
+      Membros indisponíveis continuam na equipe.
+    </p>
+    {% endif %}
+    {% else %}
+    <p class="text-sm text-content-muted italic">Esta equipe não tem membros ativos.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+{% include '_confirm_modal.html' %}
+{% endblock %}

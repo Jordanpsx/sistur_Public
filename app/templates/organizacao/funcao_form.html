@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if funcao else 'Nova' }} Função{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6">
+
+  <a href="{{ url_for('organizacao.listar_funcoes') }}" class="text-sm text-content-muted hover:text-primary">&larr; Funções</a>
+  <h1 class="text-xl font-bold text-content mt-1 mb-6">
+    {{ 'Editar Função' if funcao else 'Nova Função' }}
+  </h1>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+    {% if cat == 'erro' %}bg-red-50 dark:bg-red-900/30 text-red-800 border border-red-200 dark:border-red-800
+    {% else %}bg-blue-50 dark:bg-blue-900/30 text-blue-800 border border-blue-200{% endif %}">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
+
+  <form method="post" class="space-y-4 bg-surface p-6 rounded-2xl border border-line shadow-sm">
+
+    <div>
+      <label for="nome" class="block text-sm font-medium text-content mb-1">Nome <span class="text-red-500">*</span></label>
+      <input type="text" id="nome" name="nome" required
+             value="{{ funcao.nome if funcao else '' }}"
+             placeholder="Ex.: Recepção, Bar, Salva-vidas"
+             class="w-full px-4 py-2.5 rounded-xl border border-line text-sm text-content
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+    </div>
+
+    <div>
+      <label for="area_id" class="block text-sm font-medium text-content mb-1">Área (opcional)</label>
+      <select id="area_id" name="area_id"
+              class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface text-sm text-content
+                     focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+        <option value="">— Sem área —</option>
+        {% for area in areas %}
+        <option value="{{ area.id }}" {% if funcao and funcao.area_id == area.id %}selected{% endif %}>{{ area.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="flex items-center gap-3 pt-2">
+      <button type="submit" class="ds-btn ds-btn-primary flex-1">
+        {{ 'Salvar alterações' if funcao else 'Criar função' }}
+      </button>
+      <a href="{{ url_for('organizacao.listar_funcoes') }}" class="ds-btn ds-btn-quiet">
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

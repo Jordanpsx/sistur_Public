@@ -1,0 +1,452 @@
+{% extends 'reservas/reservas_base.html' %}
+{# Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved #}
+
+{% block html_title %}Avisos de Recursos{% endblock %}
+
+{% block page_title %}Avisos de Recursos{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">
+  Restrições, bloqueios e comunicados exibidos no processo de reserva
+</p>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# ── Painel informativo ── #}
+<div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-800 mb-6 leading-relaxed">
+  <strong>Como funcionam os avisos:</strong>
+  Avisos <em>globais</em> (sem local específico) afetam todos os locais.
+  Avisos <em>locais</em> afetam apenas o local escolhido.<br>
+  <strong>Bloqueia reserva</strong> — impede qualquer nova reserva no período.
+  <strong>Bloqueia itens</strong> — torna itens indisponíveis no seletor. Selecione itens
+  específicos ou deixe em branco para bloquear todos.<br>
+  <strong>Repetir todo(a) X</strong> — em vez de um aviso para o intervalo inteiro, bloqueia
+  só as ocorrências desse dia da semana dentro do período (ex.: "toda quarta-feira, de
+  01/09 a 31/12" num único aviso).
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════
+   Constrói lookup source_id → name e items_by_source para JS
+══════════════════════════════════════════════════════════════════════ #}
+{% set source_map = {} %}
+{% for s in sources %}{% if source_map.update({s.id: s.name}) %}{% endif %}{% endfor %}
+
+{# Dias da semana na convenção de date.weekday(): 0=segunda ... 6=domingo.
+   Sábado e domingo não levam o sufixo "-feira" em português — nomes completos aqui. #}
+{% set weekday_labels = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira',
+                          'Sexta-feira', 'Sábado', 'Domingo'] %}
+
+{# JSON de itens por source para o JS filtrar o multi-select #}
+{% set items_json = {} %}
+{% for item in items %}
+  {% set src = item.category.source_id %}
+  {% if src not in items_json %}{% if items_json.update({src: []}) %}{% endif %}{% endif %}
+  {% if items_json[src].append({'id': item.id, 'label': item.category.name ~ ' › ' ~ item.name}) %}{% endif %}
+{% endfor %}
+
+{# ══════════════════════════════════════════════════════════════════════
+   Tabela de avisos cadastrados
+══════════════════════════════════════════════════════════════════════ #}
+
+<div class="flex items-center gap-3 mb-4">
+  <h2 class="text-sm font-bold text-content whitespace-nowrap">Avisos cadastrados</h2>
+  <div class="flex-1 h-px bg-surface-2"></div>
+  <span class="text-xs text-content-muted font-medium">{{ notices|length }} aviso(s)</span>
+</div>
+
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden mb-8">
+  {% if notices %}
+  <div class="overflow-x-auto">
+    <table class="r-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Evento / Motivo</th>
+          <th>Início</th>
+          <th>Fim</th>
+          <th>Recorrência</th>
+          <th>Local</th>
+          <th>Bloqueia reserva</th>
+          <th>Bloqueia itens</th>
+          <th style="width: 140px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for notice in notices %}
+        <tr>
+          <td><span class="font-mono text-xs text-content-muted">{{ notice.id }}</span></td>
+          <td><span class="font-semibold text-content">{{ notice.event_name }}</span></td>
+          <td><span class="font-mono text-xs text-content-muted">{{ notice.start_date.strftime('%d/%m/%Y') }}</span></td>
+          <td><span class="font-mono text-xs text-content-muted">{{ notice.end_date.strftime('%d/%m/%Y') }}</span></td>
+          <td>
+            {% if notice.recurring_weekday is not none %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-800/40 text-indigo-700 dark:text-indigo-300">
+                {{ 'Todo' if notice.recurring_weekday >= 5 else 'Toda' }} {{ weekday_labels[notice.recurring_weekday] }}
+              </span>
+            {% else %}
+              <span class="text-content-muted text-xs">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if notice.source_id %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 dark:bg-teal-800/40 text-teal-700 dark:text-teal-300">
+                {{ source_map.get(notice.source_id, 'ID ' ~ notice.source_id) }}
+              </span>
+            {% else %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-surface-2 text-content-muted">Global</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if notice.blocks_source %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-800/40 text-red-700 dark:text-red-300">Sim</span>
+            {% else %}
+              <span class="text-content-muted text-xs">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if notice.blocks_items %}
+              {% if notice.blocked_item_ids %}
+                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:text-orange-300">
+                  {{ notice.blocked_item_ids | length }} item(s)
+                </span>
+              {% else %}
+                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 dark:text-orange-300">Todos</span>
+              {% endif %}
+            {% else %}
+              <span class="text-content-muted text-xs">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="flex items-center gap-2">
+              <button type="button"
+                class="px-3 py-1.5 bg-surface-2 hover:bg-surface-2 text-content-muted text-xs font-semibold rounded-lg border border-line transition-colors"
+                data-id="{{ notice.id }}"
+                data-name="{{ notice.event_name | e }}"
+                data-start="{{ notice.start_date.strftime('%Y-%m-%d') }}"
+                data-end="{{ notice.end_date.strftime('%Y-%m-%d') }}"
+                data-source="{{ notice.source_id or '' }}"
+                data-blocks-source="{{ 'true' if notice.blocks_source else 'false' }}"
+                data-blocks-items="{{ 'true' if notice.blocks_items else 'false' }}"
+                data-blocked-ids="{{ notice.blocked_item_ids | tojson if notice.blocked_item_ids else '' }}"
+                data-recurring="{{ notice.recurring_weekday if notice.recurring_weekday is not none else '' }}"
+                onclick="abrirEdicaoBtn(this)">
+                Editar
+              </button>
+              <form method="POST"
+                action="{{ url_for('reservas.admin_avisos_deletar', notice_id=notice.id) }}"
+                onsubmit="return confirm('Remover este aviso? A ação não pode ser desfeita.')">
+                <button type="submit"
+                  class="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg border border-red-200 dark:border-red-800 transition-colors">
+                  Remover
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="py-14 text-center text-content-muted">
+    <svg class="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+    </svg>
+    <p class="text-sm">Nenhum aviso cadastrado. Crie o primeiro abaixo.</p>
+  </div>
+  {% endif %}
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════
+   Formulário de criação
+══════════════════════════════════════════════════════════════════════ #}
+
+<div class="flex items-center gap-3 mb-4">
+  <h2 class="text-sm font-bold text-content whitespace-nowrap">Novo aviso</h2>
+  <div class="flex-1 h-px bg-surface-2"></div>
+</div>
+
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
+  <form method="POST" action="{{ url_for('reservas.admin_avisos_criar') }}"
+        id="createForm" class="px-5 py-5">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <div class="lg:col-span-2">
+        <label class="r-label r-label-req" for="new_event_name">Evento / Motivo</label>
+        <input type="text" id="new_event_name" name="event_name" required
+               maxlength="200" placeholder="Ex: Manutenção da piscina" class="r-input">
+        <p class="r-hint">Texto exibido ao cliente durante a reserva.</p>
+      </div>
+
+      <div>
+        <label class="r-label" for="new_source_id">Local (vazio = global)</label>
+        <select id="new_source_id" name="source_id" class="r-select"
+                onchange="filtrarItens('new')">
+          <option value="">— Global (todos os locais) —</option>
+          {% for s in sources %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">Global afeta todos os locais do sistema.</p>
+      </div>
+
+      <div>
+        <label class="r-label r-label-req" for="new_start_date">Data de início</label>
+        <input type="date" id="new_start_date" name="start_date" required class="r-input">
+      </div>
+
+      <div>
+        <label class="r-label r-label-req" for="new_end_date">Data de fim</label>
+        <input type="date" id="new_end_date" name="end_date" required class="r-input">
+        <p class="r-hint">Pode ser igual à data de início (aviso de dia único).</p>
+      </div>
+
+      <div>
+        <label class="r-label" for="new_recurring_weekday">Repetir todo(a)</label>
+        <select id="new_recurring_weekday" name="recurring_weekday" class="r-select">
+          <option value="">— Intervalo contínuo (sem recorrência) —</option>
+          {% for label in weekday_labels %}
+            <option value="{{ loop.index0 }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">
+          Quando marcado, o aviso vale só nesse dia da semana dentro do período —
+          ex.: "toda quarta-feira, de 01/09 a 31/12" num único aviso.
+        </p>
+      </div>
+
+    </div>
+
+    {# Checkboxes de bloqueio #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+      <label class="r-check-wrap" style="border-color: #fca5a5; background: #fff5f5;">
+        <input type="checkbox" name="blocks_source" value="1">
+        <span style="color: #b91c1c;">Bloqueia a reserva inteiramente no período</span>
+      </label>
+      <label class="r-check-wrap" style="border-color: #fed7aa; background: #fff8f0;"
+             onclick="toggleItemSelect(event, 'new')">
+        <input type="checkbox" id="new_blocks_items" name="blocks_items" value="1">
+        <span style="color: #c2410c;">Bloqueia itens no seletor</span>
+      </label>
+    </div>
+
+    {# Multi-select de itens (oculto até marcar "Bloqueia itens") #}
+    <div id="new_item_select_wrap" class="hidden mt-3">
+      <label class="r-label" for="new_blocked_items">
+        Itens bloqueados
+        <span class="text-content-muted font-normal">(deixe vazio para bloquear todos)</span>
+      </label>
+      <select id="new_blocked_items" name="blocked_item_ids" multiple
+              class="r-select" style="min-height: 120px;">
+      </select>
+      <p class="r-hint">Ctrl+Clique para selecionar múltiplos. Nenhum selecionado = bloqueia todos.</p>
+    </div>
+
+    <div class="mt-5">
+      <button type="submit"
+              class="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
+        Criar aviso
+      </button>
+    </div>
+
+  </form>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════
+   Modal de edição
+══════════════════════════════════════════════════════════════════════ #}
+
+<div id="editModal"
+     class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center"
+     onclick="fecharEdicaoFora(event)">
+  <div class="bg-surface rounded-2xl shadow-2xl p-7 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+    <h3 class="font-bold text-content mb-5">Editar aviso</h3>
+    <form method="POST" id="editForm">
+
+      <div class="space-y-4">
+
+        <div>
+          <label class="r-label r-label-req" for="edit_event_name">Evento / Motivo</label>
+          <input type="text" id="edit_event_name" name="event_name" required
+                 maxlength="200" class="r-input">
+        </div>
+
+        <div>
+          <label class="r-label" for="edit_source_id">Local</label>
+          <select id="edit_source_id" name="source_id" class="r-select"
+                  onchange="filtrarItens('edit')">
+            <option value="">— Global (todos os locais) —</option>
+            {% for s in sources %}
+              <option value="{{ s.id }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="r-label r-label-req" for="edit_start_date">Início</label>
+            <input type="date" id="edit_start_date" name="start_date" required class="r-input">
+          </div>
+          <div>
+            <label class="r-label r-label-req" for="edit_end_date">Fim</label>
+            <input type="date" id="edit_end_date" name="end_date" required class="r-input">
+          </div>
+        </div>
+
+        <div>
+          <label class="r-label" for="edit_recurring_weekday">Repetir todo(a)</label>
+          <select id="edit_recurring_weekday" name="recurring_weekday" class="r-select">
+            <option value="">— Intervalo contínuo (sem recorrência) —</option>
+            {% for label in weekday_labels %}
+              <option value="{{ loop.index0 }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="r-check-wrap" style="border-color: #fca5a5; background: #fff5f5;">
+            <input type="checkbox" id="edit_blocks_source" name="blocks_source" value="1">
+            <span style="color: #b91c1c; font-size: 0.8125rem;">Bloqueia a reserva no período</span>
+          </label>
+          <label class="r-check-wrap" style="border-color: #fed7aa; background: #fff8f0;"
+                 onclick="toggleItemSelect(event, 'edit')">
+            <input type="checkbox" id="edit_blocks_items" name="blocks_items" value="1">
+            <span style="color: #c2410c; font-size: 0.8125rem;">Bloqueia itens no seletor</span>
+          </label>
+        </div>
+
+        {# Multi-select de itens (modal) #}
+        <div id="edit_item_select_wrap" class="hidden">
+          <label class="r-label" for="edit_blocked_items">
+            Itens bloqueados
+            <span class="text-content-muted font-normal">(vazio = todos)</span>
+          </label>
+          <select id="edit_blocked_items" name="blocked_item_ids" multiple
+                  class="r-select" style="min-height: 100px;">
+          </select>
+          <p class="r-hint">Ctrl+Clique para selecionar múltiplos.</p>
+        </div>
+
+      </div>
+
+      <div class="flex gap-3 mt-6">
+        <button type="submit"
+                class="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          Salvar alterações
+        </button>
+        <button type="button" onclick="fecharEdicao()"
+                class="px-4 py-2 bg-surface-2 hover:bg-surface-2 text-content-muted text-sm font-semibold rounded-lg transition-colors">
+          Cancelar
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script>
+  // Mapa de itens por source gerado pelo Jinja2
+  const ITEMS_BY_SOURCE = {{ items_json | tojson }};
+
+  // Popula o <select> múltiplo filtrando por source selecionado
+  function filtrarItens(prefix) {
+    const sourceEl = document.getElementById(prefix + '_source_id');
+    const selectEl = document.getElementById(prefix + '_blocked_items');
+    if (!selectEl) return;
+
+    const sourceId = sourceEl ? parseInt(sourceEl.value) || null : null;
+    const prevSelected = Array.from(selectEl.selectedOptions).map(o => parseInt(o.value));
+
+    selectEl.innerHTML = '';
+
+    const lista = sourceId
+      ? (ITEMS_BY_SOURCE[sourceId] || [])
+      : Object.values(ITEMS_BY_SOURCE).flat();
+
+    lista.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.id;
+      opt.textContent = item.label;
+      opt.selected = prevSelected.includes(item.id);
+      selectEl.appendChild(opt);
+    });
+  }
+
+  // Mostra/oculta o multi-select ao clicar no checkbox "Bloqueia itens"
+  function toggleItemSelect(event, prefix) {
+    // Deixa o clique propagar para o checkbox
+    setTimeout(() => {
+      const checkbox = document.getElementById(prefix + '_blocks_items');
+      const wrap = document.getElementById(prefix + '_item_select_wrap');
+      if (!checkbox || !wrap) return;
+      if (checkbox.checked) {
+        wrap.classList.remove('hidden');
+        filtrarItens(prefix);
+      } else {
+        wrap.classList.add('hidden');
+      }
+    }, 0);
+  }
+
+  function abrirEdicaoBtn(btn) {
+    const d = btn.dataset;
+    abrirEdicao(
+      parseInt(d.id),
+      d.name,
+      d.start,
+      d.end,
+      d.source ? parseInt(d.source) : null,
+      d.blocksSource === 'true',
+      d.blocksItems === 'true',
+      d.blockedIds ? JSON.parse(d.blockedIds) : null,
+      d.recurring !== '' ? d.recurring : null
+    );
+  }
+
+  function abrirEdicao(id, eventName, startDate, endDate, sourceId, blocksSource, blocksItems, blockedItemIds, recurringWeekday) {
+    const modal = document.getElementById('editModal');
+    document.getElementById('editForm').action = `/reservas/admin/config/avisos/${id}/editar`;
+    document.getElementById('edit_event_name').value = eventName;
+    document.getElementById('edit_start_date').value = startDate;
+    document.getElementById('edit_end_date').value = endDate;
+    document.getElementById('edit_source_id').value = sourceId !== null ? String(sourceId) : '';
+    document.getElementById('edit_recurring_weekday').value = recurringWeekday !== null ? String(recurringWeekday) : '';
+    document.getElementById('edit_blocks_source').checked = blocksSource;
+
+    const blocksItemsEl = document.getElementById('edit_blocks_items');
+    blocksItemsEl.checked = blocksItems;
+
+    const itemWrap = document.getElementById('edit_item_select_wrap');
+    if (blocksItems) {
+      itemWrap.classList.remove('hidden');
+      filtrarItens('edit');
+
+      // Pré-seleciona os itens já bloqueados
+      if (blockedItemIds && blockedItemIds.length) {
+        const selectEl = document.getElementById('edit_blocked_items');
+        Array.from(selectEl.options).forEach(opt => {
+          opt.selected = blockedItemIds.includes(parseInt(opt.value));
+        });
+      }
+    } else {
+      itemWrap.classList.add('hidden');
+    }
+
+    modal.classList.remove('hidden');
+  }
+
+  function fecharEdicao() {
+    document.getElementById('editModal').classList.add('hidden');
+  }
+
+  function fecharEdicaoFora(e) {
+    if (e.target === document.getElementById('editModal')) fecharEdicao();
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharEdicao(); });
+</script>
+
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends 'reservas/reservas_base.html' %}
+{# Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved #}
+
+{% block html_title %}Configurações do Módulo{% endblock %}
+
+{% block page_title %}Configurações do Módulo{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">
+  Tudo que rege o comportamento das reservas, num lugar só
+</p>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# ── Flash messages ── #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+    <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+                {{ 'bg-teal-50 dark:bg-teal-900/30 text-teal-800 border border-teal-200 dark:border-teal-800' if category == 'sucesso'
+                   else 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 border border-amber-200 dark:border-amber-800' if category == 'aviso'
+                   else 'bg-red-50 dark:bg-red-900/30 text-red-800 border border-red-200 dark:border-red-800' }}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+  {% for card in cards %}
+  <a href="{{ card.url }}"
+     class="group bg-surface rounded-xl border border-line shadow-sm p-5
+            hover:border-teal-400 hover:shadow-md transition-all
+            flex flex-col min-h-[132px]">
+    <div class="flex items-start gap-3">
+      <span class="shrink-0 w-9 h-9 rounded-lg bg-surface-2 flex items-center justify-center
+                   text-content-muted group-hover:text-teal-600 transition-colors">
+        {{ card.icone | safe }}
+      </span>
+      <div class="min-w-0">
+        <p class="text-sm font-bold text-content leading-tight">{{ card.titulo }}</p>
+      </div>
+    </div>
+    <p class="text-xs text-content-muted mt-3 leading-relaxed">{{ card.descricao }}</p>
+  </a>
+  {% endfor %}
+
+</div>
+
+{% endblock %}

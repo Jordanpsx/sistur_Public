@@ -1,0 +1,582 @@
+{% extends 'reservas/reservas_base.html' %}
+{# Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved #}
+
+{% block html_title %}Predefinições — PDV{% endblock %}
+
+{% block page_title %}Predefinições do Operador{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">Preferências do operador para Nova Reserva e PDV</p>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_nova_reserva_form') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-teal-700 dark:text-teal-300
+          bg-teal-50 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-800/40 border border-teal-200 dark:border-teal-800 rounded-lg transition-colors">
+  <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M3 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/></svg> Nova Reserva
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+<style>
+  /* Estados de arraste e feedback — tokens --c-* para acompanhar o tema. */
+  .fav-row { min-height: 44px; }
+  .fav-row--arrastando { opacity: .45; }
+  .fav-row--sobre { box-shadow: inset 0 2px 0 0 var(--c-primary); }
+  .fav-handle:active { cursor: grabbing; }
+  .pref-dirty { color: var(--c-warning-fg); }
+
+  /* O atributo [hidden] tem a MESMA especificidade dos utilitários de display
+     do Tailwind (.flex / .inline-flex) e o preflight vem antes deles no CSS —
+     então o utilitário vence e esconder por JS não surtia efeito nas linhas do
+     catálogo. Reforço explícito abaixo. */
+  .cat-row[hidden],
+  .cat-add[hidden],
+  .cat-marca[hidden],
+  .fav-row[hidden] { display: none !important; }
+</style>
+
+{% set fav_ids = preferencia.pdv_favorite_item_ids if preferencia and preferencia.pdv_favorite_item_ids else [] %}
+
+{# Linha de favorito. Usada no loop inicial e como molde no <template> clonado
+   pelo JS (item = none) — assim as classes de tema ficam sempre no Jinja,
+   nunca em strings de innerHTML no JavaScript. #}
+{% macro fav_row(item) %}
+<li class="fav-row flex items-center gap-2 px-3 py-2 bg-surface" draggable="true"
+    data-item-id="{{ item.id if item else '' }}">
+  <input type="hidden" name="pdv_favorite_item_ids" value="{{ item.id if item else '' }}" />
+  <span class="fav-handle shrink-0 cursor-grab text-content-muted" aria-hidden="true" title="Arraste para reordenar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
+  </span>
+  <span class="fav-pos shrink-0 w-6 text-center text-xs font-bold text-teal-700 dark:text-teal-300">—</span>
+  <span class="min-w-0 flex-1">
+    <span class="fav-nome block text-sm font-semibold text-content truncate">{{ item.name if item else '' }}</span>
+    <span class="fav-meta block text-xs text-content-muted truncate">
+      {%- if item -%}
+      {{ item.category.source.name if item.category and item.category.source else '—' }}
+      · {{ item.category.name if item.category else '—' }}
+      · Cód: {{ item.id }}
+      {%- endif -%}
+    </span>
+  </span>
+  <button type="button" class="fav-up shrink-0 inline-flex items-center justify-center w-9 rounded-lg text-content-muted bg-surface-2 hover:bg-surface-2 transition-colors"
+          style="min-height: 44px;" aria-label="Mover para cima">
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+  </button>
+  <button type="button" class="fav-down shrink-0 inline-flex items-center justify-center w-9 rounded-lg text-content-muted bg-surface-2 hover:bg-surface-2 transition-colors"
+          style="min-height: 44px;" aria-label="Mover para baixo">
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
+  <button type="button" class="fav-remove shrink-0 inline-flex items-center justify-center w-9 rounded-lg text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors"
+          style="min-height: 44px;" aria-label="Remover dos favoritos">
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+</li>
+{% endmacro %}
+
+<div class="max-w-4xl">
+
+  {# ── Introdução ── #}
+  <div class="flex items-start gap-3 px-4 py-3.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800
+              rounded-xl mb-6 text-sm">
+    <span class="text-blue-500 text-lg shrink-0 mt-0.5" aria-hidden="true"><svg class="r-icon r-icon-info" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+    <div class="text-blue-800">
+      <strong>Como funciona?</strong> Os valores abaixo são preferências do operador logado.
+      O PDV usa o local padrão para abrir turno mais rápido, coloca favoritos no topo do
+      catálogo e aplica o status escolhido em vendas com pagamento imediato.
+    </div>
+  </div>
+
+  <form method="POST"
+        action="{{ url_for('reservas.admin_predefinicoes') }}"
+        id="pref-form">
+
+    {# ── Local & Categoria ── #}
+    <div class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4"><svg class="r-icon r-icon-resource" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Local &amp; Categoria Padrão</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="r-label" for="pref-source">Local / Venue</label>
+          <select id="pref-source" name="default_source_id" class="r-select">
+            <option value="">— Nenhum —</option>
+            {% for src in catalogo %}
+            <option value="{{ src.id }}"
+              {% if preferencia and preferencia.default_source_id == src.id %}selected{% endif %}>
+              {{ src.name }}
+            </option>
+            {% endfor %}
+          </select>
+          <p class="r-hint">Pré-seleciona o local ao abrir turno no PDV e no formulário de balcão.</p>
+        </div>
+
+        <div>
+          <label class="r-label" for="pref-category">Categoria</label>
+          <select id="pref-category" name="default_category_id" class="r-select">
+            <option value="">— Selecione o local primeiro —</option>
+          </select>
+          <p class="r-hint">Populada automaticamente após escolher o local.</p>
+        </div>
+      </div>
+    </div>
+
+    {# ── Status inicial (Balcão) ── #}
+    <div class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4"><svg class="r-icon r-icon-info" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Status Inicial da Nova Reserva</h2>
+      <p class="text-xs text-content-muted mb-4">
+        Status aplicado automaticamente ao criar uma reserva em modo Balcão.
+        Deixe em branco para usar o padrão (<strong>PAGO</strong>).
+      </p>
+
+      <div>
+        <label class="r-label" for="pref-status">Status inicial</label>
+        <select id="pref-status" name="default_balcao_status" class="r-select">
+          <option value="">— Padrão (Pago) —</option>
+          {% for sc in status_configs %}
+          <option value="{{ sc.internal_name }}"
+            {% if preferencia and preferencia.default_balcao_status == sc.internal_name %}selected{% endif %}>
+            {{ sc.label }}
+            {% if sc.is_system_reserved %} (sistema){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    {# ── PDV ── #}
+    <div class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4"><svg class="r-icon r-icon-payment" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> PDV</h2>
+
+      <div class="mb-5">
+        <label class="r-label" for="pdv-status">Status inicial no PDV</label>
+        <select id="pdv-status" name="pdv_default_status" class="r-select">
+          <option value="">— Padrão do método de pagamento —</option>
+          {% for sc in status_configs %}
+          {% if sc.internal_name != 'ARCHIVED_VERSION' %}
+          <option value="{{ sc.internal_name }}"
+            {% if preferencia and preferencia.pdv_default_status == sc.internal_name %}selected{% endif %}>
+            {{ sc.label }}
+            {% if sc.is_system_reserved %} (sistema){% endif %}
+          </option>
+          {% endif %}
+          {% endfor %}
+        </select>
+        <p class="r-hint">
+          Aplica-se às vendas PDV com pagamento imediato, como dinheiro e maquininha.
+          PIX/link Mercado Pago continuam pendentes até confirmação do pagamento.
+        </p>
+      </div>
+
+      {# ── Favoritos: ordem real de exibição no PDV ── #}
+      <div class="mb-6">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <label class="r-label mb-0">Itens favoritos do PDV</label>
+            <p class="r-hint">
+              Arraste pela alça <span aria-hidden="true">⠿</span> ou use as setas para mudar a ordem.
+              O primeiro da lista aparece primeiro no catálogo do PDV.
+            </p>
+          </div>
+          <span id="fav-contador"
+                class="shrink-0 text-xs font-semibold text-content-muted bg-surface-2 border border-line rounded-lg px-2.5 py-1"
+                aria-live="polite">
+            {{ favoritos_ordenados|length }} favorito{{ 's' if favoritos_ordenados|length != 1 else '' }}
+          </span>
+        </div>
+
+        <ul id="fav-lista" class="rounded-lg border border-line divide-y divide-line overflow-hidden">
+          {% for item in favoritos_ordenados %}
+            {{ fav_row(item) }}
+          {% endfor %}
+        </ul>
+
+        <p id="fav-vazio"
+           class="px-4 py-8 text-sm text-content-muted text-center rounded-lg border border-line border-dashed"
+           {% if favoritos_ordenados %}hidden{% endif %}>
+          Nenhum favorito ainda — escolha itens no catálogo abaixo.
+        </p>
+      </div>
+
+      {# ── Catálogo: origem dos favoritos ── #}
+      <div>
+        <label class="r-label mb-0" for="cat-busca">Catálogo de itens</label>
+        <p class="r-hint mb-3">Busque e adicione itens à lista de favoritos acima.</p>
+
+        <input type="search"
+               id="cat-busca"
+               class="r-input mb-3"
+               placeholder="Buscar por nome, categoria, local ou código…"
+               autocomplete="off" />
+
+        <div class="rounded-lg border border-line overflow-hidden">
+          <ul id="cat-lista" class="max-h-80 overflow-y-auto divide-y divide-line">
+            {% for item in itens_pdv %}
+            <li class="cat-row flex items-center gap-3 px-3 py-2"
+                data-item-id="{{ item.id }}"
+                data-nome="{{ item.name }}"
+                data-meta="{{ item.category.source.name if item.category and item.category.source else '—' }} · {{ item.category.name if item.category else '—' }} · Cód: {{ item.id }}"
+                data-busca="{{ (item.name ~ ' ' ~ (item.category.source.name if item.category and item.category.source else '') ~ ' ' ~ (item.category.name if item.category else '') ~ ' ' ~ item.id) | lower }}">
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-semibold text-content truncate">{{ item.name }}</span>
+                <span class="block text-xs text-content-muted truncate">
+                  {{ item.category.source.name if item.category and item.category.source else '—' }}
+                  · {{ item.category.name if item.category else '—' }}
+                  · Cód: {{ item.id }}
+                </span>
+              </span>
+              <button type="button"
+                      class="cat-add shrink-0 inline-flex items-center gap-1.5 px-3 rounded-lg text-xs font-semibold
+                             text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30
+                             hover:bg-teal-100 dark:hover:bg-teal-800/40 transition-colors"
+                      style="min-height: 44px;">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Adicionar
+              </button>
+              <span class="cat-marca shrink-0 text-xs font-semibold text-content-muted px-2" hidden>Nos favoritos</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% if not itens_pdv %}
+          <div class="px-4 py-8 text-sm text-content-muted text-center">Nenhum item ativo encontrado.</div>
+          {% endif %}
+          <p id="cat-sem-resultado" class="px-4 py-8 text-sm text-content-muted text-center" hidden>
+            Nenhum item corresponde à busca.
+          </p>
+        </div>
+      </div>
+
+      {# Molde clonado pelo JS ao adicionar um favorito. O markup (e portanto as
+         classes de tema) vive aqui no Jinja — o JS só clona e preenche texto. #}
+      <template id="fav-row-tpl">{{ fav_row(none) }}</template>
+    </div>
+
+    {# ── Ações ── #}
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-5 py-2.5
+                     bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold
+                     rounded-lg transition-colors min-h-[44px]">
+        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Predefinições
+      </button>
+      <span id="aviso-dirty" class="pref-dirty text-xs font-semibold" role="status" hidden>
+        ● Alterações não salvas
+      </span>
+      {% if preferencia and (preferencia.default_source_id or preferencia.default_category_id or preferencia.default_balcao_status or preferencia.pdv_default_status or preferencia.pdv_favorite_item_ids) %}
+      <button type="button"
+              id="btn-limpar"
+              class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400
+                     bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 border border-red-200 dark:border-red-800 rounded-lg transition-colors
+                     min-h-[44px]">
+        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Limpar tudo
+      </button>
+      {% endif %}
+      <a href="{{ url_for('reservas.admin_nova_reserva_form') }}"
+         class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-content-muted
+                bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors min-h-[44px]">
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+
+  {# ── Preview das configurações atuais ── #}
+      {% if preferencia and (preferencia.default_source_id or preferencia.default_category_id or preferencia.default_balcao_status or preferencia.pdv_default_status or preferencia.pdv_favorite_item_ids) %}
+  <div class="mt-8 p-5 bg-surface-2 border border-line rounded-xl">
+    <h3 class="text-xs font-bold text-content-muted uppercase tracking-wider mb-3">
+      Configuração Atual
+    </h3>
+    <dl class="space-y-2 text-sm">
+      <div class="flex gap-2">
+        <dt class="text-content-muted font-medium w-28 shrink-0">Local:</dt>
+        <dd class="text-content">
+          {% if preferencia.default_source %}
+            {{ preferencia.default_source.name }}
+          {% else %}
+            <span class="text-content-muted italic">Nenhum</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="text-content-muted font-medium w-28 shrink-0">Categoria:</dt>
+        <dd class="text-content">
+          {% if preferencia.default_category %}
+            {{ preferencia.default_category.name }}
+          {% else %}
+            <span class="text-content-muted italic">Nenhuma</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="text-content-muted font-medium w-28 shrink-0">Status Balcão:</dt>
+        <dd class="text-content">
+          {% if preferencia.default_balcao_status %}
+            <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">
+              {{ preferencia.default_balcao_status }}
+            </code>
+          {% else %}
+            <span class="text-content-muted italic">Padrão (Pago)</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="text-content-muted font-medium w-28 shrink-0">Status PDV:</dt>
+        <dd class="text-content">
+          {% if preferencia.pdv_default_status %}
+            <code class="text-xs bg-surface-2 px-1.5 py-0.5 rounded font-mono">
+              {{ preferencia.pdv_default_status }}
+            </code>
+          {% else %}
+            <span class="text-content-muted italic">Padrão do método</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div class="flex gap-2">
+        <dt class="text-content-muted font-medium w-28 shrink-0">Favoritos:</dt>
+        <dd class="text-content">{{ fav_ids|length }}</dd>
+      </div>
+    </dl>
+  </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  "use strict";
+
+  // Catálogo embutido para cascade source → categorias
+  var CATALOGO = {{ catalogo | tojson | safe }};
+
+  var selSource   = document.getElementById('pref-source');
+  var selCategory = document.getElementById('pref-category');
+
+  // Valores salvos para restaurar a seleção de categoria
+  var SAVED_SOURCE   = {{ (preferencia.default_source_id if preferencia and preferencia.default_source_id else '') | tojson }};
+  var SAVED_CATEGORY = {{ (preferencia.default_category_id if preferencia and preferencia.default_category_id else '') | tojson }};
+
+  function populateCategories(sourceId, selectedCategoryId) {
+    selCategory.innerHTML = '<option value="">— Nenhuma —</option>';
+    if (!sourceId) return;
+
+    var src = CATALOGO.find(function (s) { return String(s.id) === String(sourceId); });
+    if (!src) return;
+
+    src.categories.forEach(function (cat) {
+      var opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      if (selectedCategoryId && String(cat.id) === String(selectedCategoryId)) {
+        opt.selected = true;
+      }
+      selCategory.appendChild(opt);
+    });
+  }
+
+  // Inicializar cascade ao carregar
+  populateCategories(SAVED_SOURCE, SAVED_CATEGORY);
+
+  selSource.addEventListener('change', function () {
+    populateCategories(this.value, null);
+  });
+
+  // ── Favoritos do PDV: ordem, arrastar-e-soltar, setas e busca ──
+  var form      = document.getElementById('pref-form');
+  var favLista  = document.getElementById('fav-lista');
+  var favVazio  = document.getElementById('fav-vazio');
+  var favCont   = document.getElementById('fav-contador');
+  var catLista  = document.getElementById('cat-lista');
+  var catBusca  = document.getElementById('cat-busca');
+  var catNada   = document.getElementById('cat-sem-resultado');
+  var favTpl    = document.getElementById('fav-row-tpl');
+  var avisoSujo = document.getElementById('aviso-dirty');
+
+  var sujo = false;
+  var salvando = false;
+
+  function marcarSujo() {
+    sujo = true;
+    if (avisoSujo) avisoSujo.hidden = false;
+  }
+
+  // Renumera os badges de posição e sincroniza contador, estado vazio e
+  // disponibilidade dos botões no catálogo.
+  function sincronizar() {
+    var linhas = favLista.querySelectorAll('.fav-row');
+    linhas.forEach(function (li, i) {
+      li.querySelector('.fav-pos').textContent = i + 1;
+      li.querySelector('.fav-up').disabled = (i === 0);
+      li.querySelector('.fav-down').disabled = (i === linhas.length - 1);
+    });
+
+    favVazio.hidden = linhas.length > 0;
+    favCont.textContent = linhas.length + ' favorito' + (linhas.length === 1 ? '' : 's');
+
+    var favoritados = {};
+    linhas.forEach(function (li) { favoritados[li.dataset.itemId] = true; });
+    catLista.querySelectorAll('.cat-row').forEach(function (row) {
+      var jaTem = !!favoritados[row.dataset.itemId];
+      row.querySelector('.cat-add').hidden = jaTem;
+      row.querySelector('.cat-marca').hidden = !jaTem;
+    });
+  }
+
+  function trocar(li, direcao) {
+    var alvo = direcao < 0 ? li.previousElementSibling : li.nextElementSibling;
+    if (!alvo) return;
+    if (direcao < 0) favLista.insertBefore(li, alvo);
+    else favLista.insertBefore(alvo, li);
+    sincronizar();
+    marcarSujo();
+  }
+
+  // Cliques dentro da lista de favoritos (setas e remover)
+  favLista.addEventListener('click', function (e) {
+    var li = e.target.closest('.fav-row');
+    if (!li) return;
+    if (e.target.closest('.fav-up'))     { trocar(li, -1); return; }
+    if (e.target.closest('.fav-down'))   { trocar(li, 1);  return; }
+    if (e.target.closest('.fav-remove')) { li.remove(); sincronizar(); marcarSujo(); }
+  });
+
+  // Adicionar do catálogo → entra no fim da lista de favoritos
+  catLista.addEventListener('click', function (e) {
+    var btn = e.target.closest('.cat-add');
+    if (!btn) return;
+    var row = e.target.closest('.cat-row');
+    var li  = favTpl.content.firstElementChild.cloneNode(true);
+
+    li.dataset.itemId = row.dataset.itemId;
+    li.querySelector('input[name="pdv_favorite_item_ids"]').value = row.dataset.itemId;
+    li.querySelector('.fav-nome').textContent = row.dataset.nome;
+    li.querySelector('.fav-meta').textContent = row.dataset.meta;
+
+    favLista.appendChild(li);
+    sincronizar();
+    marcarSujo();
+  });
+
+  // Busca no catálogo. Ignora acento e caixa — os nomes são em pt-BR, então
+  // digitar "camping" precisa achar "Câmping" e "acao" precisa achar "Ação".
+  function normalizarBusca(texto) {
+    return (texto || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
+
+  if (catBusca) {
+    // Normaliza uma vez na carga, e não a cada tecla digitada.
+    catLista.querySelectorAll('.cat-row').forEach(function (row) {
+      row.dataset.busca = normalizarBusca(row.dataset.busca);
+    });
+
+    catBusca.addEventListener('input', function () {
+      var termo = normalizarBusca(this.value.trim());
+      var visiveis = 0;
+      catLista.querySelectorAll('.cat-row').forEach(function (row) {
+        var bate = !termo || row.dataset.busca.indexOf(termo) !== -1;
+        row.hidden = !bate;
+        if (bate) visiveis++;
+      });
+      catNada.hidden = visiveis > 0;
+    });
+  }
+
+  // Arrastar-e-soltar (desktop). Em toque não há evento de drag HTML5 —
+  // por isso as setas ↑ ↓ são o caminho equivalente no celular.
+  (function () {
+    var arrastando = null;
+
+    favLista.addEventListener('dragstart', function (e) {
+      var li = e.target.closest('.fav-row');
+      if (!li) return;
+      arrastando = li;
+      li.classList.add('fav-row--arrastando');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', li.dataset.itemId);
+    });
+
+    favLista.addEventListener('dragend', function () {
+      if (arrastando) arrastando.classList.remove('fav-row--arrastando');
+      favLista.querySelectorAll('.fav-row--sobre').forEach(function (el) {
+        el.classList.remove('fav-row--sobre');
+      });
+      arrastando = null;
+    });
+
+    favLista.addEventListener('dragover', function (e) {
+      if (!arrastando) return;
+      var alvo = e.target.closest('.fav-row');
+      if (!alvo || alvo === arrastando) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      favLista.querySelectorAll('.fav-row--sobre').forEach(function (el) {
+        el.classList.remove('fav-row--sobre');
+      });
+      alvo.classList.add('fav-row--sobre');
+    });
+
+    favLista.addEventListener('dragleave', function (e) {
+      var alvo = e.target.closest('.fav-row');
+      if (alvo) alvo.classList.remove('fav-row--sobre');
+    });
+
+    favLista.addEventListener('drop', function (e) {
+      if (!arrastando) return;
+      var alvo = e.target.closest('.fav-row');
+      if (!alvo || alvo === arrastando) return;
+      e.preventDefault();
+      alvo.classList.remove('fav-row--sobre');
+
+      // Solta antes ou depois do alvo conforme a direção do movimento.
+      var linhas = Array.prototype.slice.call(favLista.querySelectorAll('.fav-row'));
+      if (linhas.indexOf(arrastando) < linhas.indexOf(alvo)) {
+        favLista.insertBefore(arrastando, alvo.nextElementSibling);
+      } else {
+        favLista.insertBefore(arrastando, alvo);
+      }
+      sincronizar();
+      marcarSujo();
+    });
+  })();
+
+  // Qualquer mudança nos selects também conta como alteração pendente
+  form.querySelectorAll('select').forEach(function (el) {
+    el.addEventListener('change', marcarSujo);
+  });
+
+  form.addEventListener('submit', function () { salvando = true; });
+
+  window.addEventListener('beforeunload', function (e) {
+    if (!sujo || salvando) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  sincronizar();
+
+  // Botão "Limpar tudo" — zera todos os selects e submete.
+  // Os favoritos agora são <input type="hidden"> em linhas do DOM: limpar
+  // significa remover as linhas (marcar .checked não teria efeito algum).
+  var btnLimpar = document.getElementById('btn-limpar');
+  if (btnLimpar) {
+    btnLimpar.addEventListener('click', function () {
+      if (!confirm('Remover todas as predefinições?')) return;
+      selSource.value   = '';
+      selCategory.innerHTML = '<option value="">— Nenhuma —</option>';
+      document.getElementById('pref-status').value = '';
+      document.getElementById('pdv-status').value = '';
+      favLista.querySelectorAll('.fav-row').forEach(function (li) { li.remove(); });
+      sincronizar();
+      salvando = true;
+      form.submit();
+    });
+  }
+
+})();
+</script>
+{% endblock %}

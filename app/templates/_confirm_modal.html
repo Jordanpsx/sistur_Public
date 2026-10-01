@@ -1,0 +1,45 @@
+{# Modal de confirmação reutilizável.
+
+   Uso: num botão dentro do <form> a confirmar, troque type="submit" por
+   type="button" e adicione:
+     data-confirm-titulo="..." data-confirm-msg="..." onclick="abrirConfirm(this)"
+   O texto vem via data-attributes (auto-escapados) — seguro contra aspas no nome.
+#}
+<div id="confirm-modal"
+     style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);
+            align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:var(--radius-lg);padding:1.5rem;
+              width:min(90vw,360px);box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div id="confirm-titulo" style="font-size:1rem;font-weight:700;color:var(--slate-800);margin-bottom:.5rem;"></div>
+    <div id="confirm-msg" style="font-size:.85rem;color:var(--slate-500);margin-bottom:1.25rem;line-height:1.5;"></div>
+    <div style="display:flex;gap:.6rem;">
+      <button type="button" onclick="fecharConfirm()"
+              style="flex:1;min-height:44px;border:1px solid var(--slate-200);background:white;
+                     color:var(--slate-600);border-radius:var(--radius-sm);font-size:.85rem;font-weight:600;cursor:pointer;">
+        Cancelar
+      </button>
+      <button type="button" onclick="executarConfirm()"
+              style="flex:1;min-height:44px;border:none;background:#dc2626;color:white;
+                     border-radius:var(--radius-sm);font-size:.85rem;font-weight:600;cursor:pointer;">
+        Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+<script>
+let _confirmForm = null;
+function abrirConfirm(btn) {
+  _confirmForm = btn.closest('form');
+  document.getElementById('confirm-titulo').textContent = btn.dataset.confirmTitulo || 'Confirmar ação';
+  document.getElementById('confirm-msg').textContent = btn.dataset.confirmMsg || '';
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+function fecharConfirm() {
+  document.getElementById('confirm-modal').style.display = 'none';
+  _confirmForm = null;
+}
+function executarConfirm() { if (_confirmForm) _confirmForm.submit(); }
+document.getElementById('confirm-modal').addEventListener('click', function (e) {
+  if (e.target === this) fecharConfirm();
+});
+</script>

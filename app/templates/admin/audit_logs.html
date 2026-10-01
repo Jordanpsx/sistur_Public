@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Admin — Audit Log Viewer
+-->
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ company_name }} | Log de Auditoria</title>
+
+    {% include '_design_system.html' %}
+
+    <style>
+        /* ─── Base ───────────────────────────────────────────────────────────── */
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--c-bg);
+            margin: 0;
+            color: var(--c-text);
+        }
+
+        /* ─── Topbar ─────────────────────────────────────────────────────────── */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: color-mix(in srgb, var(--c-surface) 88%, transparent);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--c-border);
+        }
+
+        .topbar-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .topbar-logo {
+            height: 30px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .topbar-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--c-text);
+        }
+
+        .topbar-sub {
+            color: var(--c-text-muted);
+            font-weight: 400;
+        }
+
+        .topbar-back {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--c-text-muted);
+            text-decoration: none;
+            padding: 0.375rem 0.875rem;
+            border-radius: 8px;
+            border: 1px solid var(--c-border);
+            transition: all 0.15s;
+        }
+
+        .topbar-back:hover {
+            background: var(--c-surface-2);
+            border-color: var(--c-primary);
+            color: var(--c-primary);
+        }
+
+        /* ─── Page header ────────────────────────────────────────────────────── */
+        .page-header {
+            background: linear-gradient(135deg, #134e4a 0%, #0f766e 100%);
+            padding: 1.75rem 1.5rem;
+        }
+
+        .page-header-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .page-header h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            margin: 0 0 0.2rem;
+            letter-spacing: -0.02em;
+        }
+
+        .page-header p {
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.55);
+            margin: 0;
+        }
+
+        .access-badge {
+            display: inline-block;
+            margin-top: 0.625rem;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.2rem 0.6rem;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        /* ─── Main container ─────────────────────────────────────────────────── */
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 1.5rem 3rem;
+        }
+
+        /* ─── Filter bar ─────────────────────────────────────────────────────── */
+        .filter-bar {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: 14px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.875rem;
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            flex: 1 1 180px;
+            min-width: 140px;
+        }
+
+        .filter-group label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--c-text-muted);
+        }
+
+        .filter-select {
+            height: 44px;
+            padding: 0 2.25rem 0 0.875rem;
+            border: 1px solid var(--c-border);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-family: inherit;
+            color: var(--c-text);
+            background-color: var(--c-surface-2);
+            cursor: pointer;
+            transition: border-color 0.15s, background-color 0.15s;
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--c-primary);
+            background-color: var(--c-surface);
+        }
+
+        .btn-filter {
+            height: 44px;
+            padding: 0 1.5rem;
+            background: var(--c-primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-filter:hover {
+            background: color-mix(in srgb, var(--c-primary) 82%, #000);
+        }
+
+        .btn-clear {
+            height: 44px;
+            padding: 0 1rem;
+            background: transparent;
+            color: var(--c-text-muted);
+            border: 1px solid var(--c-border);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .btn-clear:hover {
+            background: var(--c-danger-bg);
+            color: var(--c-danger-fg);
+            border-color: color-mix(in srgb, var(--c-danger-fg) 35%, transparent);
+        }
+
+        /* ─── Results info ────────────────────────────────────────────────────── */
+        .results-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .results-count {
+            font-size: 0.78rem;
+            color: var(--c-text-muted);
+            font-weight: 500;
+        }
+
+        .active-filters {
+            display: flex;
+            gap: 0.375rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 99px;
+            background: color-mix(in srgb, #6366f1 12%, var(--c-surface));
+            color: color-mix(in srgb, #6366f1 90%, var(--c-text));
+        }
+
+        /* ─── Table wrapper ──────────────────────────────────────────────────── */
+        .table-card {
+            background: var(--c-surface);
+            border-radius: 14px;
+            border: 1px solid var(--c-border);
+            overflow: hidden;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.83rem;
+            min-width: 700px;
+        }
+
+        thead {
+            background: var(--c-surface-2);
+            border-bottom: 1px solid var(--c-border);
+        }
+
+        thead th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--c-text-muted);
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid color-mix(in srgb, var(--c-border) 60%, transparent);
+            transition: background 0.1s;
+        }
+
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: var(--c-surface-2);
+        }
+
+        tbody td {
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+            color: var(--c-text);
+            max-width: 220px;
+        }
+
+        .td-timestamp {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--c-text-muted);
+            white-space: nowrap;
+        }
+
+        .td-time {
+            color: var(--c-border);
+        }
+
+        .td-null {
+            color: var(--c-border);
+        }
+
+        .td-actor {
+            font-weight: 600;
+            color: var(--c-text);
+        }
+
+        .td-actor-id {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--c-text-muted);
+        }
+
+        .td-module {
+            font-weight: 500;
+            text-transform: lowercase;
+            color: var(--c-text);
+        }
+
+        .td-entity {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--c-text-muted);
+        }
+
+        .td-ip {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--c-text-muted);
+        }
+
+        /* ─── Action badges ──────────────────────────────────────────────────── */
+        .badge-action {
+            display: inline-block;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.2rem 0.55rem;
+            border-radius: 99px;
+        }
+
+        .badge-create {
+            background: color-mix(in srgb, #059669 12%, var(--c-surface));
+            color: color-mix(in srgb, #059669 90%, var(--c-text));
+        }
+
+        .badge-update {
+            background: color-mix(in srgb, #d97706 12%, var(--c-surface));
+            color: color-mix(in srgb, #d97706 90%, var(--c-text));
+        }
+
+        .badge-delete {
+            background: color-mix(in srgb, var(--c-danger-fg) 12%, var(--c-surface));
+            color: var(--c-danger-fg);
+        }
+
+        .badge-login {
+            background: color-mix(in srgb, #6366f1 12%, var(--c-surface));
+            color: color-mix(in srgb, #6366f1 90%, var(--c-text));
+        }
+
+        .badge-logout {
+            background: var(--c-surface-2);
+            color: var(--c-text-muted);
+        }
+
+        .badge-view {
+            background: color-mix(in srgb, #0284c7 12%, var(--c-surface));
+            color: color-mix(in srgb, #0284c7 90%, var(--c-text));
+        }
+
+        .badge-export {
+            background: color-mix(in srgb, #7c3aed 12%, var(--c-surface));
+            color: color-mix(in srgb, #7c3aed 90%, var(--c-text));
+        }
+
+        .badge-permission_change {
+            background: color-mix(in srgb, #c2410c 12%, var(--c-surface));
+            color: color-mix(in srgb, #c2410c 90%, var(--c-text));
+        }
+
+        /* ─── Details button ─────────────────────────────────────────────────── */
+        .btn-details {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--c-primary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            transition: background 0.1s;
+            font-family: inherit;
+        }
+
+        .btn-details:hover {
+            background: var(--c-surface-2);
+        }
+
+        /* ─── Modal ──────────────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-overlay.is-open {
+            display: flex;
+        }
+
+        .modal-box {
+            background: var(--c-surface);
+            border-radius: 16px;
+            max-width: 640px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--c-border);
+        }
+
+        .modal-header h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin: 0;
+            color: var(--c-text);
+        }
+
+        .modal-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: var(--c-surface-2);
+            cursor: pointer;
+            color: var(--c-text-muted);
+            transition: all 0.1s;
+        }
+
+        .modal-close:hover {
+            background: var(--c-danger-bg);
+            color: var(--c-danger-fg);
+        }
+
+        .modal-body {
+            padding: 1.25rem 1.5rem;
+        }
+
+        .modal-section-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--c-text-muted);
+            margin: 0 0 0.5rem;
+        }
+
+        .modal-json {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.78rem;
+            background: var(--c-surface-2);
+            border: 1px solid var(--c-border);
+            border-radius: 8px;
+            padding: 0.875rem 1rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--c-text);
+            margin: 0 0 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* ─── Empty state ────────────────────────────────────────────────────── */
+        .empty-state {
+            padding: 3.5rem 1.5rem;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: var(--c-surface-2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--c-text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--c-text-muted);
+            margin: 0 0 0.375rem;
+        }
+
+        .empty-state p {
+            font-size: 0.8rem;
+            color: var(--c-text-muted);
+            margin: 0;
+        }
+
+        /* ─── Pagination ─────────────────────────────────────────────────────── */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1.25rem 1rem;
+            border-top: 1px solid var(--c-border);
+            flex-wrap: wrap;
+        }
+
+        .page-info {
+            font-size: 0.78rem;
+            color: var(--c-text-muted);
+            font-weight: 500;
+            padding: 0 0.5rem;
+        }
+
+        .page-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            height: 36px;
+            padding: 0 0.875rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: inherit;
+            text-decoration: none;
+            border: 1px solid var(--c-border);
+            color: var(--c-text-muted);
+            background: var(--c-surface);
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+
+        .page-btn:hover {
+            background: var(--c-surface-2);
+            border-color: var(--c-primary);
+            color: var(--c-primary);
+        }
+
+        .page-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* ─── Mobile ─────────────────────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .topbar-inner {
+                padding: 0 1rem;
+            }
+
+            .page-header {
+                padding: 1.25rem 1rem;
+            }
+
+            .page-header h1 {
+                font-size: 1.15rem;
+            }
+
+            .main {
+                padding: 1rem 1rem 2.5rem;
+            }
+
+            .filter-bar {
+                padding: 1rem;
+            }
+
+            .filter-group {
+                flex: 1 1 100%;
+            }
+
+            .btn-filter,
+            .btn-clear {
+                flex: 1 1 auto;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Topbar ──────────────────────────────────────────────────────────── -->
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="topbar-brand">
+                {% if company_logo %}
+                <img src="{{ company_logo | e }}" alt="{{ company_name | e }}" class="topbar-logo" />
+                {% endif %}
+                <span class="topbar-title">
+                    {{ company_name | e }}
+                    <span class="topbar-sub">| Log de Auditoria</span>
+                </span>
+            </div>
+            <a href="{{ url_for('portal.dashboard') }}" class="topbar-back">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                Dashboard
+            </a>
+        </div>
+    </header>
+
+    <!-- ── Page header ─────────────────────────────────────────────────────── -->
+    <div class="page-header">
+        <div class="page-header-inner">
+            <h1>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    style="vertical-align:-3px;margin-right:6px;">
+                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2
+                   M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                Log de Auditoria
+            </h1>
+            <p>Rastreamento de todas as mutações do sistema — imutável e cronológico.</p>
+            <span class="access-badge">
+                {% if acesso_total %}🔓 Acesso completo — todos os módulos{% else %}🔒 Acesso restrito — área {{
+                ator.area.name if ator.area else 'sem área' }}{% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- ── Main ────────────────────────────────────────────────────────────── -->
+    <main class="main">
+
+        <!-- ── Filtros ──────────────────────────────────────────────────────── -->
+        <form class="filter-bar" method="GET" action="{{ url_for('admin.audit_logs') }}">
+
+            <!-- Dropdown: Ator -->
+            {% if acesso_total %}
+            <div class="filter-group">
+                <label for="f-user">Ator</label>
+                <select id="f-user" name="user_id" class="filter-select">
+                    <option value="">Todos os atores</option>
+                    {% for uid, nome in funcionarios_map.items() %}
+                    <option value="{{ uid }}" {% if filtro_user_id==uid %}selected{% endif %}>
+                        {{ nome }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <!-- Dropdown: Módulo -->
+            <div class="filter-group">
+                <label for="f-module">Módulo</label>
+                <select id="f-module" name="module" class="filter-select">
+                    <option value="">Todos os módulos</option>
+                    {% for m in modulos %}
+                    <option value="{{ m }}" {% if filtro_module==m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn-filter">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" />
+                    <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                Filtrar
+            </button>
+
+            {% if filtro_user_id or filtro_module %}
+            <a href="{{ url_for('admin.audit_logs') }}" class="btn-clear">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+                </svg>
+                Limpar
+            </a>
+            {% endif %}
+        </form>
+
+        <!-- ── Metadados dos resultados ────────────────────────────────────────── -->
+        <div class="results-meta">
+            <span class="results-count">
+                {{ pagination.total }} registro{{ 's' if pagination.total != 1 else '' }} encontrado{{ 's' if
+                pagination.total != 1 else '' }}
+                — página {{ pagination.page }} de {{ pagination.pages or 1 }}
+            </span>
+            <div class="active-filters">
+                {% if filtro_module %}
+                <span class="filter-tag">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                        <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    módulo: {{ filtro_module }}
+                </span>
+                {% endif %}
+                {% if filtro_user_id and filtro_user_id in funcionarios_map %}
+                <span class="filter-tag">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    ator: {{ funcionarios_map[filtro_user_id] }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ── Tabela ───────────────────────────────────────────────────────── -->
+        <div class="table-card">
+            {% if logs %}
+            <div class="table-scroll">
+                <table id="audit-logs-table">
+                    <thead>
+                        <tr>
+                            <th>Data/Hora</th>
+                            <th>Ator</th>
+                            <th>Módulo</th>
+                            <th>Ação</th>
+                            <th>Entidade</th>
+                            <th>IP</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <!-- Timestamp -->
+                            <td class="td-timestamp">
+                                {{ log.created_at.strftime('%d/%m/%Y') }}<br>
+                                <span class="td-time">{{ log.created_at.strftime('%H:%M:%S') }}</span>
+                            </td>
+
+                            <!-- Ator -->
+                            <td class="td-actor">
+                                {% if log.user_id and log.user_id in funcionarios_map %}
+                                {{ funcionarios_map[log.user_id].split()[0] }}
+                                <br><span class="td-actor-id">#{{ log.user_id }}</span>
+                                {% elif log.user_id %}
+                                <span class="td-actor-id">#{{ log.user_id }}</span>
+                                {% else %}
+                                <span class="td-null">—</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Módulo -->
+                            <td class="td-module">{{ log.module }}</td>
+
+                            <!-- Ação (badge) -->
+                            <td>
+                                <span class="badge-action badge-{{ log.action.value }}">{{ log.action.value }}</span>
+                            </td>
+
+                            <!-- Entidade -->
+                            <td class="td-entity">
+                                {% if log.entity_id %}#{{ log.entity_id }}{% else %}<span class="td-null">—</span>{% endif %}
+                            </td>
+
+                            <!-- IP -->
+                            <td class="td-ip">{{ log.ip_address or '—' }}</td>
+
+                            <!-- Detalhes -->
+                            <td>
+                                {% if log.previous_state or log.new_state %}
+                                <button type="button" class="btn-details"
+                                    onclick="openModal({{ log.id }}, {{ (log.previous_state or {}) | tojson }}, {{ (log.new_state or {}) | tojson }})">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                                        <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" />
+                                        <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2"
+                                            stroke-linecap="round" />
+                                    </svg>
+                                    Ver
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ── Paginação ──────────────────────────────────────────────────── -->
+            {% if pagination.pages > 1 %}
+            <div class="pagination">
+                {% set base_args = {} %}
+                {% if filtro_user_id %}{% set base_args = dict(base_args, user_id=filtro_user_id) %}{% endif %}
+                {% if filtro_module %}{% set base_args = dict(base_args, module=filtro_module) %}{% endif %}
+
+                <a href="{{ url_for('admin.audit_logs', page=pagination.prev_num, **base_args) if pagination.has_prev else '#' }}"
+                    class="page-btn {% if not pagination.has_prev %}disabled{% endif %}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Anterior
+                </a>
+
+                <span class="page-info">Página {{ pagination.page }} de {{ pagination.pages }}</span>
+
+                <a href="{{ url_for('admin.audit_logs', page=pagination.next_num, **base_args) if pagination.has_next else '#' }}"
+                    class="page-btn {% if not pagination.has_next %}disabled{% endif %}">
+                    Próxima
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </a>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- ── Estado vazio ───────────────────────────────────────────────── -->
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <h3>Nenhum registro encontrado</h3>
+                <p>Tente ajustar os filtros ou aguarde novos eventos no sistema.</p>
+            </div>
+            {% endif %}
+        </div>
+
+    </main>
+
+    <!-- ── Modal de detalhes ──────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="details-modal" onclick="if(event.target===this)closeModal()">
+        <div class="modal-box" role="dialog" aria-modal="true" aria-label="Detalhes do log">
+            <div class="modal-header">
+                <h3 id="modal-title">Detalhes do log</h3>
+                <button class="modal-close" onclick="closeModal()" aria-label="Fechar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-section-label">Estado anterior</p>
+                <pre class="modal-json" id="modal-prev">—</pre>
+                <p class="modal-section-label">Estado novo</p>
+                <pre class="modal-json" id="modal-new">—</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id, prev, next) {
+            document.getElementById('modal-title').textContent = 'Log #' + id;
+            document.getElementById('modal-prev').textContent =
+                Object.keys(prev).length ? JSON.stringify(prev, null, 2) : '—';
+            document.getElementById('modal-new').textContent =
+                Object.keys(next).length ? JSON.stringify(next, null, 2) : '—';
+            document.getElementById('details-modal').classList.add('is-open');
+        }
+
+        function closeModal() {
+            document.getElementById('details-modal').classList.remove('is-open');
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+
+</body>
+
+</html>

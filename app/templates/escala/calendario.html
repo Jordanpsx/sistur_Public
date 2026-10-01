@@ -1,0 +1,781 @@
+{% extends "base.html" %}
+{% block title %}Escala — {{ mes }}/{{ ano }}{% endblock %}
+{% block topbar_title %}Escala Mensal{% endblock %}
+
+{% set pode_editar = has_permission(session.get('funcionario_id'), 'escala', 'edit') %}
+
+{% block topbar_right %}
+<a href="{{ url_for('escala.custo_diaristas', mes=mes, ano=ano) }}"
+   style="font-size:.78rem;font-weight:600;color:var(--primary);text-decoration:none;
+          padding:.35rem .75rem;border:1.5px solid var(--primary);border-radius:var(--radius-sm);
+          min-height:44px;display:inline-flex;align-items:center;">
+  💰 Custo Diaristas
+</a>
+{% endblock %}
+
+{% block styles %}
+.nav-mes { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.nav-mes a {
+  padding: .4rem .9rem; border: 1px solid var(--slate-200); border-radius: var(--radius-sm);
+  font-size: .8rem; color: var(--slate-600); text-decoration: none; min-height: 44px;
+  display: inline-flex; align-items: center;
+}
+.nav-mes a:hover { background: var(--slate-50); }
+.nav-mes span { font-size: .85rem; font-weight: 700; color: var(--slate-700); padding: 0 .25rem; }
+
+.btn-gerar {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .5rem 1rem; border: none; border-radius: var(--radius-sm);
+  font-size: .82rem; font-weight: 700; color: white;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  cursor: pointer; min-height: 44px; box-shadow: var(--shadow-sm);
+}
+.btn-gerar:hover { filter: brightness(1.05); }
+
+.filtros { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem; }
+.filtros label { font-size: .75rem; font-weight: 600; color: var(--slate-500); display: block; margin-bottom: .2rem; }
+.filtros select {
+  padding: .45rem .75rem; border: 1px solid var(--slate-200); border-radius: var(--radius-sm);
+  background: var(--c-surface); font-size: .83rem; color: var(--slate-700); outline: none; min-height: 40px;
+}
+.filtros select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+
+.legend { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; align-items: center; }
+.legend-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .25rem .6rem; border-radius: var(--radius-sm); font-size: .72rem; font-weight: 600;
+}
+.legend-chip .total { opacity: .6; font-weight: 400; }
+.legend-sep { width: 1px; height: 18px; background: var(--slate-200); margin: 0 .15rem; }
+.legend-lbl {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .2rem .5rem; border-radius: 999px; font-size: .68rem; font-weight: 600;
+}
+
+/* ── Barra do pincel ── */
+.brush-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+  padding: .65rem .75rem; margin-bottom: .5rem;
+  background: var(--c-surface); border: 1px solid var(--slate-100);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+}
+.brush-bar__hint { font-size: .75rem; font-weight: 700; color: var(--slate-500); margin-right: .15rem; }
+.brush-swatch {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: .35rem .8rem; border-radius: var(--radius-sm);
+  font-size: .72rem; font-weight: 600; cursor: pointer;
+  border: 2px solid transparent; min-height: 40px; transition: transform .1s;
+}
+.brush-swatch:hover { transform: translateY(-1px); }
+.brush-swatch.active { border-color: var(--slate-800); box-shadow: 0 0 0 3px rgba(15,23,42,.12); }
+.brush-eraser { background: var(--slate-100); color: var(--slate-600); }
+.brush-off { background: var(--c-surface); color: var(--slate-500); border: 2px solid var(--slate-200); }
+.brush-off.active { border-color: var(--slate-800); }
+.brush-help { font-size: .72rem; color: var(--slate-400); margin: 0 0 1rem .15rem; }
+
+.cal-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cal-table { border-collapse: collapse; min-width: max-content; width: 100%; table-layout: fixed; }
+.cal-table colgroup col:first-child { min-width: 130px; width: 130px; }
+.cal-table colgroup col { min-width: 40px; width: 40px; }
+.cal-table colgroup col:last-child { min-width: 56px; width: 56px; }
+.cal-th-name {
+  position: sticky; left: 0; z-index: 3; background: var(--slate-50);
+  padding: .4rem .5rem; text-align: left; font-size: .7rem; font-weight: 600;
+  color: var(--slate-500); border-bottom: 1px solid var(--slate-200);
+}
+.cal-th-day {
+  padding: .4rem .2rem; text-align: center; font-size: .65rem; font-weight: 600;
+  color: var(--slate-500); border-bottom: 1px solid var(--slate-200); border-left: 1px solid var(--slate-100);
+}
+.cal-th-day.wknd { color: var(--c-danger-fg); background: var(--c-danger-bg); }
+.cal-th-day div:last-child { font-weight: 400; font-size: .6rem; }
+.cal-th-day.is-today { color: var(--primary-dark); background: var(--primary-light); }
+.cal-th-day.is-today div:first-child { font-weight: 800; }
+
+.cal-th-tot {
+  position: sticky; right: 0; z-index: 3; background: var(--slate-50);
+  padding: .4rem .2rem; text-align: center; font-size: .65rem; font-weight: 700;
+  color: var(--slate-500); border-bottom: 1px solid var(--slate-200); border-left: 2px solid var(--slate-200);
+}
+.cal-td-tot {
+  position: sticky; right: 0; z-index: 1; background: var(--c-surface); text-align: center; font-size: .72rem;
+  border-bottom: 1px solid var(--slate-100); border-left: 2px solid var(--slate-200); white-space: nowrap;
+}
+.cal-td-tot .tot-work { font-weight: 800; color: var(--slate-700); }
+.cal-td-tot .tot-sep { color: var(--slate-300); margin: 0 1px; }
+.cal-td-tot .tot-folga { color: var(--slate-400); }
+
+.cal-td-name {
+  position: sticky; left: 0; z-index: 1; background: var(--c-surface);
+  padding: .4rem .5rem; font-size: .75rem; font-weight: 500; color: var(--slate-700);
+  border-bottom: 1px solid var(--slate-100);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;
+}
+.cal-td-name span { color: var(--slate-400); }
+.cal-td-day {
+  padding: .15rem; text-align: center; cursor: pointer; height: 40px;
+  border-bottom: 1px solid var(--slate-100); border-left: 1px solid var(--slate-100);
+  transition: opacity .15s; position: relative;
+}
+.cal-td-day:hover { opacity: .7; }
+.cal-td-day .cell-tipo { font-size: .58rem; font-weight: 700; display: block; line-height: 1.1; }
+.cal-td-day .cell-labels {
+  display: flex; gap: 1px; justify-content: center; margin-top: 1px; flex-wrap: wrap;
+}
+.cal-td-day .cell-labels b {
+  font-size: .52rem; font-weight: 800; line-height: 1; padding: 1px 2px; border-radius: 2px;
+}
+.cal-td-day .dot { color: var(--c-border); font-size: .7rem; }
+.cal-td-day.is-today { box-shadow: inset 2px 0 0 var(--primary), inset -2px 0 0 var(--primary); }
+.cal-table.painting-mode .cal-td-day { cursor: crosshair; }
+.cal-table:not(.editable) .cal-td-day { cursor: default; }
+.cal-table:not(.editable) .cal-td-day:hover { opacity: 1; }
+
+.section-card {
+  background: var(--c-surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+  border: 1px solid var(--slate-100); overflow: hidden; margin-bottom: 1.5rem;
+}
+.section-card__header {
+  padding: 1rem 1.25rem .8rem; border-bottom: 1px solid var(--slate-100);
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.section-card__title { font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--slate-500); }
+.section-card__body { padding: .75rem 1rem 1rem; }
+
+.form-row { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+@media (min-width: 500px) { .form-row { grid-template-columns: 1fr 1fr; } }
+.form-field label { font-size: .75rem; font-weight: 600; color: var(--slate-500); display: block; margin-bottom: .3rem; }
+.form-field input, .form-field select, .form-field textarea {
+  width: 100%; padding: .55rem .75rem; border: 1px solid var(--slate-200);
+  border-radius: var(--radius-sm); font-size: .85rem; color: var(--slate-700);
+  outline: none; min-height: 40px; background: var(--c-surface); font-family: inherit;
+}
+.form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+
+.chk-labels { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chk-labels label {
+  display: inline-flex; align-items: center; gap: .35rem; cursor: pointer;
+  padding: .3rem .6rem; border: 1px solid var(--slate-200); border-radius: 999px;
+  font-size: .75rem; color: var(--slate-700); min-height: 36px;
+}
+.chk-labels input { accent-color: var(--primary); }
+
+.funcs-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; max-height: 180px; overflow-y: auto;
+  border: 1px solid var(--slate-100); border-radius: var(--radius-sm); padding: .75rem; background: var(--slate-50);
+}
+@media (min-width: 500px) { .funcs-grid { grid-template-columns: repeat(3, 1fr); } }
+.funcs-grid label { display: flex; align-items: center; gap: .4rem; font-size: .78rem; color: var(--slate-700); cursor: pointer; }
+.funcs-grid input { width: 14px; height: 14px; accent-color: var(--primary); flex-shrink: 0; }
+
+.btn-submit {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: .6rem 1.5rem; border: none; border-radius: var(--radius-sm);
+  font-size: .85rem; font-weight: 600; color: white; background: var(--primary);
+  cursor: pointer; min-height: 44px; transition: background .15s;
+}
+.btn-submit:hover { background: var(--primary-dark); }
+
+.empty-cal { text-align: center; padding: 3rem 1rem; color: var(--slate-400); }
+.empty-cal p:first-child { font-size: 2.5rem; margin-bottom: .75rem; }
+
+/* Modais */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,.45); align-items: center; justify-content: center;
+}
+.modal-box {
+  background: var(--c-surface); border-radius: var(--radius-lg); padding: 1.5rem;
+  width: min(92vw, 360px); box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+.modal-title { font-size: .95rem; font-weight: 700; color: var(--slate-800); margin-bottom: 1rem; }
+.modal-sub { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--slate-400); margin: 1rem 0 .5rem; }
+.modal-btn {
+  display: block; width: 100%; padding: .6rem 1rem; border-radius: var(--radius-sm);
+  font-size: .85rem; font-weight: 600; text-align: left; border: 1.5px solid transparent;
+  cursor: pointer; margin-bottom: .4rem; min-height: 44px;
+}
+.modal-btn-cancel {
+  display: block; width: 100%; padding: .55rem 1rem; border-radius: var(--radius-sm);
+  font-size: .85rem; color: var(--slate-500); border: 1px solid var(--slate-200);
+  background: var(--c-surface); cursor: pointer; min-height: 44px; margin-top: .5rem;
+}
+.modal-btn-remove {
+  display: block; width: 100%; padding: .6rem 1rem; border-radius: var(--radius-sm);
+  font-size: .85rem; font-weight: 600; color: var(--c-danger-fg); background: var(--c-danger-bg);
+  border: none; cursor: pointer; min-height: 44px; margin-top: .5rem;
+}
+.modal-opt {
+  display: flex; align-items: flex-start; gap: .5rem; padding: .6rem;
+  border: 1px solid var(--slate-200); border-radius: var(--radius-sm); margin-bottom: .5rem; cursor: pointer;
+}
+.modal-opt input { margin-top: .15rem; accent-color: var(--primary); }
+.modal-opt span { font-size: .8rem; color: var(--slate-700); }
+.modal-opt small { display: block; color: var(--slate-400); font-size: .72rem; }
+
+.modal-textarea {
+  width: 100%; padding: .55rem .65rem; border: 1px solid var(--slate-200);
+  border-radius: var(--radius-sm); font-size: .82rem; color: var(--slate-700);
+  font-family: inherit; outline: none; resize: vertical;
+}
+.modal-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+.modal-preview {
+  font-size: .78rem; color: var(--slate-500); line-height: 1.5; margin-top: .4rem;
+  word-break: break-word;
+}
+.modal-preview a { color: var(--primary); text-decoration: underline; }
+.modal-preview:empty { display: none; }
+
+/* Toast */
+.toast-wrap {
+  position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+  z-index: 200; display: flex; flex-direction: column; gap: .4rem; align-items: center; pointer-events: none;
+}
+.toast {
+  padding: .6rem 1rem; border-radius: var(--radius-md); font-size: .82rem; font-weight: 600; color: white;
+  box-shadow: var(--shadow-lg); max-width: 90vw; opacity: 0; transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast--sucesso { background: var(--c-success-fg); }
+.toast--erro    { background: var(--c-danger-fg); }
+{% endblock %}
+
+{% block content %}
+{% set _nm = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'] %}
+{% set _nm3 = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'] %}
+{% set dia_hoje = hoje.day if (hoje.month == mes and hoje.year == ano) else 0 %}
+<div style="padding-top:1.5rem;">
+
+  {# ── Navegação + Gerar ── #}
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem;">
+    <div class="nav-mes">
+      <a href="{{ url_for('escala.calendario', mes=mes_ant_mes, ano=mes_ant_ano, area_id=area_id or '', equipe_id=equipe_id or '') }}">← Ant.</a>
+      <span>{{ _nm[mes - 1] }} {{ ano }}</span>
+      <a href="{{ url_for('escala.calendario', mes=mes_prx_mes, ano=mes_prx_ano, area_id=area_id or '', equipe_id=equipe_id or '') }}">Próx. →</a>
+    </div>
+    {% if pode_editar %}
+    <button type="button" class="btn-gerar" onclick="abrirGerar()">✨ Gerar do padrão</button>
+    {% endif %}
+  </div>
+
+  {# ── Filtros ── #}
+  <form method="get" class="filtros">
+    <input type="hidden" name="mes" value="{{ mes }}" />
+    <input type="hidden" name="ano" value="{{ ano }}" />
+    <div>
+      <label>Área</label>
+      <select name="area_id" onchange="this.form.submit()">
+        <option value="">Todas</option>
+        {% for area in areas %}
+        <option value="{{ area.id }}" {% if area_id == area.id %}selected{% endif %}>{{ area.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Equipe</label>
+      <select name="equipe_id" onchange="this.form.submit()">
+        <option value="">Todas</option>
+        {% for eq in equipes %}
+        <option value="{{ eq.id }}" {% if equipe_id == eq.id %}selected{% endif %}>{{ eq.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+
+  {# ── Legenda ── #}
+  <div class="legend">
+    {% for t in tipos %}
+    <span class="legend-chip" data-tipo="{{ t }}" style="background:{{ tipo_cores[t] }};color:{{ tipo_texto[t] }}">
+      {{ tipo_labels[t] }} <span class="total">{% if calendario.totais.get(t, 0) %}({{ calendario.totais[t] }}){% endif %}</span>
+    </span>
+    {% endfor %}
+    <span class="legend-sep"></span>
+    {% for lb in label_opcoes %}
+    <span class="legend-lbl" data-label="{{ lb }}" style="background:{{ label_cores[lb] }};color:{{ label_texto[lb] }}">
+      {{ label_labels[lb] }} <span class="total" style="opacity:.6;font-weight:400">{% if calendario.totais_labels.get(lb, 0) %}({{ calendario.totais_labels[lb] }}){% endif %}</span>
+    </span>
+    {% endfor %}
+  </div>
+
+  {# ── Barra do pincel ── #}
+  {% if pode_editar and calendario.linhas %}
+  <div class="brush-bar">
+    <span class="brush-bar__hint">🖌️ Pincel:</span>
+    {# Falta Justificada fica fora do pincel de propósito — exige uma
+       justificativa por escrito, incompatível com pintura instantânea em
+       várias células sem diálogo. Use o clique normal (modal) ou o
+       formulário "Aplicar em lote" abaixo, que tem campo de justificativa. #}
+    {% for t in tipos if t != 'FALTA_JUSTIFICADA' %}
+    <button type="button" class="brush-swatch" data-brush="{{ t }}"
+            style="background:{{ tipo_cores[t] }};color:{{ tipo_texto[t] }}"
+            onclick="setBrush('{{ t }}', this)">{{ tipo_labels[t] }}</button>
+    {% endfor %}
+    <button type="button" class="brush-swatch brush-eraser" data-brush="__erase" onclick="setBrush('__erase', this)">🧽 Apagar</button>
+    <button type="button" class="brush-swatch brush-off active" data-brush="" onclick="setBrush('', this)">✋ Clique normal</button>
+  </div>
+  <p class="brush-help">Pinte Normal/Folga clicando ou arrastando. Para detalhar turno (Manhã/Tarde/Noite) use “Clique normal” e marque os rótulos no menu da célula. Falta Justificada não tem pincel — clique na célula ou use "Aplicar em lote".</p>
+  {% endif %}
+
+  {# ── Calendário ── #}
+  {% if calendario.linhas %}
+  <div class="section-card">
+    <div class="cal-wrap">
+      <table class="cal-table {{ 'editable' if pode_editar else '' }}" id="cal-table">
+        <colgroup>
+          <col />
+          {% for _ in range(calendario.dias_no_mes) %}<col />{% endfor %}
+          <col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="cal-th-name">Colaborador</th>
+            {% for d in range(1, calendario.dias_no_mes + 1) %}
+            <th class="cal-th-day {{ 'wknd' if d in calendario.fins_semana else '' }} {{ 'is-today' if d == dia_hoje else '' }}">
+              <div>{{ d }}</div><div>{{ labels_dias[d] }}</div>
+            </th>
+            {% endfor %}
+            <th class="cal-th-tot" title="Dias trabalhados / folgas">Trab.</th>
+          </tr>
+        </thead>
+        <tbody id="cal-body">
+          {% for linha in calendario.linhas %}
+          {% set f = linha.funcionario %}
+          {% set _entradas = linha.dias.values() | select | list %}
+          {% set worked = _entradas | selectattr('tipo', 'equalto', 'NORMAL') | list | length %}
+          {% set folgas = _entradas | selectattr('tipo', 'equalto', 'FOLGA') | list | length %}
+          <tr data-row>
+            <td class="cal-td-name">
+              {{ f.nome.split()[0] }}{% if f.nome.split()|length > 1 %} <span>{{ f.nome.split()[-1] }}</span>{% endif %}
+            </td>
+            {% for d in range(1, calendario.dias_no_mes + 1) %}
+            {% set entrada = linha.dias.get(d) %}
+            {% set is_wknd = d in calendario.fins_semana %}
+            {% set iso_data = '%04d-%02d-%02d' | format(ano, mes, d) %}
+            <td class="cal-td-day {{ 'is-today' if d == dia_hoje else '' }}"
+                data-fid="{{ f.id }}" data-data="{{ iso_data }}" data-nome="{{ f.nome }}"
+                data-label="{{ '%02d' | format(d) }}/{{ _nm3[mes - 1] }} ({{ labels_dias[d] }})"
+                {% if is_wknd %}data-wknd="1"{% endif %}
+                {% if entrada %}data-tipo="{{ entrada.tipo }}" data-labels="{{ (entrada.labels or []) | join(',') }}" data-justificativa="{{ entrada.justificativa or '' }}"{% endif %}
+                style="background:{{ tipo_cores[entrada.tipo] if entrada else ('var(--c-danger-bg)' if is_wknd else 'var(--c-surface)') }}"
+                title="{{ tipo_labels[entrada.tipo] if entrada else 'Clique para definir' }}">
+              {% if entrada %}
+              <span class="cell-tipo" style="color:{{ tipo_texto[entrada.tipo] }}">{{ tipo_abbr[entrada.tipo] }}</span>
+              {% if entrada.labels %}
+              <span class="cell-labels">
+                {% for lb in entrada.labels %}<b style="background:{{ label_cores[lb] }};color:{{ label_texto[lb] }}">{{ label_abbr[lb] }}</b>{% endfor %}
+              </span>
+              {% endif %}
+              {% else %}
+              <span class="dot">·</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+            <td class="cal-td-tot">
+              <span class="tot-work">{{ worked }}</span><span class="tot-sep">/</span><span class="tot-folga">{{ folgas }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-cal">
+    <p>📅</p>
+    <p>Nenhum colaborador encontrado com os filtros selecionados.</p>
+  </div>
+  {% endif %}
+
+  {# ── Lote ── #}
+  {% if pode_editar and calendario.linhas %}
+  <div class="section-card">
+    <div class="section-card__header">
+      <span class="section-card__title">📋 Aplicar em lote</span>
+    </div>
+    <div class="section-card__body">
+      <form method="post" action="{{ url_for('escala.registrar_lote') }}">
+        <input type="hidden" name="mes" value="{{ mes }}" />
+        <input type="hidden" name="ano" value="{{ ano }}" />
+        <div class="form-row">
+          <div class="form-field">
+            <label>Estado</label>
+            <select name="tipo" id="lote-tipo" required onchange="_syncLoteJustificativa()">
+              {% for t in tipos %}<option value="{{ t }}">{{ tipo_labels[t] }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Rótulos de turno (opcional)</label>
+            <div class="chk-labels">
+              {% for lb in label_opcoes %}
+              <label><input type="checkbox" name="labels" value="{{ lb }}" /> {{ label_labels[lb] }}</label>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="form-field">
+            <label>Data início</label>
+            <input type="date" name="data_inicio" required value="{{ '%04d-%02d-01' | format(ano, mes) }}" />
+          </div>
+          <div class="form-field">
+            <label>Data fim</label>
+            <input type="date" name="data_fim" required value="{{ '%04d-%02d-%02d' | format(ano, mes, calendario.dias_no_mes) }}" />
+          </div>
+        </div>
+
+        <div class="form-field" id="lote-justificativa-field" style="display:none;margin-top:.75rem;">
+          <label>Justificativa por escrito <small style="font-weight:400;color:var(--slate-400);">— aplicada a todos os dias/colaboradores selecionados. Links (http://, https://, www.) viram clicáveis.</small></label>
+          <textarea name="justificativa" id="lote-justificativa" rows="3" class="modal-textarea" style="width:100%;"></textarea>
+        </div>
+
+        <div style="margin-top:1rem;">
+          <div style="display:flex;gap:.75rem;align-items:center;margin-bottom:.5rem;">
+            <label style="font-size:.75rem;font-weight:600;color:var(--slate-500);">Colaboradores</label>
+            <button type="button" onclick="toggleAll(true)" style="font-size:.75rem;color:var(--primary);background:none;border:none;cursor:pointer;">Todos</button>
+            <button type="button" onclick="toggleAll(false)" style="font-size:.75rem;color:var(--slate-400);background:none;border:none;cursor:pointer;">Limpar</button>
+          </div>
+          <div class="funcs-grid">
+            {% for linha in calendario.linhas %}
+            {% set f = linha.funcionario %}
+            <label><input type="checkbox" name="funcionario_ids" value="{{ f.id }}" /> {{ f.nome.split()[0] }}</label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit" style="margin-top:1rem;">Aplicar em lote</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+{# ── Modal de célula ── #}
+<div id="modal-escala" class="modal-overlay" onclick="if(event.target===this)fecharModal()">
+  <div class="modal-box">
+    <div id="modal-titulo" class="modal-title"></div>
+    {% if pode_editar %}
+    <div class="modal-sub">Estado do dia</div>
+    {% for t in tipos %}
+    <button type="button" class="modal-btn" style="background:{{ tipo_cores[t] }};color:{{ tipo_texto[t] }}"
+            onclick="salvarTipo('{{ t }}')">{{ tipo_labels[t] }}</button>
+    {% endfor %}
+
+    <div class="modal-sub" id="modal-labels-head">Rótulos de turno (opcional)</div>
+    <div class="chk-labels" id="modal-labels">
+      {% for lb in label_opcoes %}
+      <label><input type="checkbox" value="{{ lb }}" onchange="salvarComLabels()" /> {{ label_labels[lb] }}</label>
+      {% endfor %}
+    </div>
+
+    <div class="modal-sub" id="modal-justificativa-head" style="display:none">Justificativa por escrito</div>
+    <div id="modal-justificativa-wrap" style="display:none">
+      <textarea id="modal-justificativa" class="modal-textarea" rows="4"
+                placeholder="Motivo da falta. Links (http://, https://, www.) viram clicáveis."
+                oninput="_renderJustificativaPreview()"></textarea>
+      <div id="modal-justificativa-preview" class="modal-preview"></div>
+      <button type="button" class="btn-submit" style="width:100%;margin-top:.5rem;"
+              onclick="salvarFaltaJustificada()">Salvar falta justificada</button>
+    </div>
+
+    <button type="button" class="modal-btn-remove" onclick="removerTurno()">Remover dia</button>
+    {% endif %}
+    <button type="button" class="modal-btn-cancel" onclick="fecharModal()">Fechar</button>
+  </div>
+</div>
+
+{# ── Modal Gerar do padrão ── #}
+{% if pode_editar %}
+<div id="modal-gerar" class="modal-overlay" onclick="if(event.target===this)fecharGerar()">
+  <div class="modal-box">
+    <div class="modal-title">✨ Gerar escala de {{ _nm[mes - 1] }} {{ ano }}</div>
+    <p style="font-size:.82rem;color:var(--slate-500);line-height:1.5;margin-bottom:1rem;">
+      Escala automaticamente cada colaborador <strong>CLT</strong> a partir da jornada cadastrada:
+      dias de trabalho viram <strong>Normal</strong> e dias de folga viram <strong>Folga</strong>.
+      Diaristas e quem não tem jornada cadastrada não são escalados.
+    </p>
+    <form method="post" action="{{ url_for('escala.gerar_do_padrao') }}">
+      <input type="hidden" name="mes" value="{{ mes }}" />
+      <input type="hidden" name="ano" value="{{ ano }}" />
+      <input type="hidden" name="area_id" value="{{ area_id or '' }}" />
+      <input type="hidden" name="equipe_id" value="{{ equipe_id or '' }}" />
+      <label class="modal-opt">
+        <input type="radio" name="sobrescrever" value="" checked />
+        <span>Preencher só os dias vazios <small>Mantém os ajustes manuais já feitos.</small></span>
+      </label>
+      <label class="modal-opt">
+        <input type="radio" name="sobrescrever" value="1" />
+        <span>Sobrescrever tudo <small>Substitui o mês inteiro pelo padrão (apaga ajustes manuais).</small></span>
+      </label>
+      <button type="submit" class="btn-submit" style="width:100%;margin-top:.5rem;">Gerar escala</button>
+      <button type="button" class="modal-btn-cancel" onclick="fecharGerar()">Cancelar</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{# ── Toast ── #}
+<div id="toast-wrap" class="toast-wrap"></div>
+
+<script>
+const CAN_EDIT    = {{ 'true' if pode_editar else 'false' }};
+const TIPO_LABELS = {{ tipo_labels | tojson }};
+const TIPO_CORES  = {{ tipo_cores | tojson }};
+const TIPO_TEXTO  = {{ tipo_texto | tojson }};
+const TIPO_ABBR   = {{ tipo_abbr | tojson }};
+const LABEL_ABBR  = {{ label_abbr | tojson }};
+const LABEL_CORES = {{ label_cores | tojson }};
+const LABEL_TEXTO = {{ label_texto | tojson }};
+const URL_ENTRADA = "{{ url_for('escala.registrar_entrada') }}";
+const URL_REMOVER = "{{ url_for('escala.remover_entrada') }}";
+
+let _cel = null;
+let _brush = '';
+let _dragging = false;
+let _pendenteFalta = false;   // true enquanto o modal aguarda justificativa antes de salvar
+
+// ── Justificativa: texto sempre não-confiável — escapa tudo primeiro,
+// só depois envolve trechos que parecem URL em <a>. Nunca innerHTML direto
+// com o texto cru (ver .claude/skills — nunca HTML confiável de input livre).
+function _escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function _linkify(text) {
+  const escaped = _escHtml(text);
+  const urlRe = /((https?:\/\/|www\.)[^\s<]+[^\s<.,;:!?)\]'"])/gi;
+  return escaped.replace(urlRe, (match) => {
+    const href = /^https?:\/\//i.test(match) ? match : 'https://' + match;
+    return '<a href="' + href + '" target="_blank" rel="noopener noreferrer">' + match + '</a>';
+  });
+}
+function _renderJustificativaPreview() {
+  const el = document.getElementById('modal-justificativa-preview');
+  const texto = document.getElementById('modal-justificativa').value.trim();
+  el.innerHTML = texto ? _linkify(texto) : '';
+}
+
+function toast(msg, tipo) {
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast toast--' + (tipo || 'sucesso');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 250); }, 2600);
+}
+
+// ── DOM (sem rede) ──
+function _labelsDe(td) {
+  return (td.dataset.labels || '').split(',').filter(Boolean);
+}
+function _pintar(td, tipo, labels, justificativa) {
+  td.dataset.tipo = tipo;
+  td.dataset.labels = (labels || []).join(',');
+  if (justificativa !== undefined) td.dataset.justificativa = justificativa || '';
+  td.style.background = TIPO_CORES[tipo];
+  td.title = TIPO_LABELS[tipo];
+  let html = '<span class="cell-tipo" style="color:' + TIPO_TEXTO[tipo] + '">' + (TIPO_ABBR[tipo] || TIPO_LABELS[tipo]) + '</span>';
+  if (labels && labels.length) {
+    html += '<span class="cell-labels">';
+    labels.forEach(lb => {
+      html += '<b style="background:' + LABEL_CORES[lb] + ';color:' + LABEL_TEXTO[lb] + '">' + LABEL_ABBR[lb] + '</b>';
+    });
+    html += '</span>';
+  }
+  td.innerHTML = html;
+}
+function _limpar(td) {
+  delete td.dataset.tipo;
+  td.dataset.labels = '';
+  td.dataset.justificativa = '';
+  td.style.background = td.dataset.wknd ? 'var(--c-danger-bg)' : 'var(--c-surface)';
+  td.title = 'Clique para definir';
+  td.innerHTML = '<span class="dot">·</span>';
+}
+function _restaurar(td, tipoAnt, labelsAnt, justificativaAnt) {
+  if (tipoAnt) _pintar(td, tipoAnt, labelsAnt, justificativaAnt); else _limpar(td);
+}
+
+function recalcTotais() {
+  const gTipo = {}, gLabel = {};
+  document.querySelectorAll('tr[data-row]').forEach(tr => {
+    let work = 0, folga = 0;
+    tr.querySelectorAll('.cal-td-day').forEach(td => {
+      const t = td.dataset.tipo;
+      if (!t) return;
+      gTipo[t] = (gTipo[t] || 0) + 1;
+      // Mesma regra do render inicial (Jinja): só NORMAL conta como
+      // trabalhado, só FOLGA conta como folga. FALTA_JUSTIFICADA não
+      // entra em nenhuma das duas colunas — visível só na legenda.
+      if (t === 'NORMAL') work++; else if (t === 'FOLGA') folga++;
+      _labelsDe(td).forEach(lb => { gLabel[lb] = (gLabel[lb] || 0) + 1; });
+    });
+    const tot = tr.querySelector('.cal-td-tot');
+    if (tot) {
+      tot.querySelector('.tot-work').textContent = work;
+      tot.querySelector('.tot-folga').textContent = folga;
+    }
+  });
+  document.querySelectorAll('.legend-chip[data-tipo]').forEach(chip => {
+    const n = gTipo[chip.dataset.tipo] || 0;
+    chip.querySelector('.total').textContent = n ? '(' + n + ')' : '';
+  });
+  document.querySelectorAll('.legend-lbl[data-label]').forEach(chip => {
+    const n = gLabel[chip.dataset.label] || 0;
+    chip.querySelector('.total').textContent = n ? '(' + n + ')' : '';
+  });
+}
+
+// ── rede (otimista) ──
+function aplicar(td, tipo, labels, justificativa) {
+  const tA = td.dataset.tipo || '', lA = _labelsDe(td), jA = td.dataset.justificativa || '';
+  _pintar(td, tipo, labels || [], justificativa || '');
+  recalcTotais();
+  fetch(URL_ENTRADA, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      funcionario_id: parseInt(td.dataset.fid), data: td.dataset.data,
+      tipo: tipo, labels: labels || [], justificativa: justificativa || null,
+    })
+  }).then(r => r.json()).then(d => {
+    if (!d.ok) { _restaurar(td, tA, lA, jA); recalcTotais(); toast('Erro: ' + d.erro, 'erro'); }
+  }).catch(() => { _restaurar(td, tA, lA, jA); recalcTotais(); toast('Falha de conexão', 'erro'); });
+}
+function removerCelula(td) {
+  if (!td.dataset.tipo) return;
+  const tA = td.dataset.tipo, lA = _labelsDe(td);
+  _limpar(td);
+  recalcTotais();
+  fetch(URL_REMOVER, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ funcionario_id: parseInt(td.dataset.fid), data: td.dataset.data })
+  }).then(r => r.json()).then(d => {
+    if (!d.ok) { _pintar(td, tA, lA); recalcTotais(); toast('Erro: ' + d.erro, 'erro'); }
+  }).catch(() => { _pintar(td, tA, lA); recalcTotais(); toast('Falha de conexão', 'erro'); });
+}
+
+// ── pincel ──
+function setBrush(b, btn) {
+  _brush = b;
+  document.querySelectorAll('.brush-swatch').forEach(s => s.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const tbl = document.getElementById('cal-table');
+  if (tbl) tbl.classList.toggle('painting-mode', b !== '');
+}
+function aplicarPincel(td) {
+  if (_brush === '__erase') { if (td.dataset.tipo) removerCelula(td); }
+  else if (_brush) { if (td.dataset.tipo !== _brush) aplicar(td, _brush, []); }
+}
+
+// ── modal de célula ──
+function abrirModal(td) {
+  if (!CAN_EDIT) return;
+  _cel = td;
+  _pendenteFalta = false;
+  document.getElementById('modal-titulo').textContent = td.dataset.nome + ' — ' + td.dataset.label;
+  const atuais = _labelsDe(td);
+  document.querySelectorAll('#modal-labels input').forEach(cb => { cb.checked = atuais.indexOf(cb.value) !== -1; });
+  document.getElementById('modal-justificativa').value = td.dataset.justificativa || '';
+  _renderJustificativaPreview();
+  _syncLabelsVisibilidade();
+  _syncJustificativaVisibilidade();
+  document.getElementById('modal-escala').style.display = 'flex';
+}
+function fecharModal() {
+  document.getElementById('modal-escala').style.display = 'none';
+  _cel = null;
+  _pendenteFalta = false;
+}
+function _tipoAtualModal() {
+  if (_pendenteFalta) return 'FALTA_JUSTIFICADA';
+  return (_cel && _cel.dataset.tipo) || 'NORMAL';
+}
+function _labelsMarcados() {
+  return Array.from(document.querySelectorAll('#modal-labels input:checked')).map(cb => cb.value);
+}
+function _syncLabelsVisibilidade() {
+  // Rótulos só fazem sentido em dias NORMAL
+  const ehNormal = _tipoAtualModal() === 'NORMAL';
+  document.getElementById('modal-labels').style.opacity = ehNormal ? '1' : '.4';
+  document.getElementById('modal-labels').style.pointerEvents = ehNormal ? 'auto' : 'none';
+}
+function _syncJustificativaVisibilidade() {
+  const ehFalta = _tipoAtualModal() === 'FALTA_JUSTIFICADA';
+  document.getElementById('modal-justificativa-head').style.display = ehFalta ? 'block' : 'none';
+  document.getElementById('modal-justificativa-wrap').style.display = ehFalta ? 'block' : 'none';
+}
+function salvarTipo(tipo) {
+  if (!_cel) return;
+  if (tipo === 'FALTA_JUSTIFICADA') {
+    // Exige justificativa antes de salvar — não dispara aplicar() ainda.
+    _pendenteFalta = true;
+    _syncLabelsVisibilidade();
+    _syncJustificativaVisibilidade();
+    document.getElementById('modal-justificativa').focus();
+    return;
+  }
+  _pendenteFalta = false;
+  const labels = tipo === 'FOLGA' ? [] : _labelsMarcados();
+  aplicar(_cel, tipo, labels, null);
+  // mantém o modal aberto para ajustar rótulos quando NORMAL; fecha se folga
+  _cel.dataset.tipo = tipo;
+  _syncLabelsVisibilidade();
+  _syncJustificativaVisibilidade();
+  if (tipo === 'FOLGA') fecharModal();
+}
+function salvarComLabels() {
+  if (!_cel) return;
+  aplicar(_cel, _tipoAtualModal(), _labelsMarcados());
+}
+function salvarFaltaJustificada() {
+  if (!_cel) return;
+  const texto = document.getElementById('modal-justificativa').value.trim();
+  if (!texto) { toast('Escreva a justificativa antes de salvar.', 'erro'); return; }
+  aplicar(_cel, 'FALTA_JUSTIFICADA', [], texto);
+  _cel.dataset.tipo = 'FALTA_JUSTIFICADA';
+  _pendenteFalta = false;
+  fecharModal();
+}
+function removerTurno() { if (_cel) removerCelula(_cel); fecharModal(); }
+
+function toggleAll(check) {
+  document.querySelectorAll('input[name="funcionario_ids"]').forEach(cb => cb.checked = check);
+}
+
+// ── lote: campo de justificativa só aparece/é exigido para Falta Justificada ──
+function _syncLoteJustificativa() {
+  const tipoSel = document.getElementById('lote-tipo');
+  const campo = document.getElementById('lote-justificativa-field');
+  const textarea = document.getElementById('lote-justificativa');
+  if (!tipoSel || !campo || !textarea) return;
+  const ehFalta = tipoSel.value === 'FALTA_JUSTIFICADA';
+  campo.style.display = ehFalta ? 'block' : 'none';
+  textarea.required = ehFalta;
+}
+_syncLoteJustificativa();
+
+// ── modal gerar ──
+function abrirGerar() { document.getElementById('modal-gerar').style.display = 'flex'; }
+function fecharGerar() { document.getElementById('modal-gerar').style.display = 'none'; }
+
+// ── delegação de eventos ──
+const _tbody = document.getElementById('cal-body');
+if (_tbody && CAN_EDIT) {
+  _tbody.addEventListener('click', e => {
+    const td = e.target.closest('.cal-td-day');
+    if (!td) return;
+    if (_brush) aplicarPincel(td); else abrirModal(td);
+  });
+  _tbody.addEventListener('mousedown', e => {
+    const td = e.target.closest('.cal-td-day');
+    if (!td || !_brush) return;
+    e.preventDefault(); _dragging = true; aplicarPincel(td);
+  });
+  _tbody.addEventListener('mouseover', e => {
+    if (!_dragging || !_brush) return;
+    const td = e.target.closest('.cal-td-day');
+    if (td) aplicarPincel(td);
+  });
+  document.addEventListener('mouseup', () => { _dragging = false; });
+}
+</script>
+{% endblock %}

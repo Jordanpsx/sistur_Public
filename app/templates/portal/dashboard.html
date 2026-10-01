@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Portal do Colaborador — Dashboard (redesign v2)
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Minha Área</title>
+
+  {% include '_design_system.html' %}
+
+  <style>
+    /* ─── White-label CSS Variables ─────────────────────────────────────────── */
+    :root {
+      --primary: #0d9488;
+      --primary-light: #ccfbf1;
+      --primary-dark: #0f766e;
+      --primary-hero: #134e4a;
+      --primary-hero-2: #0f766e;
+      --bg-page: var(--c-bg);
+
+      /* Module accent colors */
+      --mod-rh: #6366f1;
+      --mod-rh-bg: #eef2ff;
+      --mod-ponto: #0d9488;
+      --mod-ponto-bg: #ccfbf1;
+      --mod-holerite: #d97706;
+      --mod-holerite-bg: #fef3c7;
+      --mod-reservas: #ec4899;
+      --mod-reservas-bg: #fce7f3;
+      --mod-audit: #7c3aed;
+      --mod-audit-bg: #ede9fe;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-page);
+      margin: 0;
+    }
+
+    /* ─── Top bar ───────────────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: color-mix(in srgb, var(--c-surface) 85%, transparent);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .topbar-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .topbar-logo {
+      height: 32px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .topbar-logo-fallback {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: var(--primary-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .topbar-name {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--c-text);
+      display: none;
+    }
+
+    @media (min-width: 640px) {
+      .topbar-name {
+        display: block;
+      }
+    }
+
+    .topbar-sub {
+      color: var(--c-text-muted);
+      font-weight: 400;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .topbar-employee {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--c-text-muted);
+      display: none;
+    }
+
+    @media (min-width: 640px) {
+      .topbar-employee {
+        display: block;
+      }
+    }
+
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.875rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--c-text-muted);
+      background: transparent;
+      border: 1px solid var(--c-border);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-logout:hover {
+      background: #fef2f2;
+      color: #dc2626;
+      border-color: #fecaca;
+    }
+
+    /* ─── Hero Banner ───────────────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, var(--primary-hero) 0%, var(--primary-hero-2) 100%);
+      padding: 2.5rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.04);
+      pointer-events: none;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -40px;
+      left: 15%;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.03);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .hero-glass {
+      flex: 1 1 280px;
+    }
+
+    @media (max-width: 640px) {
+      .hero-inner {
+        flex-direction: column;
+        gap: 0.875rem;
+      }
+
+      .hero-glass {
+        flex: 1 1 100%;
+      }
+    }
+
+    /* Glassmorphism employee card */
+    .hero-glass {
+      background: rgba(255, 255, 255, 0.10);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 18px;
+      padding: 1.75rem 2rem;
+      position: relative;
+      z-index: 1;
+      min-width: 0;
+    }
+
+    .hero-greeting {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.25rem;
+    }
+
+    .hero-subtitle {
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.55);
+      margin: 0 0 1.25rem;
+    }
+
+    .hero-divider {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      margin: 0 0 1.25rem;
+    }
+
+    .hero-data-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem 1.25rem;
+    }
+
+    .hero-data-item dt {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.45);
+      margin: 0 0 0.15rem;
+    }
+
+    .hero-data-item dd {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .hero-data-item dd.mono {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+    }
+
+
+
+    /* ─── Module Grid ───────────────────────────────────────────────────────── */
+    .modules-section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 3rem;
+    }
+
+    .modules-heading {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--c-text-muted);
+      margin: 0 0 1rem;
+    }
+
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.875rem;
+    }
+
+    @media (max-width: 900px) {
+      .modules-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .modules-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .modules-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ─── Module Card ───────────────────────────────────────────────────────── */
+    .mod-card {
+      background: var(--c-surface);
+      border-radius: 16px;
+      border: 1px solid var(--c-border);
+      border-left: 4px solid transparent;
+      padding: 1.25rem 1.25rem 1.25rem 1.1rem;
+      text-decoration: none;
+      display: block;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      cursor: pointer;
+      min-width: 0;
+
+      /* staggered fade-in */
+      opacity: 0;
+      animation: fadeUp 0.4s ease-out forwards;
+    }
+
+    .mod-card:nth-child(1) {
+      animation-delay: 0.05s;
+    }
+
+    .mod-card:nth-child(2) {
+      animation-delay: 0.12s;
+    }
+
+    .mod-card:nth-child(3) {
+      animation-delay: 0.19s;
+    }
+
+    .mod-card:nth-child(4) {
+      animation-delay: 0.26s;
+    }
+
+    .mod-card:nth-child(5) {
+      animation-delay: 0.33s;
+    }
+
+    .mod-card:nth-child(6) {
+      animation-delay: 0.40s;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Cor de acento por módulo — dirige hover/ícone de forma uniforme.
+       Cards genéricos definem --mod-accent inline no próprio style. */
+    .mod-card.mod-rh          { --mod-accent: var(--mod-rh); }
+    .mod-card.mod-ponto       { --mod-accent: var(--mod-ponto); }
+    .mod-card.mod-holerite    { --mod-accent: var(--mod-holerite); }
+    .mod-card.mod-reservas    { --mod-accent: var(--mod-reservas); }
+    .mod-card.mod-audit       { --mod-accent: var(--mod-audit); }
+    .mod-card.mod-config      { --mod-accent: #7c3aed; }
+
+    /* Hover ÚNICO para TODOS os módulos ativos (consistência) */
+    .mod-card.mod-active:hover {
+      transform: translateY(-4px);
+      border-left-color: var(--mod-accent, var(--primary));
+      box-shadow: 0 12px 28px color-mix(in srgb, var(--mod-accent, var(--primary)) 20%, transparent);
+    }
+
+    .mod-card.mod-active:hover .mod-card-title {
+      color: var(--mod-accent, var(--primary));
+    }
+
+    /* Disabled card */
+    .mod-card.mod-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* Master switch OFF — visível apenas para super_admin com aviso */
+    .mod-card.mod-master-off {
+      border-left-color: #f59e0b;
+      opacity: 0.75;
+    }
+
+    .mod-card.mod-master-off:hover {
+      border-left-color: #d97706 !important;
+      box-shadow: 0 8px 20px rgba(217, 119, 6, 0.15) !important;
+    }
+
+    .badge-master-off {
+      font-size: 0.67rem;
+      font-weight: 700;
+      background: #fef3c7;
+      color: #d97706;
+      padding: 2px 7px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Configurações card — super admin only */
+    .mod-card.mod-config:hover {
+      box-shadow: 0 12px 28px rgba(124, 58, 237, 0.18);
+      border-left-color: #7c3aed;
+    }
+
+    .mod-card.mod-config .mod-icon {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+
+    .mod-card.mod-active.mod-config:hover .mod-icon {
+      background: #7c3aed;
+      color: #fff;
+    }
+
+    .mod-card.mod-active.mod-config:hover .mod-card-title {
+      color: #7c3aed;
+    }
+
+    /* Card header row */
+    .mod-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+      margin-bottom: 0.875rem;
+    }
+
+    .mod-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    /* Ícone padrão tonalizado pela cor de acento — cobre módulos sem regra
+       própria (audit, e os cards genéricos com --mod-accent inline). As regras
+       específicas por módulo abaixo têm precedência (maior especificidade). */
+    .mod-card .mod-icon {
+      background: color-mix(in srgb, var(--mod-accent, var(--primary)) 14%, transparent);
+      color: var(--mod-accent, var(--primary));
+    }
+
+    .mod-card.mod-active:hover .mod-icon {
+      background: var(--mod-accent, var(--primary));
+      color: #fff;
+    }
+
+    .mod-card.mod-rh .mod-icon {
+      background: var(--mod-rh-bg);
+      color: var(--mod-rh);
+    }
+
+    .mod-card.mod-ponto .mod-icon {
+      background: var(--mod-ponto-bg);
+      color: var(--mod-ponto);
+    }
+
+    .mod-card.mod-holerite .mod-icon {
+      background: var(--mod-holerite-bg);
+      color: var(--mod-holerite);
+    }
+
+
+
+    .mod-card.mod-disabled .mod-icon {
+      background: var(--c-border);
+      color: var(--c-text-muted);
+    }
+
+    .mod-card.mod-active.mod-rh:hover .mod-icon {
+      background: var(--mod-rh);
+      color: #fff;
+    }
+
+    .mod-card.mod-active.mod-ponto:hover .mod-icon {
+      background: var(--mod-ponto);
+      color: #fff;
+    }
+
+
+
+    .mod-card-titles {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .mod-card-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--c-text);
+      margin: 0 0 0.25rem;
+      transition: color 0.2s ease;
+    }
+
+    .mod-card.mod-active.mod-rh:hover .mod-card-title {
+      color: var(--mod-rh);
+    }
+
+    .mod-card.mod-active.mod-ponto:hover .mod-card-title {
+      color: var(--mod-ponto);
+    }
+
+
+
+    .mod-card.mod-active.mod-reservas:hover {
+      border-color: var(--mod-reservas);
+      background: rgba(236, 72, 153, 0.02);
+    }
+
+    .mod-card.mod-reservas .mod-icon {
+      background: var(--mod-reservas-bg);
+      color: var(--mod-reservas);
+    }
+
+    .mod-card.mod-active.mod-reservas:hover .mod-icon {
+      background: var(--mod-reservas);
+      color: white;
+    }
+
+    .mod-card.mod-active.mod-reservas:hover .mod-card-title {
+      color: var(--mod-reservas);
+    }
+
+    .badge-reservas {
+      background: var(--mod-reservas-bg);
+      color: var(--mod-reservas);
+    }
+
+    .mod-badge {
+      display: inline-block;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.5rem;
+      border-radius: 99px;
+    }
+
+    .badge-rh {
+      background: var(--mod-rh-bg);
+      color: var(--mod-rh);
+    }
+
+    .badge-ponto {
+      background: var(--mod-ponto-bg);
+      color: var(--mod-ponto);
+    }
+
+    .badge-holerite {
+      background: var(--mod-holerite-bg);
+      color: var(--mod-holerite);
+    }
+
+
+
+    .badge-em-breve {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .mod-card-desc {
+      font-size: 0.775rem;
+      color: var(--c-text-muted);
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    @media (max-width: 640px) {
+      .hero {
+        padding: 1.25rem 1rem;
+      }
+
+      .hero-glass {
+        padding: 1.25rem;
+      }
+
+      .hero-greeting {
+        font-size: 1.3rem;
+      }
+
+      .hero-subtitle {
+        font-size: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .hero-data-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem 1rem;
+      }
+
+      .modules-section {
+        padding: 1.25rem 1rem 2.5rem;
+      }
+
+      /* Cards menores no mobile */
+      .mod-card {
+        padding: 1rem 1rem 1rem 0.9rem;
+        border-radius: 14px;
+      }
+
+      .mod-card-header {
+        margin-bottom: 0.5rem;
+        gap: 0.625rem;
+      }
+
+      .mod-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+      }
+
+      .mod-card-title {
+        font-size: 0.82rem;
+      }
+
+      .mod-card-desc {
+        font-size: 0.72rem;
+        line-height: 1.4;
+      }
+
+      .topbar-inner {
+        padding: 0 1rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Top bar ─────────────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-inner">
+
+      <div class="topbar-brand">
+        {% if company_logo %}
+        <img src="{{ company_logo | e }}" alt="{{ company_name | e }}" class="topbar-logo" />
+        {% else %}
+        <div class="topbar-logo-fallback">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+            <path d="M12 8V12L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </div>
+        {% endif %}
+        <span class="topbar-name">
+          {{ company_name | e }}
+          <span class="topbar-sub"> | Portal do Colaborador</span>
+        </span>
+      </div>
+
+      <div class="topbar-actions">
+        {% include '_avisos_bell.html' %}
+        <span class="topbar-employee">{{ funcionario.nome.split()[0] | e }}</span>
+        <a href="{{ url_for('portal.minha_senha_form') }}"
+           title="Alterar senha"
+           aria-label="Alterar senha"
+           class="inline-flex items-center justify-center w-11 h-11 rounded-full
+                  text-content-muted hover:text-primary hover:bg-surface-2
+                  transition-colors duration-150">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="11" width="18" height="11" rx="2"
+                  stroke="currentColor" stroke-width="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </a>
+        <form method="POST" action="{{ url_for('portal.logout') }}">
+          <button type="submit" class="btn-logout">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4
+                       M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Sair
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ── Hero Banner ─────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-inner">
+
+      <!-- Employee glass card -->
+      <div class="hero-glass">
+        <h1 class="hero-greeting">Olá, {{ funcionario.nome.split()[0] | e }} 👋</h1>
+        <p class="hero-subtitle">Bem-vindo ao seu painel. Aqui você acompanha seus dados e registros.</p>
+        <hr class="hero-divider" />
+        <dl class="hero-data-grid">
+          <div class="hero-data-item">
+            <dt>Nome completo</dt>
+            <dd>{{ funcionario.nome | e }}</dd>
+          </div>
+          <div class="hero-data-item">
+            <dt>CPF</dt>
+            <dd class="mono">{{ funcionario.cpf_formatado() }}</dd>
+          </div>
+          <div class="hero-data-item">
+            <dt>Cargo</dt>
+            <dd>{{ funcionario.cargo or '—' | e }}</dd>
+          </div>
+          <div class="hero-data-item">
+            <dt>Área</dt>
+            <dd>{{ funcionario.area.name if funcionario.area else '—' }}</dd>
+          </div>
+          {% if funcionario.matricula %}
+          <div class="hero-data-item">
+            <dt>Matrícula</dt>
+            <dd class="mono">{{ funcionario.matricula | e }}</dd>
+          </div>
+          {% endif %}
+          {% if funcionario.data_admissao %}
+          <div class="hero-data-item">
+            <dt>Admissão</dt>
+            <dd>{{ funcionario.data_admissao.strftime('%d/%m/%Y') }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+      </div>
+
+
+
+    </div>
+  </section>
+
+  <!-- ── Module Grid ──────────────────────────────────────────────────────────── -->
+  <main class="modules-section">
+    <p class="modules-heading">Módulos disponíveis</p>
+
+    <div class="modules-grid">
+
+      <!-- Funcionários -->
+      {% if perms.funcionarios.view %}
+      <a href="{{ url_for('rh.dashboard') }}" class="mod-card mod-active mod-rh">
+        <div class="mod-card-header">
+          <div class="mod-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2
+                       M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z
+                       M23 21v-2a4 4 0 0 0-3-3.87
+                       M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">{{ nomes_modulos.get('rh', 'Funcionários') }}</h2>
+            <span class="mod-badge badge-rh">RH</span>
+          </div>
+        </div>
+        <p class="mod-card-desc">Cadastre, edite e gerencie os colaboradores da empresa.</p>
+      </a>
+      {% endif %}
+
+      <!-- Ponto Eletrônico -->
+      {% if perms.ponto.view and (modulos_ativos.ponto or is_super_admin) %}
+      <a href="{{ url_for('ponto.historico') }}"
+        class="mod-card mod-active mod-ponto{% if not modulos_ativos.ponto %} mod-master-off{% endif %}">
+        <div class="mod-card-header">
+          <div class="mod-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="2" />
+              <path d="M12 11v5M12 7v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">{{ nomes_modulos.get('ponto', 'Ponto Eletrônico') }}</h2>
+            {% if not modulos_ativos.ponto %}
+            <span class="badge-master-off">Desativado</span>
+            {% else %}
+            <span class="mod-badge badge-ponto">Ponto</span>
+            {% endif %}
+          </div>
+        </div>
+        <p class="mod-card-desc">Visualize e confirme seus registros de entrada e saída.</p>
+      </a>
+      {% elif not perms.ponto.view %}
+      <div class="mod-card mod-disabled mod-ponto">
+        <div class="mod-card-header">
+          <div class="mod-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <rect x="5" y="2" width="14" height="20" rx="2" stroke="currentColor" stroke-width="2" />
+              <path d="M12 11v5M12 7v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">{{ nomes_modulos.get('ponto', 'Ponto Eletrônico') }}</h2>
+            <span class="mod-badge badge-em-breve">Em breve</span>
+          </div>
+        </div>
+        <p class="mod-card-desc">Visualize e confirme seus registros de entrada e saída.</p>
+      </div>
+      {% endif %}
+
+      <!-- Relatórios (2.6) -->
+      {% if perms.relatorios.view %}
+      <a href="{{ url_for('relatorios.central') }}" class="mod-card mod-active" style="--mod-accent:#0891b2;">
+        <div class="mod-card-header">
+          <div class="mod-icon" style="background:#cffafe;color:#0891b2;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M14 2v6h6M9 13h6M9 17h6M9 9h1" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">{{ nomes_modulos.get('relatorios', 'Relatórios') }}</h2>
+            <span class="mod-badge" style="background:#cffafe;color:#0891b2;">RH</span>
+          </div>
+        </div>
+        <p class="mod-card-desc">Central de relatórios: escala, folgas, equipe e roster do dia em PDF.</p>
+      </a>
+      {% endif %}
+
+      <!-- Holerite (sempre desabilitado por ora) -->
+      <div class="mod-card mod-disabled mod-holerite">
+        <div class="mod-card-header">
+          <div class="mod-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">Holerite</h2>
+            <span class="mod-badge badge-em-breve">Em breve</span>
+          </div>
+        </div>
+        <p class="mod-card-desc">Acesse seus contracheques e comprovantes de pagamento.</p>
+      </div>
+
+      <!-- Reservas -->
+      {% if perms.reservas.view and (modulos_ativos.reservas or is_super_admin) %}
+      <a href="{{ url_for('reservas.index') }}"
+        class="mod-card mod-active mod-reservas{% if not modulos_ativos.reservas %} mod-master-off{% endif %}">
+        <div class="mod-card-header">
+          <div class="mod-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M6 9h12M6 12h12M6 15h8M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">{{ nomes_modulos.get('reservas', 'Reservas') }}</h2>
+            {% if not modulos_ativos.reservas %}
+            <span class="badge-master-off">Desativado</span>
+            {% else %}
+            <span class="mod-badge badge-reservas">Operações</span>
+            {% endif %}
+          </div>
+        </div>
+        <p class="mod-card-desc">Gerencie reservas, locais e categorias de hospedagem.</p>
+      </a>
+      {% endif %}
+
+      <!-- Consumo de Itens — visível para quem tem reservas.view ou audit.view_all -->
+      {% if perms.reservas.view or perms.audit.view_all or is_super_admin %}
+      <a href="{{ url_for('admin.items_consumption') }}" class="mod-card mod-active" style="--mod-accent:#f59e0b;">
+        <div class="mod-card-header">
+          <div class="mod-icon" style="background:#fef3c7;color:#d97706;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M16 7V5a2 2 0 0 0-4 0v2M8 7V5a2 2 0 0 0-4 0v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">Consumo de Itens</h2>
+            <span class="mod-badge" style="background:#fef3c7;color:#d97706;">Relatório</span>
+          </div>
+        </div>
+        <p class="mod-card-desc">Quantidades solicitadas por item em um período de reservas.</p>
+      </a>
+      {% endif %}
+
+      <!-- Auditoria -->
+      {% if perms.audit.view or perms.audit.view_all %}
+      <a href="{{ url_for('admin.audit_logs') }}" class="mod-card mod-active mod-audit">
+        <div class="mod-card-header">
+          <div class="mod-icon" style="background:var(--mod-audit-bg);color:var(--mod-audit);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2
+                       M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M9 12h6M9 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">Auditoria</h2>
+            <span class="mod-badge" style="background:var(--mod-audit-bg);color:var(--mod-audit);">{% if
+              perms.audit.view_all %}Admin{% else %}Supervisor{% endif %}</span>
+          </div>
+        </div>
+        <p class="mod-card-desc">Rastreamento imutável de todas as ações do sistema.</p>
+      </a>
+      {% endif %}
+
+      <!-- Logs de Integração — visível para super_admin / audit.view_all -->
+      {% if is_super_admin or perms.audit.view_all %}
+      <a href="{{ url_for('admin.integration_logs') }}" class="mod-card mod-active" style="--mod-accent:#0ea5e9;">
+        <div class="mod-card-header">
+          <div class="mod-icon" style="background:#e0f2fe;color:#0284c7;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M4 6h16M4 10h16M4 14h10M4 18h7" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">Logs</h2>
+            <span class="mod-badge" style="background:#e0f2fe;color:#0284c7;">Admin</span>
+          </div>
+        </div>
+        <p class="mod-card-desc">Erros de integração do frontend WordPress e Mercado Pago.</p>
+      </a>
+      {% endif %}
+
+      <!-- Avisos / Notificações — visível a quem tem avisos.view -->
+      {% if perms.avisos.view %}
+      <a href="{{ url_for('avisos.index') }}" class="mod-card mod-active" style="--mod-accent:#f59e0b;">
+        <div class="mod-card-header">
+          <div class="mod-icon" style="background:#fef3c7;color:#d97706;transition:background 0.2s,color 0.2s;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9
+                       M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">{{ nomes_modulos.get('avisos', 'Notificações') }}</h2>
+            {% if avisos_nao_lidos > 0 %}
+            <span class="mod-badge" style="background:#fee2e2;color:#dc2626;">
+              {{ avisos_nao_lidos }} não lido{{ 's' if avisos_nao_lidos != 1 else '' }}
+            </span>
+            {% else %}
+            <span class="mod-badge" style="background:#f0fdf4;color:#16a34a;">Em dia</span>
+            {% endif %}
+          </div>
+        </div>
+        <p class="mod-card-desc">Avisos de atrasos, ausências e alertas do sistema.</p>
+      </a>
+      {% endif %}
+
+      <!-- Configurações — visível apenas para super_admin -->
+      {% if is_super_admin %}
+      <a href="{{ url_for('configuracoes.index') }}" class="mod-card mod-active mod-config">
+        <div class="mod-card-header">
+          <div class="mod-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33
+                       1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33
+                       l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0
+                       0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06
+                       A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51
+                       1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65
+                       0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="mod-card-titles">
+            <h2 class="mod-card-title">Configurações</h2>
+            <span class="mod-badge" style="background:#ede9fe;color:#7c3aed;">Super Admin</span>
+          </div>
+        </div>
+        <p class="mod-card-desc">Módulos, permissões e identidade visual do sistema.</p>
+      </a>
+      {% endif %}
+
+    </div>
+  </main>
+
+
+</body>
+
+</html>

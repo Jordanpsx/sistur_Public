@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  RH — Folha de Ponto Individual (CLT 10 colunas)
+-->
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ company_name }} | Folha de Ponto — {{ dados.funcionario.nome }}</title>
+
+    {% include '_design_system.html' %}
+
+    <style>
+        /* Bridge — aliases legados → tokens semânticos (dark-ready, marca teal) */
+        :root {
+            --indigo-50:  var(--c-primary-light);
+            --indigo-100: var(--c-primary-light);
+            --indigo-500: var(--c-primary);
+            --indigo-600: var(--c-primary);
+            --indigo-700: var(--c-primary-dark);
+            --slate-50:  var(--c-surface-2);
+            --slate-100: var(--c-bg);
+            --slate-200: var(--c-border);
+            --slate-300: var(--c-border);
+            --slate-400: var(--c-text-muted);
+            --slate-500: var(--c-text-muted);
+            --slate-600: var(--c-text-muted);
+            --slate-700: var(--c-text);
+            --slate-800: var(--c-text);
+            --slate-900: var(--c-text);
+            --green-50:  var(--c-success-bg);
+            --green-500: var(--c-success-fg);
+            --green-600: var(--c-success-fg);
+            --amber-50:  var(--c-warning-bg);
+            --amber-600: var(--c-warning-fg);
+            --red-50:  var(--c-danger-bg);
+            --red-500: var(--c-danger-fg);
+            --red-600: var(--c-danger-fg);
+            --radius-full: 9999px;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'DM Mono', 'Fira Code', monospace;
+        }
+
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--c-bg);
+            min-height: 100vh;
+        }
+
+        /* ── Topbar ── */
+        .top-bar {
+            background: color-mix(in srgb, var(--c-surface) 88%, transparent);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--slate-100);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .top-bar__inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 1.25rem;
+            height: 3.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .top-bar__left {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--slate-500);
+            text-decoration: none;
+            padding: .35rem .65rem;
+            border-radius: var(--radius-sm);
+            transition: all .15s;
+        }
+
+        .back-link:hover {
+            background: var(--indigo-100);
+            color: var(--indigo-700);
+        }
+
+        .top-bar__sep {
+            color: var(--slate-200);
+            font-size: .75rem;
+        }
+
+        .top-bar__title {
+            font-size: .9rem;
+            font-weight: 700;
+            color: var(--slate-700);
+        }
+
+        /* ── Flash ── */
+        .flash-area {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: .75rem 1.25rem 0;
+        }
+
+        .flash {
+            display: flex;
+            align-items: flex-start;
+            gap: .6rem;
+            padding: .8rem 1rem;
+            border-radius: var(--radius-md);
+            font-size: .85rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+            margin-bottom: .5rem;
+        }
+
+        .flash--sucesso {
+            background: var(--green-50);
+            border-color: var(--c-success-bd);
+            color: var(--green-600);
+        }
+
+        .flash--erro {
+            background: var(--red-50);
+            border-color: var(--c-danger-bd);
+            color: var(--red-600);
+        }
+
+        .flash--aviso {
+            background: var(--amber-50);
+            border-color: var(--c-warning-bd);
+            color: var(--amber-600);
+        }
+
+        /* ── Layout ── */
+        .content-wrap {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 1.5rem 1.25rem 3rem;
+        }
+
+        /* ── Card ── */
+        .card {
+            background: var(--c-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--slate-100);
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+
+        .card__header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--slate-100);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .card__title {
+            font-size: .85rem;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--slate-500);
+        }
+
+        /* ── Employee header card ── */
+        .emp-header {
+            background: var(--c-surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--slate-100);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .emp-header__info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .emp-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius-full);
+            background: var(--indigo-100);
+            color: var(--indigo-700);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .emp-name {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--slate-900);
+        }
+
+        .emp-meta {
+            font-size: .8rem;
+            color: var(--slate-500);
+            margin-top: .2rem;
+        }
+
+        .emp-header__actions {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            font-family: var(--font);
+            font-size: .8rem;
+            font-weight: 700;
+            padding: .5rem 1rem;
+            border-radius: var(--radius-full);
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all .15s;
+            white-space: nowrap;
+        }
+
+        .btn-action--primary {
+            background: var(--indigo-600);
+            color: white;
+        }
+
+        .btn-action--primary:hover {
+            background: var(--indigo-700);
+        }
+
+        .btn-action--green {
+            background: var(--green-50);
+            color: var(--green-600);
+            border: 1px solid var(--c-success-bd);
+        }
+
+        .btn-action--green:hover {
+            background: var(--c-success-bg);
+        }
+
+        .btn-action--ghost {
+            background: var(--slate-100);
+            color: var(--slate-600);
+            border: 1px solid var(--slate-200);
+        }
+
+        .btn-action--ghost:hover {
+            background: var(--slate-200);
+        }
+
+        /* ── Month nav ── */
+        .month-nav {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .month-nav__btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            background: var(--slate-100);
+            color: var(--slate-600);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: .95rem;
+            transition: background .15s;
+            border: 1px solid var(--slate-200);
+        }
+
+        .month-nav__btn:hover {
+            background: var(--indigo-100);
+            color: var(--indigo-700);
+        }
+
+        .month-nav__label {
+            font-size: .875rem;
+            font-weight: 700;
+            color: var(--slate-700);
+            min-width: 10rem;
+            text-align: center;
+        }
+
+        /* ── Summary cards ── */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        @media (max-width: 640px) {
+            .summary-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .scard {
+            background: var(--c-surface);
+            border-radius: var(--radius-md);
+            padding: 1rem 1.25rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--slate-100);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scard::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+        }
+
+        .scard--worked::before {
+            background: var(--indigo-500);
+        }
+
+        .scard--expected::before {
+            background: var(--slate-300);
+        }
+
+        .scard--balance::before {
+            background: var(--green-500);
+        }
+
+        .scard--review::before {
+            background: var(--red-500);
+        }
+
+        .scard__label {
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: var(--slate-400);
+            margin-bottom: .3rem;
+        }
+
+        .scard__value {
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: var(--slate-800);
+        }
+
+        .scard__value--pos {
+            color: var(--green-600);
+        }
+
+        .scard__value--neg {
+            color: var(--red-500);
+        }
+
+        /* ── Table ── */
+        .table-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .ponto-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .78rem;
+            min-width: 780px;
+        }
+
+        .ponto-table th {
+            padding: .6rem .75rem;
+            text-align: center;
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+            color: var(--slate-400);
+            background: var(--slate-50);
+            border-bottom: 2px solid var(--slate-100);
+            white-space: nowrap;
+        }
+
+        .ponto-table td {
+            padding: .6rem .75rem;
+            border-bottom: 1px solid var(--slate-50);
+            text-align: center;
+            color: var(--slate-600);
+            vertical-align: middle;
+        }
+
+        .ponto-table tbody tr:hover {
+            background: var(--indigo-50);
+        }
+
+        .col-date {
+            text-align: left !important;
+        }
+
+        .col-dow {
+            font-weight: 600;
+            color: var(--slate-500);
+        }
+
+        .col-time {
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+            font-weight: 600;
+        }
+
+        .col-min {
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+            font-size: .75rem;
+        }
+
+        .badge-ok {
+            background: var(--c-success-bg);
+            color: var(--c-success-fg);
+            font-size: .72rem;
+            font-weight: 700;
+            padding: .15rem .5rem;
+            border-radius: var(--radius-full);
+        }
+
+        .badge-rev {
+            background: var(--c-warning-bg);
+            color: var(--c-warning-fg);
+            font-size: .72rem;
+            font-weight: 700;
+            padding: .15rem .5rem;
+            border-radius: var(--radius-full);
+        }
+
+        .badge-miss {
+            background: var(--slate-100);
+            color: var(--slate-400);
+            font-size: .72rem;
+            font-weight: 500;
+            padding: .15rem .5rem;
+            border-radius: var(--radius-full);
+        }
+
+        .saldo-pos {
+            color: var(--green-600);
+            font-weight: 700;
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+        }
+
+        .saldo-neg {
+            color: var(--red-500);
+            font-weight: 700;
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+        }
+
+        .saldo-zero {
+            color: var(--slate-400);
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+        }
+
+        /* Row for day with review flag */
+        .row-review td {
+            background: var(--c-warning-bg);
+        }
+
+        .row-review:hover td {
+            background: var(--c-warning-bg) !important;
+        }
+
+        /* Action buttons inside table */
+        .row-actions {
+            display: flex;
+            gap: .3rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .row-btn {
+            font-family: var(--font);
+            font-size: .72rem;
+            font-weight: 700;
+            padding: .25rem .55rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: .2rem;
+            transition: all .12s;
+            white-space: nowrap;
+        }
+
+        .row-btn--edit {
+            background: var(--indigo-50);
+            color: var(--indigo-700);
+        }
+
+        .row-btn--edit:hover {
+            background: var(--indigo-100);
+        }
+
+        .row-btn--del {
+            background: var(--red-50);
+            color: var(--red-600);
+        }
+
+        .row-btn--del:hover {
+            background: var(--c-danger-bg);
+        }
+
+        /* ── Totals row ── */
+        .ponto-table tfoot td {
+            background: var(--slate-50);
+            font-weight: 700;
+            font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+            border-top: 2px solid var(--slate-200);
+        }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--slate-400);
+        }
+
+        .empty-state__icon {
+            font-size: 2rem;
+            margin-bottom: .5rem;
+        }
+
+        .empty-state__text {
+            font-size: .9rem;
+        }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, .5);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        /* ── Dia trocado por folga compensatória ── */
+        .badge-folga {
+            display: inline-block;
+            font-family: var(--font);
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.3;
+            padding: 3px 8px;
+            border-radius: var(--radius-full);
+            background: var(--indigo-50);
+            color: var(--indigo-700);
+            white-space: nowrap;
+        }
+
+        /* ── Lançamentos de banco de horas ── */
+        .lancamentos { margin-top: 20px; }
+        .lancamentos__head {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 16px 18px 12px;
+            border-bottom: 1px solid var(--slate-200);
+        }
+        .lancamentos__title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--slate-800);
+        }
+        .lancamentos__sub {
+            font-size: 12.5px;
+            color: var(--slate-500);
+            line-height: 1.45;
+        }
+        .lanc-row--estorno { background: var(--slate-50); }
+        .lanc-tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: var(--radius-full);
+            white-space: nowrap;
+        }
+        .lanc-tag--pag    { background: var(--green-50);  color: var(--green-600); }
+        .lanc-tag--folga  { background: var(--indigo-50); color: var(--indigo-700); }
+        .lanc-tag--estorno{ background: var(--amber-50);  color: var(--amber-600); }
+        .lanc-obs {
+            font-size: 13px;
+            color: var(--slate-700);
+            max-width: 280px;
+            word-break: break-word;
+        }
+        .lanc-autor { font-size: 13px; color: var(--slate-500); white-space: nowrap; }
+        .lanc-acao  { text-align: right; white-space: nowrap; }
+        .lanc-estornado {
+            font-size: 12px;
+            color: var(--slate-400);
+            font-style: italic;
+        }
+
+        /* ── Avisos e dicas dentro dos modais ── */
+        .modal-hint {
+            font-size: 13px;
+            color: var(--slate-600);
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+        .modal-hint__saldo { color: var(--slate-800); font-family: var(--font-mono); }
+        .form-dica {
+            font-size: 12px;
+            line-height: 1.45;
+            color: var(--slate-500);
+            margin-top: 6px;
+        }
+        .form-aviso {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            font-size: 12px;
+            line-height: 1.45;
+            color: var(--amber-600);
+            background: var(--amber-50);
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-top: 7px;
+        }
+
+        .modal-box {
+            background: var(--c-surface);
+            border-radius: var(--radius-xl);
+            padding: 2rem;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, .2);
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--slate-900);
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            color: var(--slate-600);
+            margin-bottom: .35rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: .6rem .875rem;
+            border: 1.5px solid var(--slate-200);
+            border-radius: var(--radius-sm);
+            font-size: .875rem;
+            font-family: var(--font);
+            color: var(--slate-800);
+            background: var(--c-surface);
+            outline: none;
+            transition: border-color .15s;
+        }
+
+        .form-input:focus {
+            border-color: var(--indigo-500);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: .75rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .btn-cancel {
+            background: var(--slate-100);
+            color: var(--slate-600);
+            border: none;
+            cursor: pointer;
+            font-family: var(--font);
+            font-weight: 600;
+            padding: .6rem 1.25rem;
+            border-radius: var(--radius-md);
+        }
+
+        .btn-submit {
+            background: var(--indigo-600);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font);
+            font-weight: 700;
+            padding: .6rem 1.5rem;
+            border-radius: var(--radius-md);
+        }
+
+        .btn-danger {
+            background: var(--red-500);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font);
+            font-weight: 700;
+            padding: .6rem 1.5rem;
+            border-radius: var(--radius-md);
+        }
+
+        .btn-cancel:hover {
+            background: var(--slate-200);
+        }
+
+        .btn-submit:hover {
+            background: var(--indigo-700);
+        }
+
+        .btn-danger:hover {
+            background: var(--red-600);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Topbar ── -->
+    <nav class="top-bar">
+        <div class="top-bar__inner">
+            <div class="top-bar__left">
+                <a href="{{ url_for('rh.dashboard', aba='colaboradores') }}" class="back-link">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    RH
+                </a>
+                <span class="top-bar__sep">·</span>
+                <span class="top-bar__title">Folha de Ponto</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+                {% include '_theme_toggle.html' %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- ── Flash ── -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-area">
+        {% for category, message in messages %}
+        <div class="flash flash--{{ category }}">{{ message | e }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="content-wrap">
+
+        <!-- ── Funcionário info + ações ── -->
+        <div class="emp-header">
+            <div class="emp-header__info">
+                <div class="emp-avatar">{{ dados.funcionario.nome[0] | upper }}</div>
+                <div>
+                    <div class="emp-name">{{ dados.funcionario.nome | e }}</div>
+                    <div class="emp-meta">
+                        {{ dados.funcionario.cargo | e if dados.funcionario.cargo else 'Sem cargo' }}
+                        {% if dados.funcionario.matricula %}
+                        · Matrícula {{ dados.funcionario.matricula | e }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="emp-header__actions">
+                {% if pode_deducao %}
+                <button type="button" class="btn-action btn-action--green" onclick="openModal('modal-deducao')">
+                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Registrar Dedução
+                </button>
+                {% endif %}
+                {% if pode_editar %}
+                <button type="button" class="btn-action btn-action--primary" onclick="openModal('modal-adicionar')">
+                    + Adicionar Batida
+                </button>
+                {% endif %}
+                {% if pode_imprimir %}
+                <a href="{{ url_for('rh.folha_ponto_pdf', funcionario_id=dados.funcionario.id, mes=mes, ano=ano) }}"
+                    class="btn-action btn-action--ghost" target="_blank">
+                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> PDF
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ── Summary cards ── -->
+        {% set h_trab = dados.total_minutos_trabalhados // 60 %}
+        {% set m_trab = dados.total_minutos_trabalhados % 60 %}
+        {% set h_exp = dados.total_expected_minutos // 60 %}
+        {% set m_exp = dados.total_expected_minutos % 60 %}
+        {% set saldo = dados.total_saldo_minutos %}
+        {% set h_sal = (saldo | abs) // 60 %}
+        {% set m_sal = (saldo | abs) % 60 %}
+        {% set _meses_pt = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+        'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'] %}
+
+        <div class="summary-grid">
+            <div class="scard scard--worked">
+                <div class="scard__label">Trabalhadas</div>
+                <div class="scard__value">{{ "%dh%02d" | format(h_trab, m_trab) }}</div>
+            </div>
+            <div class="scard scard--expected">
+                <div class="scard__label">Esperadas</div>
+                <div class="scard__value">{{ "%dh%02d" | format(h_exp, m_exp) }}</div>
+            </div>
+            <div class="scard scard--balance">
+                <div class="scard__label">Saldo do Mês</div>
+                <div
+                    class="scard__value {% if saldo > 0 %}scard__value--pos{% elif saldo < 0 %}scard__value--neg{% endif %}">
+                    {% if saldo >= 0 %}+{% else %}–{% endif %}{{ "%dh%02d" | format(h_sal, m_sal) }}
+                </div>
+            </div>
+            <div class="scard scard--review">
+                <div class="scard__label">Para Revisar</div>
+                <div class="scard__value {% if dados.dias_com_revisao > 0 %}scard__value--neg{% endif %}">
+                    {{ dados.dias_com_revisao }}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Tabela CLT ── -->
+        <div class="card">
+            <div class="card__header">
+                <span class="card__title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> {{ _meses_pt[mes] }} {{ ano }}</span>
+                <nav class="month-nav">
+                    <a href="{{ url_for('rh.folha_ponto', funcionario_id=dados.funcionario.id, mes=mes_ant_mes, ano=mes_ant_ano) }}"
+                        class="month-nav__btn" title="Mês anterior">‹</a>
+                    <span class="month-nav__label">{{ _meses_pt[mes] }} {{ ano }}</span>
+                    <a href="{{ url_for('rh.folha_ponto', funcionario_id=dados.funcionario.id, mes=mes_prx_mes, ano=mes_prx_ano) }}"
+                        class="month-nav__btn" title="Próximo mês">›</a>
+                </nav>
+            </div>
+
+            {% if dados.linhas %}
+            <div class="table-scroll">
+                <table class="ponto-table">
+                    <thead>
+                        <tr>
+                            <th class="col-date">Data</th>
+                            <th>Dia</th>
+                            <th>Entrada</th>
+                            <th>Saída Almoço</th>
+                            <th>Volta Almoço</th>
+                            <th>Saída</th>
+                            <th>Trabalhadas</th>
+                            <th>Esperadas</th>
+                            <th>Desvio</th>
+                            <th>Status</th>
+                            {% if pode_editar %}<th>Ações</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for linha in dados.linhas %}
+                        {% set h_w = linha.minutos_trabalhados // 60 %}
+                        {% set m_w = linha.minutos_trabalhados % 60 %}
+                        {% set h_e = linha.expected_minutes_snapshot // 60 %}
+                        {% set m_e = linha.expected_minutes_snapshot % 60 %}
+                        {% set dev = linha.desvio_minutos %}
+                        {% set h_d = (dev | abs) // 60 %}
+                        {% set m_d = (dev | abs) % 60 %}
+                        <tr class="{{ 'row-review' if linha.needs_review else '' }}">
+                            <td class="col-date">{{ linha.shift_date.strftime('%d/%m') }}</td>
+                            <td class="col-dow">{{ linha.dia_semana }}</td>
+                            <!-- Entrada -->
+                            <td class="col-time">
+                                {% if linha.clock_in %}
+                                {{ (linha.clock_in.punch_time|to_brasilia_time)[:5] }}
+                                {% if pode_editar %}
+                                <button class="row-btn row-btn--edit" title="Editar" aria-label="Editar batida"
+                                    onclick="openEditModal({{ linha.clock_in.id }}, '{{ linha.clock_in.punch_time|to_datetime_local_input }}', {{ mes }}, {{ ano }})"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+                                <button class="row-btn row-btn--del" title="Deletar" aria-label="Excluir batida"
+                                    onclick="openDeleteModal({{ linha.clock_in.id }}, '{{ linha.shift_date.strftime('%d/%m') }} entrada', {{ mes }}, {{ ano }})"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                                {% endif %}
+                                {% else %}—{% endif %}
+                            </td>
+                            <!-- Saída Almoço -->
+                            <td class="col-time">
+                                {% if linha.lunch_start %}
+                                {{ (linha.lunch_start.punch_time|to_brasilia_time)[:5] }}
+                                {% if pode_editar %}
+                                <button class="row-btn row-btn--edit" aria-label="Editar batida"
+                                    onclick="openEditModal({{ linha.lunch_start.id }}, '{{ linha.lunch_start.punch_time|to_datetime_local_input }}', {{ mes }}, {{ ano }})"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+                                <button class="row-btn row-btn--del" aria-label="Excluir batida"
+                                    onclick="openDeleteModal({{ linha.lunch_start.id }}, '{{ linha.shift_date.strftime('%d/%m') }} saída almoço', {{ mes }}, {{ ano }})"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                                {% endif %}
+                                {% else %}—{% endif %}
+                            </td>
+                            <!-- Volta Almoço -->
+                            <td class="col-time">
+                                {% if linha.lunch_end %}
+                                {{ (linha.lunch_end.punch_time|to_brasilia_time)[:5] }}
+                                {% if pode_editar %}
+                                <button class="row-btn row-btn--edit" aria-label="Editar batida"
+                                    onclick="openEditModal({{ linha.lunch_end.id }}, '{{ linha.lunch_end.punch_time|to_datetime_local_input }}', {{ mes }}, {{ ano }})"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+                                <button class="row-btn row-btn--del" aria-label="Excluir batida"
+                                    onclick="openDeleteModal({{ linha.lunch_end.id }}, '{{ linha.shift_date.strftime('%d/%m') }} volta almoço', {{ mes }}, {{ ano }})"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                                {% endif %}
+                                {% else %}—{% endif %}
+                            </td>
+                            <!-- Saída -->
+                            <td class="col-time">
+                                {% if linha.clock_out %}
+                                {{ (linha.clock_out.punch_time|to_brasilia_time)[:5] }}
+                                {% if pode_editar %}
+                                <button class="row-btn row-btn--edit" aria-label="Editar batida"
+                                    onclick="openEditModal({{ linha.clock_out.id }}, '{{ linha.clock_out.punch_time|to_datetime_local_input }}', {{ mes }}, {{ ano }})"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>
+                                <button class="row-btn row-btn--del" aria-label="Excluir batida"
+                                    onclick="openDeleteModal({{ linha.clock_out.id }}, '{{ linha.shift_date.strftime('%d/%m') }} saída', {{ mes }}, {{ ano }})"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                                {% endif %}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td class="col-min">{{ "%dh%02d" | format(h_w, m_w) }}</td>
+                            <td class="col-min">
+                                {% if linha.folga_compensatoria %}
+                                <span class="badge-folga"
+                                    title="Jornada de {{ '%dh%02d' | format(linha.folga_minutos // 60, linha.folga_minutos % 60) }} coberta pelo banco de horas">Folga compensatória</span>
+                                {% else %}{{ "%dh%02d" | format(h_e, m_e) }}{% endif %}
+                            </td>
+                            <td>
+                                <span
+                                    class="{{ 'saldo-pos' if dev > 0 else ('saldo-neg' if dev < 0 else 'saldo-zero') }}">
+                                    {% if dev >= 0 %}+{% else %}–{% endif %}{{ "%dh%02d" | format(h_d, m_d) }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if linha.needs_review %}
+                                <span class="badge-rev">Revisar</span>
+                                {% else %}
+                                <span class="badge-ok">OK</span>
+                                {% endif %}
+                            </td>
+                            {% if pode_editar %}
+                            <td>
+                                <div class="row-actions">
+                                    <button class="row-btn row-btn--edit" aria-label="Editar batida"
+                                        onclick="openAddOnDay('{{ linha.shift_date.strftime('%Y-%m-%d') }}', {{ mes }}, {{ ano }})">
+                                        + Batida
+                                    </button>
+                                </div>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="{{ '10' if not pode_editar else '11' }}"
+                                style="text-align:right; padding-right:1rem; font-size:.75rem; color:var(--slate-500); font-family:var(--font);">
+                                Total:
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="6"
+                                style="text-align:right; font-size:.75rem; color:var(--slate-500); font-family:var(--font);">
+                                Totais →</td>
+                            <td>{{ "%dh%02d" | format(h_trab, m_trab) }}</td>
+                            <td>{{ "%dh%02d" | format(h_exp, m_exp) }}</td>
+                            <td>
+                                <span
+                                    class="{{ 'saldo-pos' if saldo > 0 else ('saldo-neg' if saldo < 0 else 'saldo-zero') }}">
+                                    {% if saldo >= 0 %}+{% else %}–{% endif %}{{ "%dh%02d" | format(h_sal, m_sal) }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if dados.dias_com_revisao > 0 %}
+                                <span class="badge-rev">{{ dados.dias_com_revisao }} dia{{ 's' if dados.dias_com_revisao
+                                    != 1 }}</span>
+                                {% else %}
+                                <span class="badge-ok">0</span>
+                                {% endif %}
+                            </td>
+                            {% if pode_editar %}<td></td>{% endif %}
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></div>
+                <div class="empty-state__text">Nenhum registro de ponto em {{ _meses_pt[mes] }} {{ ano }}.</div>
+            </div>
+            {% endif %}
+        </div>
+
+
+        {# ── Lançamentos de banco de horas do mês ─────────────────────────── #}
+        {% if abatimentos %}
+        <div class="card lancamentos">
+            <div class="lancamentos__head">
+                <h2 class="lancamentos__title">Banco de Horas — Lançamentos</h2>
+                <span class="lancamentos__sub">
+                    Visíveis ao colaborador no portal dele. Estornos aparecem logo abaixo do
+                    lançamento que corrigem.
+                </span>
+            </div>
+            <div class="table-wrap">
+                <table class="ponto-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Horas</th>
+                            <th>Valor</th>
+                            <th>Observação</th>
+                            <th>Lançado por</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in abatimentos %}
+                        {% set m = a.minutos_abatidos %}
+                        <tr{% if a.eh_estorno %} class="lanc-row--estorno"{% endif %}>
+                            <td class="mono">{{ a.data_registro.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                {% if a.eh_estorno %}
+                                <span class="lanc-tag lanc-tag--estorno">Estorno</span>
+                                {% elif a.deduction_type.value == 'pagamento' %}
+                                <span class="lanc-tag lanc-tag--pag">Pagamento</span>
+                                {% else %}
+                                <span class="lanc-tag lanc-tag--folga">Folga</span>
+                                {% endif %}
+                            </td>
+                            <td class="mono">
+                                {% if m < 0 %}
+                                <span class="saldo-cell saldo-cell--pos">+{{ (-m)//60 }}h{{ '%02d'|format((-m)%60) }}</span>
+                                {% else %}
+                                <span class="saldo-cell saldo-cell--neg">-{{ m//60 }}h{{ '%02d'|format(m%60) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="mono">
+                                {% if a.pagamento_valor is not none %}
+                                R$ {{ ('%.2f'|format(a.pagamento_valor|float))|replace('.', ',') }}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td class="lanc-obs">{{ a.observacao or '—' }}</td>
+                            <td class="lanc-autor">{{ a.criado_por.nome if a.criado_por else '—' }}</td>
+                            <td class="lanc-acao">
+                                {% if pode_deducao and not a.eh_estorno and not a.estornado %}
+                                <button type="button" class="btn-action btn-action--red"
+                                    onclick="abrirEstorno({{ a.id }}, '{{ (m//60)|string }}h{{ '%02d'|format(m%60) }}')">
+                                    Estornar
+                                </button>
+                                {% elif a.estornado %}
+                                <span class="lanc-estornado">estornado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>{# .content-wrap #}
+
+
+    <!-- ══════════════════ MODAIS ══════════════════ -->
+
+    <!-- Modal: Adicionar batida -->
+    {% if pode_editar %}
+    <div class="modal-overlay" id="modal-adicionar">
+        <div class="modal-box">
+            <div class="modal-title">+ Adicionar Batida</div>
+            <form method="POST"
+                action="{{ url_for('rh.folha_ponto_adicionar_batida', funcionario_id=dados.funcionario.id) }}">
+                <input type="hidden" name="mes" value="{{ mes }}" />
+                <input type="hidden" name="ano" value="{{ ano }}" />
+                <div class="form-group">
+                    <label class="form-label" for="novo_horario">Data e Horário</label>
+                    <input class="form-input" type="datetime-local" id="novo_horario" name="novo_horario" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="motivo_add">Motivo (obrigatório)</label>
+                    <input class="form-input" type="text" id="motivo_add" name="motivo"
+                        placeholder="Ex: Esqueceu de bater, erro de sistema…" required maxlength="500" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal('modal-adicionar')">Cancelar</button>
+                    <button type="submit" class="btn-submit">Adicionar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Editar batida -->
+    <div class="modal-overlay" id="modal-editar">
+        <div class="modal-box">
+            <div class="modal-title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Editar Batida</div>
+            <form method="POST" id="form-editar">
+                <input type="hidden" name="mes" value="{{ mes }}" />
+                <input type="hidden" name="ano" value="{{ ano }}" />
+                <div class="form-group">
+                    <label class="form-label" for="novo_horario_edit">Novo Horário</label>
+                    <input class="form-input" type="datetime-local" id="novo_horario_edit" name="novo_horario"
+                        required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="motivo_edit">Motivo (obrigatório)</label>
+                    <input class="form-input" type="text" id="motivo_edit" name="motivo"
+                        placeholder="Ex: Horário incorreto, ajuste solicitado por…" required maxlength="500" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal('modal-editar')">Cancelar</button>
+                    <button type="submit" class="btn-submit">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Deletar batida -->
+    <div class="modal-overlay" id="modal-deletar">
+        <div class="modal-box">
+            <div class="modal-title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Remover Batida</div>
+            <p style="font-size:.88rem; color:var(--slate-500); margin-bottom:1.25rem;" id="del-desc">
+                Tem certeza que deseja remover esta batida?
+            </p>
+            <form method="POST" id="form-deletar">
+                <input type="hidden" name="mes" value="{{ mes }}" />
+                <input type="hidden" name="ano" value="{{ ano }}" />
+                <div class="form-group">
+                    <label class="form-label" for="motivo_del">Motivo (obrigatório)</label>
+                    <input class="form-input" type="text" id="motivo_del" name="motivo"
+                        placeholder="Ex: Batida duplicada, erro de sistema…" required maxlength="500" />
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal('modal-deletar')">Cancelar</button>
+                    <button type="submit" class="btn-danger">Remover</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal: Dedução -->
+    {% if pode_deducao %}
+    <div class="modal-overlay" id="modal-deducao">
+        <div class="modal-box">
+            <div class="modal-title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Abater Banco de Horas</div>
+            <p class="modal-hint">
+                Saldo disponível do colaborador:
+                <strong class="modal-hint__saldo">{{ dados.funcionario.saldo_banco_horas_formatado() }}</strong>.
+                O lançamento não pode ultrapassar esse valor.
+            </p>
+            <form method="POST" action="{{ url_for('rh.folha_ponto_deducao', funcionario_id=dados.funcionario.id) }}">
+                <input type="hidden" name="mes" value="{{ mes }}" />
+                <input type="hidden" name="ano" value="{{ ano }}" />
+                <div class="form-group">
+                    <label class="form-label" for="deduction_type">Tipo de lançamento</label>
+                    <select class="form-input" id="deduction_type" name="deduction_type" required
+                        onchange="atualizarCamposAbatimento()">
+                        <option value="">Selecione…</option>
+                        <option value="pagamento">Pagamento em dinheiro</option>
+                        <option value="folga">Folga compensatória</option>
+                    </select>
+                </div>
+                <div class="form-group" id="grupo-valor" style="display:none;">
+                    <label class="form-label" for="pagamento_valor">Valor pago (R$)</label>
+                    <input class="form-input" type="text" inputmode="decimal" id="pagamento_valor"
+                        name="pagamento_valor" placeholder="Ex: 500,00" />
+                </div>
+                <div class="form-group" id="grupo-minutos">
+                    <label class="form-label" for="minutos_ded">Minutos a abater</label>
+                    <input class="form-input" type="number" id="minutos_ded" name="minutos" min="1" max="43200"
+                        placeholder="Ex: 480 (= 8h)" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="data_registro" id="label-data-registro">Data de referência</label>
+                    <input class="form-input" type="date" id="data_registro" name="data_registro" required />
+                    <p class="form-dica" id="dica-folga" style="display:none;">
+                        Será abatida a jornada prevista para este dia, e ele deixa de contar como falta.
+                        Não é preciso informar minutos.
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="observacao">
+                        Observação <span id="observacao-obrig" style="display:none;">(obrigatória)</span>
+                    </label>
+                    <input class="form-input" type="text" id="observacao" name="observacao"
+                        placeholder="Ex: Pagamento das horas extras de setembro/2026" maxlength="500" />
+                    <p class="form-aviso">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        Este texto será exibido ao colaborador no extrato do banco de horas dele.
+                        Não escreva aqui observações internas.
+                    </p>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal('modal-deducao')">Cancelar</button>
+                    <button type="submit" class="btn-submit">Registrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal: Estornar lançamento -->
+    {% if pode_deducao %}
+    <div class="modal-overlay" id="modal-estorno">
+        <div class="modal-box">
+            <div class="modal-title">Estornar Lançamento</div>
+            <p class="modal-hint">
+                O lançamento não é apagado: entra uma linha de estorno devolvendo
+                <strong id="estorno-resumo">o saldo</strong> ao colaborador. As duas linhas
+                continuam visíveis no extrato dele.
+            </p>
+            <form method="POST" id="form-estorno">
+                <input type="hidden" name="mes" value="{{ mes }}" />
+                <input type="hidden" name="ano" value="{{ ano }}" />
+                <div class="form-group">
+                    <label class="form-label" for="motivo_estorno">Motivo do estorno (obrigatório)</label>
+                    <input class="form-input" type="text" id="motivo_estorno" name="motivo" required
+                        maxlength="500" placeholder="Ex: Lançado no colaborador errado" />
+                    <p class="form-aviso">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        Também exibido ao colaborador.
+                    </p>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal('modal-estorno')">Cancelar</button>
+                    <button type="submit" class="btn-submit">Confirmar estorno</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+
+    <script>
+        function openModal(id) {
+            document.getElementById(id).classList.add('open');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('open');
+        }
+
+        // Close on backdrop click
+        document.querySelectorAll('.modal-overlay').forEach(el => {
+            el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+        });
+
+        // Pagamento em dinheiro exige valor e observação; folga não exige valor.
+        // O campo de valor só aparece quando faz sentido, e o `required` acompanha
+        // a visibilidade — campo obrigatório escondido trava o submit sem explicar.
+        function atualizarCamposAbatimento() {
+            var tipo = document.getElementById('deduction_type').value;
+            var ehPagamento = (tipo === 'pagamento');
+
+            var grupoValor = document.getElementById('grupo-valor');
+            var inputValor = document.getElementById('pagamento_valor');
+            grupoValor.style.display = ehPagamento ? '' : 'none';
+            inputValor.required = ehPagamento;
+            if (!ehPagamento) { inputValor.value = ''; }
+
+            var obs = document.getElementById('observacao');
+            obs.required = ehPagamento;
+            document.getElementById('observacao-obrig').style.display = ehPagamento ? '' : 'none';
+
+            // Folga: o servidor abate a jornada prevista do dia escolhido, então o
+            // campo de minutos some — digitar um valor à mão era o que levava a
+            // lançar 5h50 (o desvio com tolerância) em vez da jornada de 6h.
+            var ehFolga = (tipo === 'folga');
+            var inputMin = document.getElementById('minutos_ded');
+            document.getElementById('grupo-minutos').style.display = ehFolga ? 'none' : '';
+            inputMin.required = !ehFolga;
+            if (ehFolga) { inputMin.value = ''; }
+            document.getElementById('dica-folga').style.display = ehFolga ? '' : 'none';
+            document.getElementById('label-data-registro').textContent =
+                ehFolga ? 'Dia da folga' : 'Data de referência';
+        }
+
+        function abrirEstorno(deducaoId, resumoHoras) {
+            var form = document.getElementById('form-estorno');
+            var fid = {{ dados.funcionario.id }};
+        form.action = '/rh/folha-ponto/' + fid + '/deducao/' + deducaoId + '/estornar';
+        document.getElementById('estorno-resumo').textContent = resumoHoras;
+        document.getElementById('motivo_estorno').value = '';
+        openModal('modal-estorno');
+        }
+
+        function openEditModal(entryId, currentDatetime, mes, ano) {
+            var form = document.getElementById('form-editar');
+            var fid = {{ dados.funcionario.id }};
+        form.action = '/rh/folha-ponto/' + fid + '/batida/' + entryId + '/editar';
+        document.getElementById('novo_horario_edit').value = currentDatetime;
+        document.querySelector('#form-editar [name="mes"]').value = mes;
+        document.querySelector('#form-editar [name="ano"]').value = ano;
+        openModal('modal-editar');
+        }
+
+        function openDeleteModal(entryId, label, mes, ano) {
+            var form = document.getElementById('form-deletar');
+            var fid = {{ dados.funcionario.id }};
+        form.action = '/rh/folha-ponto/' + fid + '/batida/' + entryId + '/deletar';
+        document.getElementById('del-desc').textContent = 'Tem certeza que deseja remover a batida de ' + label + '?';
+        document.querySelector('#form-deletar [name="mes"]').value = mes;
+        document.querySelector('#form-deletar [name="ano"]').value = ano;
+        openModal('modal-deletar');
+        }
+
+        function openAddOnDay(dateStr, mes, ano) {
+            // Pre-fill date when adding from a specific row
+            document.getElementById('novo_horario').value = dateStr + 'T08:00';
+            openModal('modal-adicionar');
+        }
+    </script>
+
+</body>
+
+</html>

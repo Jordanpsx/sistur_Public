@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Admin — Editor de Permissões do Role
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Permissões — {{ role.nome }}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    :root {
+      --primary: #0d9488;
+      --purple: #7c3aed;
+      --purple-bg: #ede9fe;
+      --green: #059669;
+      --green-bg: #d1fae5;
+      --red: #dc2626;
+      --red-bg: #fee2e2;
+      --amber: #d97706;
+      --amber-bg: #fef3c7;
+      --bg-page: #f8fafc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-page);
+      margin: 0;
+      color: #1e293b;
+    }
+
+    /* ─── Topbar ─────────────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .topbar-inner {
+      max-width: 1100px; margin: 0 auto;
+      padding: 0 1.5rem; height: 60px;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+
+    .topbar-back {
+      display: flex; align-items: center; gap: 0.5rem;
+      color: var(--purple); font-weight: 600; font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .topbar-back:hover { opacity: 0.8; }
+
+    /* ─── Hero ───────────────────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #6d28d9 100%);
+      padding: 2rem 1.5rem;
+    }
+
+    .hero-inner { max-width: 1100px; margin: 0 auto; }
+
+    .hero-meta {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .hero-role-name {
+      font-family: 'DM Mono', monospace;
+      font-size: 1.4rem; font-weight: 700;
+      color: #fff; margin: 0;
+    }
+
+    .hero-sub { color: rgba(255,255,255,0.7); font-size: 0.875rem; margin: 0; }
+
+    .badge-super-hero {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.3);
+      font-size: 0.72rem; font-weight: 700;
+      padding: 3px 10px; border-radius: 999px;
+    }
+
+    /* ─── Content ────────────────────────────────────────────────────────── */
+    .content { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* ─── Flash ──────────────────────────────────────────────────────────── */
+    .flash-list { list-style: none; padding: 0; margin: 0 0 1.25rem; }
+    .flash-msg  { padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem; }
+    .flash-sucesso { background: var(--green-bg); color: var(--green); }
+    .flash-erro    { background: var(--red-bg);   color: var(--red);   }
+    .flash-aviso   { background: var(--amber-bg); color: var(--amber); }
+
+    /* ─── Super admin banner ─────────────────────────────────────────────── */
+    .super-banner {
+      background: var(--purple-bg);
+      border: 1.5px solid #c4b5fd;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex; align-items: flex-start; gap: 0.75rem;
+    }
+
+    .super-banner-icon { font-size: 1.25rem; flex-shrink: 0; }
+
+    .super-banner-text { font-size: 0.875rem; color: #4c1d95; }
+
+    .super-banner-title { font-weight: 700; margin: 0 0 0.2rem; }
+    .super-banner-desc  { margin: 0; }
+
+    /* ─── Module section ─────────────────────────────────────────────────── */
+    .module-section {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+
+    .module-section-header {
+      padding: 0.875rem 1.25rem;
+      background: #f8fafc;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .module-section-title {
+      font-size: 0.875rem; font-weight: 700; color: #0f172a;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    .select-all-btn {
+      font-size: 0.75rem; font-weight: 600;
+      color: var(--purple); background: transparent;
+      border: none; cursor: pointer; padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .select-all-btn:hover { text-decoration: underline; }
+
+    /* ─── Permission rows ────────────────────────────────────────────────── */
+    .perms-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0;
+    }
+
+    .perm-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .perm-row:last-child { border-bottom: none; }
+
+    .perm-label { font-size: 0.85rem; font-weight: 500; color: #374151; }
+    .perm-key   { font-size: 0.72rem; font-family: 'DM Mono', monospace; color: #94a3b8; }
+
+    /* ─── Toggle switch ──────────────────────────────────────────────────── */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: #cbd5e1; border-radius: 24px;
+      transition: background 0.25s;
+    }
+
+    .slider:before {
+      content: "";
+      position: absolute;
+      height: 16px; width: 16px;
+      left: 4px; bottom: 4px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: transform 0.25s;
+    }
+
+    .switch input:checked + .slider { background: var(--purple); }
+    .switch input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Disabled style for super admin roles */
+    .switch.super-mode input + .slider { background: #c4b5fd; cursor: default; }
+    .switch.super-mode input:checked + .slider { background: #7c3aed; opacity: 0.6; }
+
+    /* ─── Scoped permissions ─────────────────────────────────────────────── */
+    .scoped-section {
+      background: #fff;
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      margin: 1.25rem 0;
+      overflow: hidden;
+    }
+
+    .scoped-header {
+      padding: 1rem 1.25rem;
+      background: #eff6ff;
+      border-bottom: 1px solid #dbeafe;
+    }
+
+    .scoped-title {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #1e3a8a;
+    }
+
+    .scoped-sub {
+      margin: 0.25rem 0 0;
+      font-size: 0.78rem;
+      color: #475569;
+      line-height: 1.45;
+    }
+
+    .scoped-table-wrap {
+      overflow-x: auto;
+    }
+
+    .scoped-table {
+      width: 100%;
+      min-width: 680px;
+      border-collapse: collapse;
+    }
+
+    .scoped-table th,
+    .scoped-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #f1f5f9;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .scoped-table th {
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .scoped-table th:first-child,
+    .scoped-table td:first-child {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      background: #fff;
+      min-width: 190px;
+      z-index: 1;
+    }
+
+    .scoped-table th:first-child { background: #f8fafc; z-index: 2; }
+
+    .venue-check {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--purple);
+      cursor: pointer;
+    }
+
+    .scope-muted {
+      color: #94a3b8;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    /* ─── Buttons ────────────────────────────────────────────────────────── */
+    .form-actions {
+      display: flex; gap: 0.75rem; align-items: center;
+      margin-top: 1.5rem; flex-wrap: wrap;
+    }
+
+    .btn-save {
+      padding: 0.7rem 2rem;
+      background: var(--purple);
+      color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 600;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: background 0.15s;
+      min-height: 44px;
+    }
+
+    .btn-save:hover { background: #6d28d9; }
+
+    .btn-cancel {
+      padding: 0.7rem 1.5rem;
+      background: #f1f5f9;
+      color: #475569;
+      border: none; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 600;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      text-decoration: none;
+      display: inline-flex; align-items: center;
+      min-height: 44px;
+      transition: background 0.15s;
+    }
+
+    .btn-cancel:hover { background: #e2e8f0; }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .content { padding: 1.25rem 1rem; }
+      .hero { padding: 1.5rem 1rem; }
+      .perms-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Topbar ───────────────────────────────────────────────────────────── -->
+  <nav class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ url_for('portal.dashboard') if is_delegated_editor else url_for('configuracoes.listar_roles') }}" class="topbar-back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M19 12H5M5 12l7-7M5 12l7 7"/>
+        </svg>
+        {{ "Dashboard" if is_delegated_editor else "Roles" }}
+      </a>
+      <span style="font-size:0.8rem; font-weight:700; color:#64748b;">Editar Permissões</span>
+    </div>
+  </nav>
+
+  <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-meta">
+        <h1 class="hero-role-name">{{ role.nome }}</h1>
+        {% if role.is_super_admin %}
+          <span class="badge-super-hero">Super Admin</span>
+        {% endif %}
+      </div>
+      <p class="hero-sub">
+        {% if role.descricao %}{{ role.descricao }}{% else %}Sem descrição cadastrada.{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Content ──────────────────────────────────────────────────────────── -->
+  <main class="content">
+
+    <!-- Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-list">
+          {% for category, message in messages %}
+            <li class="flash-msg flash-{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Super admin notice -->
+    {% if role.is_super_admin %}
+    <div class="super-banner">
+      <span class="super-banner-icon">🛡</span>
+      <div class="super-banner-text">
+        <p class="super-banner-title">Role Super Admin — Acesso Irrestrito</p>
+        <p class="super-banner-desc">
+          Este role tem acesso total ao sistema sem verificação de permissões individuais.
+          As configurações abaixo são ignoradas em tempo de execução, mas podem ser salvas
+          como referência documentada.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if is_delegated_editor %}
+    <div class="super-banner">
+      <span class="super-banner-icon">i</span>
+      <div class="super-banner-text">
+        <p class="super-banner-title">Edição delegada por domínio</p>
+        <p class="super-banner-desc">
+          Esta tela mostra somente as permissões que seu role pode administrar.
+          Permissões de outros domínios permanecem preservadas.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('configuracoes.salvar_permissoes', role_id=role.id) }}">
+
+      {% for modulo, acoes in permissoes_sistema.items() %}
+      <div class="module-section">
+        <div class="module-section-header">
+          <span class="module-section-title">
+            {{ labels_modulo.get(modulo, modulo) }}
+          </span>
+          <button type="button" class="select-all-btn"
+                  onclick="toggleAll('{{ modulo }}', this)">
+            Marcar todos
+          </button>
+        </div>
+
+        <div class="perms-grid">
+          {% for acao in acoes %}
+          {% set field_name = "perm_" ~ modulo ~ "_" ~ acao %}
+          {% set is_checked = (modulo, acao) in perms_atuais %}
+          <div class="perm-row">
+            <div>
+              <p class="perm-label">{{ labels_acao.get(modulo, {}).get(acao, acao) }}</p>
+              <p class="perm-key">{{ modulo }}.{{ acao }}</p>
+            </div>
+            <label class="switch {% if role.is_super_admin %}super-mode{% endif %}"
+                   title="{{ modulo }}.{{ acao }}">
+              <input
+                type="checkbox"
+                name="{{ field_name }}"
+                value="on"
+                data-modulo="{{ modulo }}"
+                {% if is_checked %}checked{% endif %}
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if reservas_acoes_escopaveis and reserva_sources %}
+      <section class="scoped-section" aria-labelledby="reservas-scope-title">
+        <div class="scoped-header">
+          <h2 class="scoped-title" id="reservas-scope-title">Reservas por venue</h2>
+          <p class="scoped-sub">
+            Quando uma ação de Reservas não estiver marcada como global acima,
+            marque abaixo as venues onde esse role pode exercer a permissão.
+            Se a ação global estiver marcada, ela vale para todas as venues.
+          </p>
+        </div>
+
+        <div class="scoped-table-wrap">
+          <table class="scoped-table">
+            <thead>
+              <tr>
+                <th>Permissão</th>
+                {% for source in reserva_sources %}
+                <th>{{ source.display_name or source.name }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for acao in reservas_acoes_escopaveis %}
+              {% set is_global = ("reservas", acao) in perms_atuais %}
+              <tr>
+                <td>
+                  <p class="perm-label">{{ labels_acao.get("reservas", {}).get(acao, acao) }}</p>
+                  <p class="perm-key">reservas.{{ acao }}</p>
+                </td>
+                {% for source in reserva_sources %}
+                <td>
+                  {% if is_global %}
+                    <span class="scope-muted">Global</span>
+                  {% elif source.id in reservas_acoes_escopadas.get(acao, []) %}
+                    <input
+                      class="venue-check"
+                      type="checkbox"
+                      name="scoped_reservas_{{ acao }}_{{ source.id }}"
+                      value="on"
+                      {% if (acao, source.id) in scoped_perms_atuais %}checked{% endif %}
+                      aria-label="{{ labels_acao.get("reservas", {}).get(acao, acao) }} em {{ source.display_name or source.name }}"
+                    />
+                  {% else %}
+                    <span class="scope-muted">Sem acesso</span>
+                  {% endif %}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit" class="btn-save">Salvar Permissões</button>
+        <a href="{{ url_for('portal.dashboard') if is_delegated_editor else url_for('configuracoes.listar_roles') }}" class="btn-cancel">Cancelar</a>
+      </div>
+
+    </form>
+  </main>
+
+  <script>
+    /**
+     * Alterna todos os toggles de um módulo específico.
+     * @param {string} modulo - Identificador do módulo.
+     * @param {HTMLElement} btn - Botão que disparou o evento.
+     */
+    function toggleAll(modulo, btn) {
+      const inputs = document.querySelectorAll(`input[data-modulo="${modulo}"]`);
+      const allChecked = Array.from(inputs).every(i => i.checked);
+
+      inputs.forEach(i => { i.checked = !allChecked; });
+      btn.textContent = allChecked ? 'Marcar todos' : 'Desmarcar todos';
+    }
+  </script>
+
+</body>
+</html>

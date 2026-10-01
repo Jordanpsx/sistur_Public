@@ -1,0 +1,1273 @@
+{% extends "reservas/reservas_base.html" %}
+{#
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Análise de Dados — Dashboard analítico do módulo de Reservas
+#}
+
+{% block html_title %}Análise de Dados{% endblock %}
+{% block page_title %}Análise de Dados{% endblock %}
+{% block page_subtitle %}
+  <p class="text-xs text-content-muted leading-tight mt-0.5 hidden sm:block">
+    {{ data_inicio }} → {{ data_fim }}
+    {% if selected_statuses %}
+      · {{ selected_statuses | length }} status filtrado{{ 's' if selected_statuses | length > 1 else '' }}
+    {% endif %}
+  </p>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# ══════════════════════════════════════════════════════════
+   FILTROS
+   ══════════════════════════════════════════════════════════ #}
+
+{# Seleção rápida de período + exportação CSV #}
+<div class="flex flex-wrap gap-2 mb-4 items-center">
+  {% set quick_btns = [
+    (7,  'Últimos 7 dias',  'setPeriod(7)'),
+    (14, 'Últimos 14 dias', 'setPeriod(14)'),
+    (30, 'Últimos 30 dias', 'setPeriod(30)'),
+  ] %}
+  {% for _, label, fn in quick_btns %}
+  <button type="button" onclick="{{ fn }};document.getElementById('analyticsForm').submit()"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-2 text-content-muted
+                 hover:bg-teal-50 dark:hover:bg-teal-900/30 hover:text-teal-700 dark:hover:text-teal-300 border border-transparent
+                 hover:border-teal-200 dark:hover:border-teal-800 transition-all">
+    {{ label }}
+  </button>
+  {% endfor %}
+  <button type="button" onclick="setPeriodThisMonth();document.getElementById('analyticsForm').submit()"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-2 text-content-muted
+                 hover:bg-teal-50 dark:hover:bg-teal-900/30 hover:text-teal-700 dark:hover:text-teal-300 border border-transparent
+                 hover:border-teal-200 dark:hover:border-teal-800 transition-all">
+    Este mês
+  </button>
+  <button type="button" onclick="setPeriodThisYear();document.getElementById('analyticsForm').submit()"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-surface-2 text-content-muted
+                 hover:bg-teal-50 dark:hover:bg-teal-900/30 hover:text-teal-700 dark:hover:text-teal-300 border border-transparent
+                 hover:border-teal-200 dark:hover:border-teal-800 transition-all">
+    Este ano
+  </button>
+
+  {# Separador flexível — empurra o export para a direita no desktop #}
+  <div class="grow"></div>
+
+  {# Export CSV — respeita filtros atuais (data + venue) #}
+  <a href="{{ url_for('reservas.analytics_export_fluxo_caixa',
+                       data_inicio=data_inicio, data_fim=data_fim,
+                       source_id=source_id if source_id else '') }}"
+     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+            bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200
+            hover:bg-emerald-100 hover:border-emerald-300 transition-all min-h-[32px]"
+     title="Baixa CSV com entradas, saídas e saldo diário do período.">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+    </svg>
+    Exportar fluxo de caixa (CSV)
+  </a>
+</div>
+
+{# Formulário de filtros #}
+<form id="analyticsForm" method="get" action="{{ url_for('reservas.analytics_dashboard') }}"
+      class="bg-surface rounded-xl border border-line p-4 mb-6 shadow-sm">
+
+  {# Linha 1 — datas + venue + botão #}
+  <div class="flex flex-col sm:flex-row gap-3 items-end">
+
+    <div class="flex-1 min-w-0">
+      <label class="r-label">Data Início</label>
+      <input type="date" name="data_inicio" id="data_inicio"
+             value="{{ data_inicio }}" class="r-input" />
+    </div>
+
+    <div class="flex-1 min-w-0">
+      <label class="r-label">Data Fim</label>
+      <input type="date" name="data_fim" id="data_fim"
+             value="{{ data_fim }}" class="r-input" />
+    </div>
+
+    <div class="flex-1 min-w-0">
+      <label class="r-label">Local / Venue</label>
+      <select name="source_id" class="r-select">
+        <option value="">Todos os locais</option>
+        {% for src in sources %}
+          <option value="{{ src.id }}" {{ 'selected' if source_id == src.id else '' }}>
+            {{ src.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="shrink-0">
+      <button type="submit"
+              class="w-full sm:w-auto inline-flex items-center justify-center gap-2
+                     px-5 py-2.5 bg-teal-600 text-white text-sm font-bold rounded-lg
+                     hover:bg-teal-700 transition-colors min-h-[42px]">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+        </svg>
+        Filtrar
+      </button>
+    </div>
+
+  </div>
+
+  {# Linha 2 — chips de status #}
+  {% if all_status_configs %}
+  <div class="mt-4 pt-4 border-t border-line">
+    <p class="text-xs font-bold text-content-muted uppercase tracking-widest mb-2.5">
+      Filtrar por status
+    </p>
+    <div class="flex flex-wrap gap-2" id="chipsContainer">
+      {% for cfg in all_status_configs %}
+        {% set is_sel = cfg.internal_name in selected_statuses %}
+        <label class="cursor-pointer select-none">
+          <input type="checkbox" name="status" value="{{ cfg.internal_name }}"
+                 class="sr-only chip-input" {% if is_sel %}checked{% endif %}
+                 data-color="{{ cfg.color_hex }}">
+          <span class="chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                       border text-xs font-semibold transition-all duration-150"
+                data-color="{{ cfg.color_hex }}"
+                style="{% if is_sel %}
+                         background: {{ cfg.color_hex }}22;
+                         border-color: {{ cfg.color_hex }};
+                         color: {{ cfg.color_hex }};
+                       {% else %}
+                         background: #f8fafc;
+                         border-color: #e2e8f0;
+                         color: #64748b;
+                       {% endif %}">
+            <span class="w-1.5 h-1.5 rounded-full shrink-0"
+                  style="background: {{ cfg.color_hex }}"></span>
+            {{ cfg.label }}
+          </span>
+        </label>
+      {% endfor %}
+
+      {# Limpar seleção #}
+      {% if selected_statuses %}
+      <a href="{{ url_for('reservas.analytics_dashboard',
+                          data_inicio=data_inicio, data_fim=data_fim,
+                          source_id=source_id if source_id else '') }}"
+         class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border
+                border-dashed border-line text-xs font-medium text-content-muted
+                hover:text-red-500 hover:border-red-300 transition-colors">
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+        Limpar
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+</form>
+
+{# ══════════════════════════════════════════════════════════
+   KPI CARDS — 5 cards em grid responsivo
+   ══════════════════════════════════════════════════════════ #}
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+
+  {# ── 1. Total de Reservas ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Total</p>
+      <div class="ico-teal w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M3 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/></svg></div>
+    </div>
+    <p class="text-2xl font-extrabold text-content leading-none mt-1">
+      {{ resumo.total_reservas }}
+    </p>
+    <p class="text-xs text-content-muted leading-tight">Reservas</p>
+    {% if resumo.growth_reservas is not none %}
+      {% set g = resumo.growth_reservas %}
+      <div class="flex items-center gap-1 mt-1 pt-1 border-t border-line">
+        <span class="text-xs font-bold {{ 'text-emerald-600' if g > 0 else ('text-red-500' if g < 0 else 'text-content-muted') }}">
+          {{ '+' if g > 0 else '' }}{{ g }}%
+        </span>
+        <span class="text-xs text-content-muted">vs anterior</span>
+      </div>
+    {% else %}
+      <p class="text-xs text-content-muted mt-1 pt-1 border-t border-line">sem período anterior</p>
+    {% endif %}
+  </div>
+
+  {# ── 2. Receita Recebida Líquida (ledger de pagamentos) ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1"
+       title="Pagamentos aprovados menos reembolsos efetivados. Fonte: PaymentTransaction (ledger).">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Receita</p>
+      <div class="ico-green w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    </div>
+    <p class="text-xl font-extrabold text-content leading-none mt-1 truncate">
+      R$ {{ "%.0f"|format(resumo.receita_recebida) | replace(".", ",") }}
+    </p>
+    <p class="text-xs text-content-muted leading-tight">Recebido líquido</p>
+    {% if resumo.receita_reembolsada and resumo.receita_reembolsada > 0 %}
+      <p class="text-[11px] text-red-500 leading-tight font-semibold">
+        − R$ {{ "%.0f"|format(resumo.receita_reembolsada) | replace(".", ",") }} reembolsado
+      </p>
+    {% endif %}
+    {% if resumo.growth_receita is not none %}
+      {% set g = resumo.growth_receita %}
+      <div class="flex items-center gap-1 mt-1 pt-1 border-t border-line">
+        <span class="text-xs font-bold {{ 'text-emerald-600' if g > 0 else ('text-red-500' if g < 0 else 'text-content-muted') }}">
+          {{ '+' if g > 0 else '' }}{{ g }}%
+        </span>
+        <span class="text-xs text-content-muted">vs anterior</span>
+      </div>
+    {% else %}
+      <p class="text-xs text-content-muted mt-1 pt-1 border-t border-line">sem período anterior</p>
+    {% endif %}
+  </div>
+
+  {# ── 3. Ticket Médio ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1"
+       title="Receita contratada ÷ total de reservas do período (ticket de venda).">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Ticket</p>
+      <div class="ico-blue w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div>
+    </div>
+    <p class="text-xl font-extrabold text-content leading-none mt-1 truncate">
+      R$ {{ "%.0f"|format(resumo.ticket_medio) | replace(".", ",") }}
+    </p>
+    <p class="text-xs text-content-muted leading-tight">Ticket médio contratado</p>
+    {% if resumo.growth_ticket is not none %}
+      {% set g = resumo.growth_ticket %}
+      <div class="flex items-center gap-1 mt-1 pt-1 border-t border-line">
+        <span class="text-xs font-bold {{ 'text-emerald-600' if g > 0 else ('text-red-500' if g < 0 else 'text-content-muted') }}">
+          {{ '+' if g > 0 else '' }}{{ g }}%
+        </span>
+        <span class="text-xs text-content-muted">vs anterior</span>
+      </div>
+    {% else %}
+      <p class="text-xs text-content-muted mt-1 pt-1 border-t border-line">sem período anterior</p>
+    {% endif %}
+  </div>
+
+  {# ── 4. Antecedência Média ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Antecedência</p>
+      <div class="ico-purple w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+    </div>
+    {% if antecedencia_stats.mediana is not none %}
+      <p class="text-2xl font-extrabold text-content leading-none mt-1">
+        {{ antecedencia_stats.mediana | int }}
+        <span class="text-base font-semibold text-content-muted">dias</span>
+      </p>
+    {% else %}
+      <p class="text-2xl font-extrabold text-content-muted leading-none mt-1">—</p>
+    {% endif %}
+    <p class="text-xs text-content-muted leading-tight">Mediana criação → check-in</p>
+    <p class="text-xs text-content-muted mt-1 pt-1 border-t border-line">
+      {% if antecedencia_stats.media is not none %}
+        média {{ antecedencia_stats.media | int }}d · p90 {{ antecedencia_stats.p90 | int }}d
+      {% else %}
+        sem dados no período
+      {% endif %}
+    </p>
+  </div>
+
+  {# ── 5. Taxa de Conversão ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Conversão</p>
+      <div class="ico-amber w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+    </div>
+    <p class="text-2xl font-extrabold leading-none mt-1
+              {{ 'text-emerald-600' if conversao.taxa >= 70 else ('text-amber-500' if conversao.taxa >= 40 else 'text-red-500') }}">
+      {{ conversao.taxa | round(1) }}<span class="text-base font-semibold">%</span>
+    </p>
+    <p class="text-xs text-content-muted leading-tight">Taxa inteligente</p>
+    <p class="text-xs text-content-muted mt-1 pt-1 border-t border-line"
+       title="Este card considera todos os status deliberadamente — filtrar por status pago não deve inflar a conversão.">
+      ⓘ ignora filtro de status · {{ conversao.converted_intents }}/{{ conversao.total_intents }}
+    </p>
+  </div>
+
+</div>
+
+{# ══════════════════════════════════════════════════════════
+   GRÁFICOS
+   ══════════════════════════════════════════════════════════ #}
+
+{# ── Evolução no período — série temporal de receita/reservas ── #}
+<div class="bg-surface rounded-xl border border-line p-5 shadow-sm mb-5">
+  <div class="flex flex-wrap items-start gap-3 mb-4">
+    <div class="grow">
+      <h2 class="text-sm font-bold text-content">Evolução no Período</h2>
+      <p class="text-xs text-content-muted mt-0.5">
+        Por dia de check-in · receita contratada · linha = média móvel 7 dias
+      </p>
+    </div>
+    <div class="inline-flex rounded-lg border border-line overflow-hidden text-xs font-semibold shrink-0">
+      <button id="btnStReceita" onclick="stSetModo('receita')"
+              class="px-3 py-1.5 bg-teal-600 text-white transition-colors">
+        Receita
+      </button>
+      <button id="btnStReservas" onclick="stSetModo('count')"
+              class="px-3 py-1.5 bg-surface text-content-muted hover:bg-surface-2 transition-colors">
+        Reservas
+      </button>
+    </div>
+  </div>
+  {% if serie_temporal %}
+    <div style="height:260px;position:relative">
+      <canvas id="chartSerieTemporal"></canvas>
+    </div>
+  {% else %}
+    <p class="text-sm text-content-muted text-center py-10">Nenhum dado no período.</p>
+  {% endif %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+
+  <div class="bg-surface rounded-xl border border-line p-5 shadow-sm">
+    <h2 class="text-sm font-bold text-content">Reservas por Origem</h2>
+    <p class="text-xs text-content-muted mt-0.5 mb-4">Contagem de reservas · receita contratada no detalhe</p>
+    {% if por_origem %}
+      <div class="flex justify-center" style="max-height:280px">
+        <canvas id="chartOrigem" style="max-height:280px"></canvas>
+      </div>
+    {% else %}
+      <p class="text-sm text-content-muted text-center py-10">Nenhum dado no período.</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-surface rounded-xl border border-line p-5 shadow-sm">
+    <h2 class="text-sm font-bold text-content">Receita por Categoria</h2>
+    <p class="text-xs text-content-muted mt-0.5 mb-4">Receita contratada (líquida de descontos)</p>
+    {% if por_categoria %}
+      {# Mesmo padrão de scroll do Top Itens: container interno cresce com o
+         nº de categorias; wrapper limita a janela visível. Evita barras
+         espremidas quando houver muitas categorias. #}
+      <div id="catScrollWrapper" style="overflow-y:auto; overflow-x:hidden;">
+        <div id="catChartContainer" style="position:relative;">
+          <canvas id="chartCategoria"></canvas>
+        </div>
+      </div>
+    {% else %}
+      <p class="text-sm text-content-muted text-center py-10">Nenhum dado no período.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+
+  <div class="bg-surface rounded-xl border border-line p-5 shadow-sm">
+    <h2 class="text-sm font-bold text-content">Receita por Dia da Semana</h2>
+    <p class="text-xs text-content-muted mt-0.5 mb-4">Soma do período, por dia de check-in · sazonalidade semanal</p>
+    {% if serie_temporal %}
+      <div style="height:240px;position:relative">
+        <canvas id="chartDiaSemana"></canvas>
+      </div>
+    {% else %}
+      <p class="text-sm text-content-muted text-center py-10">Nenhum dado no período.</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-surface rounded-xl border border-line p-5 shadow-sm">
+    <h2 class="text-sm font-bold text-content">Conversão por Canal</h2>
+    <p class="text-xs text-content-muted mt-0.5 mb-4">
+      Intenções convertidas por origem · ignora filtro de status
+    </p>
+    {% if conversao_origem %}
+      <div style="height:240px;position:relative">
+        <canvas id="chartConversaoOrigem"></canvas>
+      </div>
+    {% else %}
+      <p class="text-sm text-content-muted text-center py-10">Nenhum dado no período.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<div class="bg-surface rounded-xl border border-line p-5 shadow-sm mb-5" id="cardTopItens">
+
+  {# ── Cabeçalho do card ── #}
+  <div class="flex flex-wrap items-start gap-3 mb-4">
+    <div class="grow">
+      <h2 class="text-sm font-bold text-content">Itens por Receita</h2>
+      <p class="text-xs text-content-muted mt-0.5">
+        Valores brutos de itens (antes de descontos) · scroll para ver todos · <span id="tiTotalLabel"></span>
+      </p>
+    </div>
+
+    {# Legenda de origens #}
+    <div class="flex items-center gap-2 flex-wrap" id="tiLegend">
+      <span class="inline-flex items-center gap-1 text-xs font-semibold text-content-muted px-2 py-1 rounded-full border border-line bg-surface-2 cursor-pointer select-none ti-legend-chip" data-origin="WEB">
+        <span class="w-2 h-2 rounded-full shrink-0" style="background:#0d9488"></span>WEB
+      </span>
+      <span class="inline-flex items-center gap-1 text-xs font-semibold text-content-muted px-2 py-1 rounded-full border border-line bg-surface-2 cursor-pointer select-none ti-legend-chip" data-origin="BALCAO">
+        <span class="w-2 h-2 rounded-full shrink-0" style="background:#4f46e5"></span>BALCÃO
+      </span>
+      <span class="inline-flex items-center gap-1 text-xs font-semibold text-content-muted px-2 py-1 rounded-full border border-line bg-surface-2 cursor-pointer select-none ti-legend-chip" data-origin="BOT">
+        <span class="w-2 h-2 rounded-full shrink-0" style="background:#f59e0b"></span>BOT
+      </span>
+    </div>
+
+    {# Toggle Receita / Quantidade #}
+    <div class="inline-flex rounded-lg border border-line overflow-hidden text-xs font-semibold shrink-0">
+      <button id="btnTiReceita" onclick="tiSetModo('receita')"
+              class="px-3 py-1.5 bg-teal-600 text-white transition-colors">
+        Receita
+      </button>
+      <button id="btnTiQtd" onclick="tiSetModo('quantidade')"
+              class="px-3 py-1.5 bg-surface text-content-muted hover:bg-surface-2 transition-colors">
+        Quantidade
+      </button>
+    </div>
+
+    {# Ordenar #}
+    <select id="tiOrdemSelect" onchange="tiSetOrdem(this.value)"
+            class="text-xs border border-line rounded-lg px-2 py-1.5 text-content-muted bg-surface shrink-0">
+      <option value="receita">Ordenar: Receita ▾</option>
+      <option value="quantidade">Ordenar: Quantidade ▾</option>
+    </select>
+
+    {# Exportar CSV (client-side) #}
+    <button onclick="tiExportCSV()"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                   bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200
+                   hover:bg-emerald-100 transition-colors shrink-0">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      </svg>
+      CSV
+    </button>
+  </div>
+
+  {% if top_itens %}
+    {# Wrapper com scroll — mostra ~10 barras por vez; canvas cresce para todos os itens #}
+    <div id="tiScrollWrapper" style="overflow-y:auto; overflow-x:hidden;">
+      <div id="tiChartContainer" style="position:relative;">
+        <canvas id="chartTopItens"></canvas>
+      </div>
+    </div>
+  {% else %}
+    <p class="text-sm text-content-muted text-center py-10">Nenhum dado no período.</p>
+  {% endif %}
+
+</div>
+
+{# ══════════════════════════════════════════════════════════
+   PDV & CAIXA — vendas de balcão e movimentações manuais de
+   caixa (sangria/suprimento). Ignora o filtro de status: PdvSale
+   e PdvMovimentacaoCaixa não têm o conceito de status de reserva.
+   ══════════════════════════════════════════════════════════ #}
+<div class="mt-2 mb-3">
+  <h2 class="text-base font-bold text-content">PDV & Caixa</h2>
+  <p class="text-xs text-content-muted mt-0.5">
+    Vendas de balcão e movimentações de caixa (sangria/suprimento) · ignora o filtro de status
+  </p>
+</div>
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+
+  {# ── Vendas PDV ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Vendas PDV</p>
+      <div class="ico-teal w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg></div>
+    </div>
+    <p class="text-2xl font-extrabold text-content leading-none mt-1">
+      {{ pdv_resumo.total_vendas }}
+    </p>
+    <p class="text-xs text-content-muted leading-tight">Vendas de balcão</p>
+    {% if pdv_resumo.growth_vendas_pdv is not none %}
+      {% set g = pdv_resumo.growth_vendas_pdv %}
+      <div class="flex items-center gap-1 mt-1 pt-1 border-t border-line">
+        <span class="text-xs font-bold {{ 'text-emerald-600' if g > 0 else ('text-red-500' if g < 0 else 'text-content-muted') }}">
+          {{ '+' if g > 0 else '' }}{{ g }}%
+        </span>
+        <span class="text-xs text-content-muted">vs anterior</span>
+      </div>
+    {% else %}
+      <p class="text-xs text-content-muted mt-1 pt-1 border-t border-line">sem período anterior</p>
+    {% endif %}
+  </div>
+
+  {# ── Receita PDV ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1"
+       title="Soma de PdvSale.amount_total no período — inclui vendas MP ainda PENDING.">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Receita PDV</p>
+      <div class="ico-green w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+    </div>
+    <p class="text-xl font-extrabold text-content leading-none mt-1 truncate">
+      R$ {{ "%.0f"|format(pdv_resumo.receita_pdv) | replace(".", ",") }}
+    </p>
+    <p class="text-xs text-content-muted leading-tight">Vendido no balcão</p>
+    {% if pdv_resumo.growth_receita_pdv is not none %}
+      {% set g = pdv_resumo.growth_receita_pdv %}
+      <div class="flex items-center gap-1 mt-1 pt-1 border-t border-line">
+        <span class="text-xs font-bold {{ 'text-emerald-600' if g > 0 else ('text-red-500' if g < 0 else 'text-content-muted') }}">
+          {{ '+' if g > 0 else '' }}{{ g }}%
+        </span>
+        <span class="text-xs text-content-muted">vs anterior</span>
+      </div>
+    {% else %}
+      <p class="text-xs text-content-muted mt-1 pt-1 border-t border-line">sem período anterior</p>
+    {% endif %}
+  </div>
+
+  {# ── Ticket Médio PDV ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Ticket PDV</p>
+      <div class="ico-blue w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div>
+    </div>
+    <p class="text-xl font-extrabold text-content leading-none mt-1 truncate">
+      R$ {{ "%.0f"|format(pdv_resumo.ticket_medio_pdv) | replace(".", ",") }}
+    </p>
+    <p class="text-xs text-content-muted leading-tight">Ticket médio de balcão</p>
+    {% if pdv_resumo.growth_ticket_pdv is not none %}
+      {% set g = pdv_resumo.growth_ticket_pdv %}
+      <div class="flex items-center gap-1 mt-1 pt-1 border-t border-line">
+        <span class="text-xs font-bold {{ 'text-emerald-600' if g > 0 else ('text-red-500' if g < 0 else 'text-content-muted') }}">
+          {{ '+' if g > 0 else '' }}{{ g }}%
+        </span>
+        <span class="text-xs text-content-muted">vs anterior</span>
+      </div>
+    {% else %}
+      <p class="text-xs text-content-muted mt-1 pt-1 border-t border-line">sem período anterior</p>
+    {% endif %}
+  </div>
+
+  {# ── Saldo de movimentações de caixa (sangria − suprimento) ── #}
+  <div class="bg-surface rounded-xl border border-line p-4 shadow-sm flex flex-col gap-1 col-span-1"
+       title="Suprimento menos sangria (Transferência Interna + Recolhimento ao Cofre + Pagamento de Despesa) no período.">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-bold text-content-muted uppercase tracking-wide leading-tight">Sangria Líquida</p>
+      <div class="ico-red w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+    </div>
+    <p class="text-xl font-extrabold leading-none mt-1 truncate {{ 'text-red-500' if movimentacoes_resumo.saldo_liquido < 0 else 'text-emerald-600' }}">
+      {{ '−' if movimentacoes_resumo.saldo_liquido < 0 else '+' }}R$ {{ "%.0f"|format(movimentacoes_resumo.saldo_liquido | abs) | replace(".", ",") }}
+    </p>
+    <p class="text-xs text-content-muted leading-tight">
+      {{ movimentacoes_resumo.count_movimentacoes }} movimentaç{{ 'ão' if movimentacoes_resumo.count_movimentacoes == 1 else 'ões' }}
+    </p>
+    <p class="text-[11px] text-content-muted mt-1 pt-1 border-t border-line leading-tight">
+      − R$ {{ "%.0f"|format(movimentacoes_resumo.total_sangria) | replace(".", ",") }} sangria
+      · + R$ {{ "%.0f"|format(movimentacoes_resumo.total_suprimento) | replace(".", ",") }} suprimento
+    </p>
+  </div>
+
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+
+  <div class="bg-surface rounded-xl border border-line p-5 shadow-sm">
+    <h2 class="text-sm font-bold text-content">Vendas PDV por Método de Pagamento</h2>
+    <p class="text-xs text-content-muted mt-0.5 mb-4">Como o dinheiro do balcão foi recebido</p>
+    {% if pdv_por_metodo %}
+      <div class="flex justify-center" style="max-height:280px">
+        <canvas id="chartPdvMetodo" style="max-height:280px"></canvas>
+      </div>
+    {% else %}
+      <p class="text-sm text-content-muted text-center py-10">Nenhuma venda de balcão no período.</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-surface rounded-xl border border-line p-5 shadow-sm">
+    <h2 class="text-sm font-bold text-content">Movimentações de Caixa por Tipo</h2>
+    <p class="text-xs text-content-muted mt-0.5 mb-4">Sangria e suprimento no período</p>
+    {% if movimentacoes_por_tipo %}
+      <div style="height:240px;position:relative">
+        <canvas id="chartMovimentacoesTipo"></canvas>
+      </div>
+    {% else %}
+      <p class="text-sm text-content-muted text-center py-10">Nenhuma movimentação de caixa no período.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<div class="bg-surface rounded-xl border border-line p-5 shadow-sm mb-5">
+  <h2 class="text-sm font-bold text-content">Despesas de Caixa por Centro de Custo</h2>
+  <p class="text-xs text-content-muted mt-0.5 mb-4">
+    Só Pagamento de Despesa — dinheiro que saiu da gaveta do PDV e foi alocado a um centro de custo, fora da margem do PDV de origem
+  </p>
+  {% if movimentacoes_por_centro_custo %}
+    <div style="height:240px;position:relative">
+      <canvas id="chartCentroCusto"></canvas>
+    </div>
+  {% else %}
+    <p class="text-sm text-content-muted text-center py-10">Nenhuma despesa alocada a centro de custo no período.</p>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+  // ── Dados servidor → JS ────────────────────────────────────────────────
+  const dadosOrigem         = {{ por_origem       | tojson }};
+  const dadosCategoria      = {{ por_categoria    | tojson }};
+  const dadosTopItensOrigem = {{ top_itens        | tojson }};
+  const dadosSerieTemporal  = {{ serie_temporal   | tojson }};
+  const dadosConvOrigem     = {{ conversao_origem | tojson }};
+  const dadosPdvMetodo      = {{ pdv_por_metodo   | tojson }};
+  const dadosMovTipo        = {{ movimentacoes_por_tipo | tojson }};
+  const dadosCentroCusto    = {{ movimentacoes_por_centro_custo | tojson }};
+  const FILTRO_INICIO       = '{{ data_inicio }}';
+  const FILTRO_FIM          = '{{ data_fim }}';
+
+  const PALETTE = [
+    '#0d9488','#4f46e5','#f59e0b','#10b981','#ef4444',
+    '#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316',
+  ];
+
+  // ── Gráfico 1: Origem (Doughnut) ──────────────────────────────────────
+  (function () {
+    const el = document.getElementById('chartOrigem');
+    if (!el || !dadosOrigem.length) return;
+    const CORES = { WEB: '#0d9488', BALCAO: '#4f46e5', BOT: '#f59e0b' };
+    const LABELS_ORIGEM = { WEB: 'WEB', BALCAO: 'BALCÃO', BOT: 'BOT' };
+    new Chart(el, {
+      type: 'doughnut',
+      data: {
+        labels:   dadosOrigem.map(d => LABELS_ORIGEM[d.origem] || d.origem),
+        datasets: [{
+          data:            dadosOrigem.map(d => d.count),
+          backgroundColor: dadosOrigem.map(d => CORES[d.origem] || '#94a3b8'),
+          borderWidth: 2, borderColor: '#fff', hoverOffset: 6,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const item  = dadosOrigem[ctx.dataIndex];
+                const total = dadosOrigem.reduce((s, d) => s + d.count, 0);
+                const pct   = total ? ((ctx.raw / total) * 100).toFixed(0) : 0;
+                return ` ${ctx.label}: ${ctx.raw} (${pct}%) · ${item.receita.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})} contratado`;
+              },
+            },
+          },
+        },
+      },
+    });
+  })();
+
+  // ── Gráfico 2: Receita por Categoria (Horizontal bar, com scroll) ─────
+  (function () {
+    const el = document.getElementById('chartCategoria');
+    if (!el || !dadosCategoria.length) return;
+
+    // Mesmo padrão do Top Itens: container interno dimensiona o Chart.js
+    // (responsive lê o pai, não o canvas); wrapper limita a janela visível.
+    const BAR_H = 38, MAX_VIS = 7;
+    const totalH   = dadosCategoria.length * BAR_H + 40;
+    const visibleH = Math.min(dadosCategoria.length, MAX_VIS) * BAR_H + 40;
+    const container = document.getElementById('catChartContainer');
+    const wrapper   = document.getElementById('catScrollWrapper');
+    if (container) { container.style.height = totalH + 'px'; container.style.width = '100%'; }
+    if (wrapper)   wrapper.style.maxHeight = visibleH + 'px';
+
+    const totalReceita = dadosCategoria.reduce((s, d) => s + d.receita, 0);
+
+    new Chart(el, {
+      type: 'bar',
+      data: {
+        labels:   dadosCategoria.map(d => d.categoria),
+        datasets: [{
+          label: 'Receita (R$)',
+          data:  dadosCategoria.map(d => d.receita),
+          backgroundColor: dadosCategoria.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderRadius: 5,
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: ctx => {
+            const item = dadosCategoria[ctx.dataIndex];
+            const pct  = totalReceita ? ((ctx.raw / totalReceita) * 100).toFixed(0) : 0;
+            return ` ${ctx.raw.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})} (${pct}%) · ${item.count} reservas`;
+          } } }
+        },
+        scales: { x: { ticks: { callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') } } },
+      },
+    });
+  })();
+
+  // ── Gráfico: Evolução no Período (barras + média móvel 7d) ────────────
+  let _stModo = 'receita';
+  let _stChart = null;
+
+  // Preenche dias sem reservas com zero — sem isso a média móvel pula buracos
+  // e a sazonalidade semanal fica distorcida.
+  const serieCheia = (function () {
+    if (!dadosSerieTemporal.length) return [];
+    const byDia = Object.fromEntries(dadosSerieTemporal.map(d => [d.dia, d]));
+    const out = [];
+    // new Date('YYYY-MM-DD') é UTC — usar T12:00 evita voltar um dia em UTC-3.
+    const cur = new Date(FILTRO_INICIO + 'T12:00:00');
+    const fim = new Date(FILTRO_FIM + 'T12:00:00');
+    for (let i = 0; cur <= fim && i < 1100; i++) {
+      const iso = cur.toISOString().slice(0, 10);
+      out.push(byDia[iso] || { dia: iso, count: 0, receita: 0 });
+      cur.setDate(cur.getDate() + 1);
+    }
+    return out;
+  })();
+
+  function _stBuild() {
+    const el = document.getElementById('chartSerieTemporal');
+    if (!el || !serieCheia.length) return;
+
+    const valores = serieCheia.map(d => _stModo === 'receita' ? d.receita : d.count);
+    // Média móvel de 7 dias (janela parcial no início)
+    const mm7 = valores.map((_, i) => {
+      const ini = Math.max(0, i - 6);
+      const win = valores.slice(ini, i + 1);
+      return win.reduce((s, v) => s + v, 0) / win.length;
+    });
+    const labels = serieCheia.map(d => {
+      const [y, m, dd] = d.dia.split('-');
+      return dd + '/' + m;
+    });
+
+    const fmtVal = v => _stModo === 'receita'
+      ? Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+      : Number(v).toLocaleString('pt-BR');
+
+    if (_stChart) { _stChart.destroy(); _stChart = null; }
+    _stChart = new Chart(el, {
+      data: {
+        labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: _stModo === 'receita' ? 'Receita do dia' : 'Reservas do dia',
+            data: valores,
+            backgroundColor: '#0d948855',
+            borderColor: '#0d9488',
+            borderWidth: { top: 1 },
+            order: 2,
+          },
+          {
+            type: 'line',
+            label: 'Média móvel 7d',
+            data: mm7,
+            borderColor: '#4f46e5',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.3,
+            order: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${fmtVal(ctx.raw)}`,
+              footer: items => {
+                const d = serieCheia[items[0].dataIndex];
+                return _stModo === 'receita'
+                  ? `${d.count} reserva${d.count === 1 ? '' : 's'}`
+                  : d.receita.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { maxTicksLimit: 15, font: { size: 10 } }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { maxTicksLimit: 6, callback: v => fmtVal(v) }, grid: { color: 'rgba(148,163,184,0.2)' } },
+        },
+      },
+    });
+  }
+
+  function stSetModo(modo) {
+    _stModo = modo;
+    document.getElementById('btnStReceita').className =
+      'px-3 py-1.5 transition-colors ' + (modo === 'receita' ? 'bg-teal-600 text-white' : 'bg-surface text-content-muted hover:bg-surface-2');
+    document.getElementById('btnStReservas').className =
+      'px-3 py-1.5 transition-colors ' + (modo === 'count' ? 'bg-teal-600 text-white' : 'bg-surface text-content-muted hover:bg-surface-2');
+    _stBuild();
+  }
+
+  // ── Gráfico: Receita por Dia da Semana ────────────────────────────────
+  (function () {
+    const el = document.getElementById('chartDiaSemana');
+    if (!el || !serieCheia.length) return;
+
+    const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const receitaPorDia = [0, 0, 0, 0, 0, 0, 0];
+    const countPorDia   = [0, 0, 0, 0, 0, 0, 0];
+    serieCheia.forEach(d => {
+      const wd = new Date(d.dia + 'T12:00:00').getDay();
+      receitaPorDia[wd] += d.receita;
+      countPorDia[wd]   += d.count;
+    });
+
+    new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: DIAS,
+        datasets: [{
+          label: 'Receita (R$)',
+          data: receitaPorDia,
+          // Destaque fim de semana (dom/sáb) — driver do negócio
+          backgroundColor: DIAS.map((_, i) => (i === 0 || i === 6) ? '#0d9488' : '#0d948855'),
+          borderRadius: 5,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => ` ${ctx.raw.toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0})} · ${countPorDia[ctx.dataIndex]} reservas`,
+          } },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { maxTicksLimit: 6, callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') }, grid: { color: 'rgba(148,163,184,0.2)' } },
+          x: { grid: { display: false } },
+        },
+      },
+    });
+  })();
+
+  // ── Gráfico: Conversão por Canal ──────────────────────────────────────
+  (function () {
+    const el = document.getElementById('chartConversaoOrigem');
+    if (!el || !dadosConvOrigem.length) return;
+
+    const CORES  = { WEB: '#0d9488', BALCAO: '#4f46e5', BOT: '#f59e0b' };
+    const LABELS = { WEB: 'WEB', BALCAO: 'BALCÃO', BOT: 'BOT' };
+
+    new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: dadosConvOrigem.map(d => LABELS[d.origem] || d.origem),
+        datasets: [{
+          label: 'Taxa de conversão (%)',
+          data: dadosConvOrigem.map(d => d.taxa),
+          backgroundColor: dadosConvOrigem.map(d => CORES[d.origem] || '#94a3b8'),
+          borderRadius: 5,
+          maxBarThickness: 56,
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => {
+              const d = dadosConvOrigem[ctx.dataIndex];
+              return ` ${d.taxa}% · ${d.converted_intents}/${d.total_intents} intenções`;
+            },
+          } },
+        },
+        scales: {
+          x: { min: 0, max: 100, ticks: { callback: v => v + '%' }, grid: { color: 'rgba(148,163,184,0.2)' } },
+          y: { grid: { display: false } },
+        },
+      },
+    });
+  })();
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── Gráfico 3: Itens por Origem — Stacked horizontal bar, com scroll ─
+  // ══════════════════════════════════════════════════════════════════════
+  const TI_ORIGENS = ['WEB', 'BALCAO', 'BOT'];
+  const TI_CORES   = { WEB: '#0d9488', BALCAO: '#4f46e5', BOT: '#f59e0b' };
+  const TI_LABELS  = { WEB: 'WEB', BALCAO: 'BALCÃO', BOT: 'BOT' };
+  const TI_BAR_H   = 38;   // altura por barra em px
+  const TI_MAX_VIS = 10;   // barras visíveis sem scroll
+  const TI_LABEL_MAX = 32; // chars antes de truncar
+
+  let _tiModo  = 'receita';    // 'receita' | 'quantidade'
+  let _tiOrdem = 'receita';    // 'receita' | 'quantidade'
+  let _tiHidden = new Set();   // origens ocultadas pelo clique no chip
+  let _tiChart  = null;
+  let _tiSorted = [];          // dados ordenados (recalculados no rebuild)
+
+  // Formata valor conforme modo
+  const _tiFmt = (v, short) => {
+    if (_tiModo === 'quantidade') return Number(v).toLocaleString('pt-BR') + (short ? '' : ' unid.');
+    return Number(v).toLocaleString('pt-BR', {
+      style: 'currency', currency: 'BRL',
+      minimumFractionDigits: 0, maximumFractionDigits: 0,
+    });
+  };
+
+  // Plugin inline: escreve total + % acumulado (Pareto) no fim de cada barra.
+  // O % acumulado identifica em segundos os itens que concentram a receita
+  // (curva ABC) — ex.: "R$ 12.000 · 45%" na 2ª barra = top-2 fazem 45% do total.
+  const _tiTotalLabelPlugin = {
+    id: 'tiTotalLabel',
+    afterDraw(chart) {
+      const { ctx, data } = chart;
+      // Último dataset visível = referência para x final da barra
+      const visibleDs = chart.data.datasets.map((_, i) => chart.getDatasetMeta(i))
+                            .filter(m => !m.hidden);
+      if (!visibleDs.length) return;
+      const lastMeta = visibleDs[visibleDs.length - 1];
+
+      // Totais por linha (apenas origens visíveis) + acumulado para o Pareto
+      const valKey = _tiModo === 'quantidade' ? 'quantidade' : 'receita';
+      const visTotals = _tiSorted.map(item => TI_ORIGENS
+        .filter(o => !_tiHidden.has(o))
+        .reduce((s, o) => s + (item.por_origem[o]?.[valKey] || 0), 0));
+      const grandTotal = visTotals.reduce((s, v) => s + v, 0);
+      let acum = 0;
+
+      data.labels.forEach((_, i) => {
+        const bar = lastMeta.data[i];
+        acum += visTotals[i];
+        if (!bar) return;
+        const pctAcum = grandTotal > 0 ? Math.round(acum / grandTotal * 100) : 0;
+        ctx.save();
+        ctx.fillStyle = '#475569';
+        ctx.font = '500 11px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${_tiFmt(visTotals[i], true)} · ${pctAcum}%`, bar.x + 6, bar.y);
+        ctx.restore();
+      });
+    },
+  };
+
+  function _tiBuild() {
+    const el = document.getElementById('chartTopItens');
+    if (!el || !dadosTopItensOrigem.length) return;
+
+    // Ordenar dados
+    const key = _tiOrdem === 'quantidade' ? 'quantidade_total' : 'receita_total';
+    _tiSorted = [...dadosTopItensOrigem].sort((a, b) => b[key] - a[key]);
+
+    // Labels truncados (nome completo no tooltip)
+    const truncate = s => s.length > TI_LABEL_MAX ? s.slice(0, TI_LABEL_MAX) + '…' : s;
+    const labels     = _tiSorted.map(d => truncate(d.label));
+    const fullLabels = _tiSorted.map(d => d.label);
+
+    // Datasets por origem
+    const datasets = TI_ORIGENS.map((o, dsIdx) => {
+      const isLast = dsIdx === TI_ORIGENS.length - 1;
+      return {
+        label: TI_LABELS[o] || o,
+        data:  _tiSorted.map(d => {
+          const val = d.por_origem[o];
+          if (!val) return 0;
+          return _tiModo === 'quantidade' ? val.quantidade : val.receita;
+        }),
+        backgroundColor: TI_CORES[o] || '#94a3b8',
+        borderRadius: isLast ? { topRight: 5, bottomRight: 5 } : 0,
+        borderSkipped: false,
+        hidden: _tiHidden.has(o),
+      };
+    });
+
+    // Container interno cresce para todos os itens; wrapper limita a janela visível
+    const totalH  = _tiSorted.length * TI_BAR_H + 32;
+    const visibleH = TI_MAX_VIS * TI_BAR_H + 12;
+    const container = document.getElementById('tiChartContainer');
+    const wrapper   = document.getElementById('tiScrollWrapper');
+    if (container) { container.style.height = totalH + 'px'; container.style.width = '100%'; }
+    if (wrapper)   wrapper.style.maxHeight = visibleH + 'px';
+
+    if (_tiChart) { _tiChart.destroy(); _tiChart = null; }
+
+    _tiChart = new Chart(el, {
+      type: 'bar',
+      plugins: [_tiTotalLabelPlugin],
+      data: { labels, datasets },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { right: 130 } }, // espaço p/ rótulo total + % acumulado
+        animation: { duration: 300 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            filter: item => item.raw > 0,
+            callbacks: {
+              title: items => fullLabels[items[0].dataIndex],
+              label: ctx => {
+                const item = _tiSorted[ctx.dataIndex];
+                const o    = TI_ORIGENS[ctx.datasetIndex];
+                const val  = item.por_origem[o];
+                if (!val || (!val.receita && !val.quantidade)) return null;
+                const base  = _tiModo === 'quantidade' ? val.quantidade : val.receita;
+                const total = _tiModo === 'quantidade' ? item.quantidade_total : item.receita_total;
+                const pct   = total > 0 ? ((base / total) * 100).toFixed(0) : 0;
+                return ` ${TI_LABELS[o] || o}: ${_tiFmt(base)} (${pct}%)`;
+              },
+              footer: items => {
+                const item  = _tiSorted[items[0].dataIndex];
+                const total = _tiModo === 'quantidade' ? item.quantidade_total : item.receita_total;
+                const qtd   = item.quantidade_total;
+                return `Total: ${_tiFmt(total)}  ·  ${qtd.toLocaleString('pt-BR')} unid.`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { color: 'rgba(148,163,184,0.2)' },
+            ticks: {
+              maxTicksLimit: 6,
+              callback: v => _tiModo === 'quantidade'
+                ? Number(v).toLocaleString('pt-BR')
+                : 'R$ ' + Number(v).toLocaleString('pt-BR'),
+            },
+          },
+          y: {
+            stacked: true,
+            ticks: { font: { size: 11 }, color: '#475569' },
+          },
+        },
+      },
+    });
+
+    // Atualiza contador no subtítulo
+    const lbl = document.getElementById('tiTotalLabel');
+    if (lbl) lbl.textContent = _tiSorted.length + ' ' + (_tiSorted.length === 1 ? 'item' : 'itens');
+  }
+
+  // Controles públicos
+  function tiSetModo(modo) {
+    _tiModo = modo;
+    document.getElementById('btnTiReceita').className =
+      'px-3 py-1.5 transition-colors ' + (modo === 'receita' ? 'bg-teal-600 text-white' : 'bg-surface text-content-muted hover:bg-surface-2');
+    document.getElementById('btnTiQtd').className =
+      'px-3 py-1.5 transition-colors ' + (modo === 'quantidade' ? 'bg-teal-600 text-white' : 'bg-surface text-content-muted hover:bg-surface-2');
+    _tiBuild();
+  }
+
+  function tiSetOrdem(ordem) {
+    _tiOrdem = ordem;
+    _tiBuild();
+  }
+
+  // Toggle de chip de origem (clique na legenda)
+  document.querySelectorAll('.ti-legend-chip').forEach(chip => {
+    chip.addEventListener('click', function () {
+      const o = this.dataset.origin;
+      if (_tiHidden.has(o)) {
+        _tiHidden.delete(o);
+        this.style.opacity = '1';
+      } else {
+        _tiHidden.add(o);
+        this.style.opacity = '0.35';
+      }
+      _tiBuild();
+    });
+  });
+
+  // Export CSV client-side — mesmo padrão do CSV servidor: delimitador ";"
+  // e vírgula decimal (Excel pt-BR usa vírgula como decimal; com "," de
+  // delimitador o arquivo abria numa coluna só).
+  function tiExportCSV() {
+    const num = v => Number(v).toFixed(2).replace('.', ',');
+    const rows = [['Item','Categoria','WEB R$','BALCÃO R$','BOT R$','Total R$','Qtd Total']];
+    const sorted = [...dadosTopItensOrigem].sort((a, b) => b.receita_total - a.receita_total);
+    sorted.forEach(d => {
+      rows.push([
+        d.item, d.categoria,
+        num(d.por_origem['WEB']?.receita    || 0),
+        num(d.por_origem['BALCAO']?.receita || 0),
+        num(d.por_origem['BOT']?.receita    || 0),
+        num(d.receita_total),
+        d.quantidade_total,
+      ]);
+    });
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'itens-por-receita.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Inicializa ao carregar
+  document.addEventListener('DOMContentLoaded', function () {
+    _tiBuild();
+    _stBuild();
+  });
+
+  // ── Seleção rápida de período ──────────────────────────────────────────
+  // Formata em data LOCAL — toISOString() converte para UTC e, após as 21h
+  // no Brasil (UTC-3), preenchia o dia seguinte.
+  function _fmtLocalDate(d) {
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function setPeriod(days) {
+    const fim = new Date(), ini = new Date();
+    ini.setDate(ini.getDate() - days);
+    document.getElementById('data_inicio').value = _fmtLocalDate(ini);
+    document.getElementById('data_fim').value    = _fmtLocalDate(fim);
+  }
+  function setPeriodThisMonth() {
+    const now = new Date();
+    document.getElementById('data_inicio').value = _fmtLocalDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    document.getElementById('data_fim').value    = _fmtLocalDate(now);
+  }
+  function setPeriodThisYear() {
+    const now = new Date();
+    document.getElementById('data_inicio').value = _fmtLocalDate(new Date(now.getFullYear(), 0, 1));
+    document.getElementById('data_fim').value    = _fmtLocalDate(now);
+  }
+
+  // ── Chips de status — toggle visual ───────────────────────────────────
+  document.querySelectorAll('#chipsContainer .chip-input').forEach(input => {
+    input.addEventListener('change', function () {
+      applyChipStyle(this);
+    });
+  });
+
+  function applyChipStyle(input) {
+    const chip  = input.nextElementSibling;
+    const color = input.dataset.color;
+    if (input.checked) {
+      chip.style.background   = color + '22';
+      chip.style.borderColor  = color;
+      chip.style.color        = color;
+    } else {
+      chip.style.background   = '#f8fafc';
+      chip.style.borderColor  = 'rgba(148,163,184,0.4)';
+      chip.style.color        = '#64748b';
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── PDV & Caixa ─────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+
+  // ── Gráfico: Vendas PDV por Método de Pagamento (Doughnut) ────────────
+  (function () {
+    const el = document.getElementById('chartPdvMetodo');
+    if (!el || !dadosPdvMetodo.length) return;
+    const LABELS_METODO = {
+      CASH: 'Dinheiro', EXTERNAL_CARD_TERMINAL: 'Cartão (maquininha)',
+      EXTERNAL_PIX: 'Pix (direto)', MP_PIX: 'Pix (Mercado Pago)',
+      MP_CARD: 'Cartão (Mercado Pago)', COMANDA: 'Comanda',
+    };
+    new Chart(el, {
+      type: 'doughnut',
+      data: {
+        labels:   dadosPdvMetodo.map(d => LABELS_METODO[d.metodo] || d.metodo),
+        datasets: [{
+          data:            dadosPdvMetodo.map(d => d.receita),
+          backgroundColor: dadosPdvMetodo.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderWidth: 2, borderColor: '#fff', hoverOffset: 6,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const item = dadosPdvMetodo[ctx.dataIndex];
+                return ` ${ctx.label}: ${item.count} venda${item.count === 1 ? '' : 's'} · ${item.receita.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}`;
+              },
+            },
+          },
+        },
+      },
+    });
+  })();
+
+  // ── Gráfico: Movimentações de Caixa por Tipo (Horizontal bar) ─────────
+  (function () {
+    const el = document.getElementById('chartMovimentacoesTipo');
+    if (!el || !dadosMovTipo.length) return;
+    const LABELS_TIPO = {
+      RECOLHIMENTO_COFRE: 'Recolhimento ao Cofre',
+      PAGAMENTO_DESPESA: 'Pagamento de Despesa',
+      TRANSFERENCIA_INTERNA: 'Transferência Interna',
+      SUPRIMENTO: 'Suprimento',
+    };
+    const CORES_TIPO = {
+      RECOLHIMENTO_COFRE: '#ef4444', PAGAMENTO_DESPESA: '#f59e0b',
+      TRANSFERENCIA_INTERNA: '#8b5cf6', SUPRIMENTO: '#10b981',
+    };
+    new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: dadosMovTipo.map(d => LABELS_TIPO[d.tipo] || d.tipo),
+        datasets: [{
+          data: dadosMovTipo.map(d => d.valor),
+          backgroundColor: dadosMovTipo.map(d => CORES_TIPO[d.tipo] || '#94a3b8'),
+          borderRadius: 5,
+          maxBarThickness: 40,
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => {
+              const d = dadosMovTipo[ctx.dataIndex];
+              return ` ${d.valor.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})} · ${d.count} lançamento${d.count === 1 ? '' : 's'}`;
+            },
+          } },
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') }, grid: { color: 'rgba(148,163,184,0.2)' } },
+          y: { grid: { display: false } },
+        },
+      },
+    });
+  })();
+
+  // ── Gráfico: Despesas de Caixa por Centro de Custo (Horizontal bar) ───
+  (function () {
+    const el = document.getElementById('chartCentroCusto');
+    if (!el || !dadosCentroCusto.length) return;
+    new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: dadosCentroCusto.map(d => d.centro_custo),
+        datasets: [{
+          data: dadosCentroCusto.map(d => d.valor),
+          backgroundColor: dadosCentroCusto.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderRadius: 5,
+          maxBarThickness: 40,
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            label: ctx => {
+              const d = dadosCentroCusto[ctx.dataIndex];
+              return ` ${d.valor.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})} · ${d.count} lançamento${d.count === 1 ? '' : 's'}`;
+            },
+          } },
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { callback: v => 'R$ ' + Number(v).toLocaleString('pt-BR') }, grid: { color: 'rgba(148,163,184,0.2)' } },
+          y: { grid: { display: false } },
+        },
+      },
+    });
+  })();
+</script>
+{% endblock %}

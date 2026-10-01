@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Relatórios — Escala no Período (WeasyPrint + preview)
+  NÃO usar fontes externas, JS ou recursos de rede — apenas CSS inline.
+-->
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Escala — {{ dados.data_inicio.strftime('%d/%m/%Y') }} a {{ dados.data_fim.strftime('%d/%m/%Y') }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 1.5cm 2cm;
+        }
+
+        body {
+            font-family: 'DejaVu Sans', Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+            color: #1e293b;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .company-header {
+            border-bottom: 2pt solid #4f46e5;
+            padding-bottom: 6pt;
+            margin-bottom: 10pt;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .company-name {
+            font-size: 13pt;
+            font-weight: bold;
+            color: #312e81;
+        }
+
+        .company-meta {
+            font-size: 7pt;
+            color: #64748b;
+            margin-top: 2pt;
+        }
+
+        .doc-label {
+            text-align: right;
+            font-size: 9pt;
+            font-weight: bold;
+            color: #4f46e5;
+            text-transform: uppercase;
+            letter-spacing: .5pt;
+        }
+
+        .doc-period {
+            font-size: 7.5pt;
+            color: #64748b;
+            text-align: right;
+        }
+
+        .day-block {
+            margin-bottom: 8pt;
+            page-break-inside: avoid;
+        }
+
+        .day-block__title {
+            font-size: 8pt;
+            font-weight: bold;
+            color: #4f46e5;
+            border-bottom: .5pt solid #e2e8f0;
+            padding-bottom: 2pt;
+            margin-bottom: 3pt;
+        }
+
+        .day-block__empty {
+            font-size: 7.5pt;
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        table.rel {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table.rel td {
+            padding: 2.5pt 6pt;
+            border-bottom: .5pt solid #f1f5f9;
+        }
+
+        .tipo-tag {
+            font-size: 6.5pt;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+
+
+
+
+
+        .footer {
+            border-top: .5pt solid #e2e8f0;
+            padding-top: 5pt;
+            font-size: 6.5pt;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10pt;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="company-header">
+        <div>
+            <div class="company-name">{{ empresa_razao_social or empresa_nome or 'Empresa' }}</div>
+            <div class="company-meta">
+                {% if empresa_cnpj %}CNPJ: {{ empresa_cnpj }}{% endif %}
+                {% if empresa_cnpj and empresa_endereco %} · {% endif %}
+                {% if empresa_endereco %}{{ empresa_endereco }}{% endif %}
+            </div>
+        </div>
+        <div>
+            <div class="doc-label">Escala no Período</div>
+            <div class="doc-period">{{ dados.data_inicio.strftime('%d/%m/%Y') }} a {{ dados.data_fim.strftime('%d/%m/%Y') }}</div>
+        </div>
+    </div>
+
+    {% for dia in dados.dias %}
+    <div class="day-block">
+        <div class="day-block__title">{{ dia.data.strftime('%d/%m/%Y (%a)') }}</div>
+        {% if dia.entradas %}
+        <table class="rel">
+            {% for entrada in dia.entradas %}
+            <tr>
+                <td>{{ entrada.funcionario.nome }}</td>
+                <td class="tipo-tag">{{ entrada.tipo }}</td>
+                <td>{{ entrada.labels | join(', ') if entrada.labels else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <div class="day-block__empty">Nenhuma entrada de escala.</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+
+    <div class="footer">
+        <span>Documento gerado em {{ (gerado_em.strftime('%d/%m/%Y %H:%M') ~ ' UTC') if gerado_em else 'pré-visualização' }} · SISTUR RH</span>
+        <span>{{ empresa_nome or '' }}</span>
+    </div>
+
+</body>
+
+</html>

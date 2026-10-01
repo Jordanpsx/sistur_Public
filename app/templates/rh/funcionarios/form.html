@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  RH — Formulário de Funcionário (criar / editar)
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>
+    {{ company_name }} |
+    {% if funcionario %}Editar — {{ funcionario.nome }}{% else %}Novo Funcionário{% endif %}
+  </title>
+  {% include '_design_system.html' %}
+</head>
+
+<body class="min-h-screen">
+
+  <!-- Top bar -->
+  <header class="bg-surface/80 backdrop-blur border-b border-line sticky top-0 z-10">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        {% if company_logo %}
+        <img src="{{ company_logo | e }}" alt="{{ company_name | e }}" class="h-8 w-auto object-contain" />
+        {% endif %}
+        <span class="font-bold text-content text-sm hidden sm:block">
+          {{ company_name | e }}
+          <span class="text-content-muted font-normal">| RH</span>
+        </span>
+      </div>
+      <nav class="flex items-center gap-3">
+        {% include '_theme_toggle.html' %}
+        <a href="{{ url_for('rh.listar_funcionarios') }}"
+          class="text-sm text-content-muted hover:text-primary transition-colors">
+          ← Funcionários
+        </a>
+        <form method="POST" action="{{ url_for('portal.logout') }}">
+          <button type="submit" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                         text-content-muted hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+            Sair
+          </button>
+        </form>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+
+    <!-- Cabeçalho da página -->
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-extrabold text-content">
+          {% if funcionario %}Editar Funcionário{% else %}Novo Funcionário{% endif %}
+        </h1>
+        <p class="text-content-muted text-sm mt-0.5">
+          {% if funcionario %}
+          Atualize os dados de <strong>{{ funcionario.nome | e }}</strong>.
+          {% else %}
+          Preencha os dados do novo colaborador.
+          {% endif %}
+        </p>
+      </div>
+
+      {% if funcionario %}
+      <div class="flex gap-2 items-center">
+        <!-- Aciona o Modal de Reprocessamento de Ponto -->
+        <button type="button" onclick="document.getElementById('modalReprocessar').classList.remove('hidden')"
+          class="px-4 py-2 bg-surface border border-line text-content-muted rounded-lg text-sm font-medium hover:bg-surface-2 hover:text-primary transition-colors flex items-center gap-2 shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Reprocessar Ponto
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+    <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+          {% if category == 'sucesso' %}bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800
+          {% elif category == 'erro' %}bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800
+          {% else %}bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800{% endif %}">
+      {{ message | e }}
+    </div>
+    {% endfor %}
+    {% endwith %}
+
+    <!-- Formulário -->
+    <form method="POST"
+      action="{% if funcionario %}{{ url_for('rh.editar_funcionario', funcionario_id=funcionario.id) }}{% else %}{{ url_for('rh.novo_funcionario') }}{% endif %}">
+
+      <!-- ------------------------------------------------------------------ -->
+      <!-- Seção 1 — Identificação                                             -->
+      <!-- ------------------------------------------------------------------ -->
+      <div class="bg-surface rounded-2xl shadow-sm border border-line p-6 mb-4">
+        <h2 class="text-sm font-semibold text-content-muted uppercase tracking-widest mb-4">Identificação</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <!-- Nome -->
+          <div class="sm:col-span-2">
+            <label for="nome" class="block text-sm font-medium text-content mb-1">
+              Nome completo <span class="text-red-500">*</span>
+            </label>
+            <input type="text" id="nome" name="nome" required value="{{ funcionario.nome | e if funcionario else '' }}"
+              placeholder="Ex.: Maria da Silva" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+          <!-- CPF -->
+          <div>
+            <label for="cpf" class="block text-sm font-medium text-content mb-1">
+              CPF <span class="text-red-500">*</span>
+            </label>
+            {% if funcionario %}
+            <!-- CPF não pode ser alterado após cadastro -->
+            <input type="text" value="{{ funcionario.cpf_formatado() }}" disabled class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface-2
+                            text-sm text-content-muted font-mono cursor-not-allowed" />
+            {% else %}
+            <input type="text" id="cpf" name="cpf" required inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                            text-sm text-content placeholder-content-muted font-mono
+                            focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+            {% endif %}
+          </div>
+
+          <!-- E-mail -->
+          <div>
+            <label for="email" class="block text-sm font-medium text-content mb-1">E-mail</label>
+            <input type="email" id="email" name="email"
+              value="{{ funcionario.email | e if funcionario and funcionario.email else '' }}"
+              placeholder="colaborador@empresa.com" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+          <!-- Telefone -->
+          <div>
+            <label for="telefone" class="block text-sm font-medium text-content mb-1">Telefone</label>
+            <input type="tel" id="telefone" name="telefone" inputmode="tel" autocomplete="tel"
+              value="{{ funcionario.telefone | e if funcionario and funcionario.telefone else '' }}"
+              placeholder="(11) 99999-9999" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ------------------------------------------------------------------ -->
+      <!-- Seção 2 — Dados de emprego                                         -->
+      <!-- ------------------------------------------------------------------ -->
+      <div class="bg-surface rounded-2xl shadow-sm border border-line p-6 mb-4">
+        <h2 class="text-sm font-semibold text-content-muted uppercase tracking-widest mb-4">Dados de Emprego</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <!-- Cargo -->
+          <div>
+            <label for="cargo" class="block text-sm font-medium text-content mb-1">Cargo</label>
+            <input type="text" id="cargo" name="cargo"
+              value="{{ funcionario.cargo | e if funcionario and funcionario.cargo else '' }}"
+              placeholder="Ex.: Recepcionista" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+          <!-- Tipo de Contrato -->
+          <div>
+            <label for="tipo_contrato" class="block text-sm font-medium text-content mb-1">Tipo de contrato</label>
+            <select id="tipo_contrato" name="tipo_contrato"
+              onchange="document.getElementById('campo_valor_diaria').style.display=this.value==='DIARISTA'?'block':'none'"
+              class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                     text-sm text-content focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+              <option value="CLT"      {% if not funcionario or funcionario.tipo_contrato == 'CLT' %}selected{% endif %}>CLT</option>
+              <option value="DIARISTA" {% if funcionario and funcionario.tipo_contrato == 'DIARISTA' %}selected{% endif %}>Diarista</option>
+            </select>
+          </div>
+
+          <!-- Valor de Diária (visível apenas para DIARISTA) -->
+          <div id="campo_valor_diaria"
+               style="display:{{ 'block' if funcionario and funcionario.tipo_contrato == 'DIARISTA' else 'none' }}">
+            <label for="valor_diaria" class="block text-sm font-medium text-content mb-1">Valor da diária (R$)</label>
+            <input type="number" id="valor_diaria" name="valor_diaria" min="0" step="0.01"
+              value="{{ '%.2f'|format(funcionario.valor_diaria|float) if funcionario and funcionario.valor_diaria else '' }}"
+              placeholder="Ex.: 150,00"
+              class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                     text-sm text-content placeholder-content-muted
+                     focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+          <!-- Matrícula -->
+          <div>
+            <label for="matricula" class="block text-sm font-medium text-content mb-1">Matrícula</label>
+            <input type="text" id="matricula" name="matricula"
+              value="{{ funcionario.matricula | e if funcionario and funcionario.matricula else '' }}"
+              placeholder="Ex.: 0042" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+          <!-- Data de admissão -->
+          <div>
+            <label for="data_admissao" class="block text-sm font-medium text-content mb-1">Data de admissão</label>
+            <input type="date" id="data_admissao" name="data_admissao"
+              value="{{ funcionario.data_admissao.isoformat() if funcionario and funcionario.data_admissao else '' }}"
+              class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+          <!-- Área -->
+          <div>
+            <label for="area_id" class="block text-sm font-medium text-content mb-1">Área / Departamento</label>
+            <select id="area_id" name="area_id" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                           text-sm text-content
+                           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+              <option value="">— Selecione —</option>
+              {% for area in areas %}
+              <option value="{{ area.id }}" {% if funcionario and funcionario.area_id==area.id %}selected{% endif %}>
+                {{ area.name | e }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ------------------------------------------------------------------ -->
+      <!-- Seção 3 — Documentação trabalhista                                 -->
+      <!-- ------------------------------------------------------------------ -->
+      <div class="bg-surface rounded-2xl shadow-sm border border-line p-6 mb-4">
+        <h2 class="text-sm font-semibold text-content-muted uppercase tracking-widest mb-4">Documentação Trabalhista</h2>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+          <!-- CTPS -->
+          <div class="sm:col-span-2">
+            <label for="ctps" class="block text-sm font-medium text-content mb-1">CTPS (nº)</label>
+            <input type="text" id="ctps" name="ctps"
+              value="{{ funcionario.ctps | e if funcionario and funcionario.ctps else '' }}"
+              placeholder="Número da carteira de trabalho" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+          <!-- CTPS UF -->
+          <div>
+            <label for="ctps_uf" class="block text-sm font-medium text-content mb-1">CTPS — UF</label>
+            <input type="text" id="ctps_uf" name="ctps_uf"
+              value="{{ funcionario.ctps_uf | e if funcionario and funcionario.ctps_uf else '' }}" placeholder="SP"
+              maxlength="2" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted uppercase
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+          <!-- CBO -->
+          <div>
+            <label for="cbo" class="block text-sm font-medium text-content mb-1">CBO</label>
+            <input type="text" id="cbo" name="cbo"
+              value="{{ funcionario.cbo | e if funcionario and funcionario.cbo else '' }}"
+              placeholder="Código Bras. de Ocupações" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ------------------------------------------------------------------ -->
+      <!-- Seção 4 — Jornada semanal                                         -->
+      <!-- ------------------------------------------------------------------ -->
+      {% set dias = [
+      ('segunda', 'Segunda-feira'),
+      ('terca', 'Terça-feira'),
+      ('quarta', 'Quarta-feira'),
+      ('quinta', 'Quinta-feira'),
+      ('sexta', 'Sexta-feira'),
+      ('sabado', 'Sábado'),
+      ('domingo', 'Domingo'),
+      ] %}
+      {% set jornada = funcionario.jornada_semanal if funcionario and funcionario.jornada_semanal else {} %}
+      {% set dias_uteis = ('segunda','terca','quarta','quinta','sexta') %}
+
+      <div class="bg-surface rounded-2xl shadow-sm border border-line p-6 mb-4">
+        <h2 class="text-sm font-semibold text-content-muted uppercase tracking-widest mb-1">Jornada de Trabalho</h2>
+        <p class="text-xs text-content-muted mb-4">Marque os dias trabalhados e informe a carga horária em minutos.</p>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-line">
+                <th class="text-left py-2 pr-4 text-xs font-semibold text-content-muted uppercase tracking-widest w-36">Dia
+                </th>
+                <th class="text-center py-2 px-3 text-xs font-semibold text-content-muted uppercase tracking-widest w-24">
+                  Trabalha</th>
+                <th class="text-left py-2 px-3 text-xs font-semibold text-content-muted uppercase tracking-widest">Min / dia
+                </th>
+                <th class="text-left py-2 px-3 text-xs font-semibold text-content-muted uppercase tracking-widest">Almoço
+                  (min)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line" id="jornada-tbody">
+              {% for slug, label in dias %}
+              {% set d = jornada.get(slug, {}) %}
+              {% set ativo = d.get('ativo', slug in dias_uteis) if funcionario else (slug in dias_uteis) %}
+              {% set minutos = d.get('minutos', 480) if ativo else 0 %}
+              {% set almoco = d.get('almoco', 60) if ativo else 0 %}
+              <tr class="jornada-row">
+                <td class="py-2.5 pr-4 font-medium text-content">{{ label }}</td>
+                <td class="py-2.5 px-3 text-center">
+                  <input type="checkbox" name="jornada_{{ slug }}_ativo" id="jornada_{{ slug }}_ativo" {% if ativo
+                    %}checked{% endif %} class="w-4 h-4 rounded border-line text-primary
+                                  focus:ring-primary/30 day-checkbox" data-day="{{ slug }}" />
+                </td>
+                <td class="py-2.5 px-3">
+                  <input type="number" name="jornada_{{ slug }}_minutos" id="jornada_{{ slug }}_minutos"
+                    value="{{ minutos }}" min="0" max="1440" {% if not ativo %}disabled{% endif %} class="w-24 px-3 py-1.5 rounded-lg border border-line bg-surface
+                                  text-sm text-content text-right
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+                                  disabled:bg-surface-2 disabled:text-content-muted" />
+                </td>
+                <td class="py-2.5 px-3">
+                  <input type="number" name="jornada_{{ slug }}_almoco" id="jornada_{{ slug }}_almoco"
+                    value="{{ almoco }}" min="0" max="480" {% if not ativo %}disabled{% endif %} class="w-24 px-3 py-1.5 rounded-lg border border-line bg-surface
+                                  text-sm text-content text-right
+                                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+                                  disabled:bg-surface-2 disabled:text-content-muted" />
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ------------------------------------------------------------------ -->
+      <!-- Seção 4a — Horário de entrada padrão (para monitoramento de atrasos) -->
+      <!-- ------------------------------------------------------------------ -->
+      <div class="bg-surface rounded-2xl shadow-sm border border-line p-6 mb-4">
+        <h2 class="text-sm font-semibold text-content-muted uppercase tracking-widest mb-1">Monitoramento de Atrasos</h2>
+        <p class="text-xs text-content-muted mb-4">Configure o horário esperado de entrada para ativar detecção automática de atrasos.</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Horário de entrada padrão -->
+          <div>
+            <label for="horario_entrada_padrao" class="block text-sm font-medium text-content mb-1">
+              Horário de Entrada
+            </label>
+            <input type="time" id="horario_entrada_padrao" name="horario_entrada_padrao"
+              value="{{ funcionario.horario_entrada_padrao.strftime('%H:%M') if funcionario and funcionario.horario_entrada_padrao else '' }}"
+              class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+            <p class="text-xs text-content-muted mt-1">Ex.: 08:00 (deixe em branco para desativar monitoramento)</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ------------------------------------------------------------------ -->
+      <!-- Seção 4b — Senha de acesso                                         -->
+      <!-- ------------------------------------------------------------------ -->
+      <div class="bg-surface rounded-2xl shadow-sm border border-line p-6 mb-4">
+        <h2 class="text-sm font-semibold text-content-muted uppercase tracking-widest mb-1">Senha de Acesso</h2>
+        <p class="text-xs text-content-muted mb-4">
+          {% if funcionario %}
+          Deixe em branco para manter a senha atual.
+          {% else %}
+          Opcional. Se não definida, o funcionário poderá acessar somente via CPF.
+          {% endif %}
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="nova_senha" class="block text-sm font-medium text-content mb-1">Nova senha</label>
+            <input type="password" id="nova_senha" name="nova_senha" autocomplete="new-password"
+              placeholder="Mínimo 6 caracteres" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+          <div>
+            <label for="confirmar_senha" class="block text-sm font-medium text-content mb-1">Confirmar senha</label>
+            <input type="password" id="confirmar_senha" name="confirmar_senha" autocomplete="new-password"
+              placeholder="Repita a nova senha" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                          text-sm text-content placeholder-content-muted
+                          focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+          </div>
+        </div>
+      </div>
+
+      <script>
+        // Habilita/desabilita os inputs de minutos ao marcar/desmarcar o dia
+        document.querySelectorAll('.day-checkbox').forEach(function (cb) {
+          cb.addEventListener('change', function () {
+            var day = this.dataset.day;
+            var minInput = document.getElementById('jornada_' + day + '_minutos');
+            var almInput = document.getElementById('jornada_' + day + '_almoco');
+            if (this.checked) {
+              minInput.disabled = false;
+              almInput.disabled = false;
+              if (!minInput.value || minInput.value === '0') minInput.value = '480';
+              if (!almInput.value || almInput.value === '0') almInput.value = '60';
+            } else {
+              minInput.disabled = true;
+              almInput.disabled = true;
+              minInput.value = '0';
+              almInput.value = '0';
+            }
+          });
+        });
+      </script>
+
+      <!-- ------------------------------------------------------------------ -->
+      <!-- Seção 5 — Permissões                                               -->
+      <!-- ------------------------------------------------------------------ -->
+      <div class="bg-surface rounded-2xl shadow-sm border border-line p-6 mb-6">
+        <h2 class="text-sm font-semibold text-content-muted uppercase tracking-widest mb-4">Permissões de Acesso</h2>
+
+        <div>
+          <label for="role_id" class="block text-sm font-medium text-content mb-1">Role</label>
+          <select id="role_id" name="role_id" class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface
+                         text-sm text-content
+                         focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+            <option value="">— Sem role (acesso negado ao portal) —</option>
+            {% for role in roles %}
+            <option value="{{ role.id }}" {% if funcionario and funcionario.role_id==role.id %}selected{% endif %}>
+              {{ role.nome | e }}
+              {% if role.is_super_admin %} — Super Admin{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-content-muted mt-1">
+            O role determina o que o funcionário pode visualizar e fazer no portal.
+          </p>
+        </div>
+      </div>
+
+      <!-- Botões -->
+      <div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+        <a href="{{ url_for('rh.listar_funcionarios') }}" class="ds-btn ds-btn-quiet w-full sm:w-auto">
+          Cancelar
+        </a>
+        <button type="submit" class="ds-btn ds-btn-primary w-full sm:w-auto">
+          {% if funcionario %}Salvar alterações{% else %}Cadastrar funcionário{% endif %}
+        </button>
+      </div>
+
+    </form>
+
+  {% if funcionario %}
+  <!-- SEÇÃO QR CODE -->
+  <section class="mx-auto w-full max-w-2xl px-4 sm:px-6 pb-8">
+    <div class="bg-surface rounded-2xl shadow-sm border border-line overflow-hidden">
+      <div class="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-content">QR Code do Colaborador</h2>
+          <p class="text-xs text-content-muted mt-0.5">Usado para registro de ponto eletrônico</p>
+        </div>
+        <form method="POST" action="{{ url_for('rh.regenerar_qrcode', funcionario_id=funcionario.id) }}"
+          onsubmit="return confirm('Regenerar o QR code invalidará o cartão físico atual. Continuar?')">
+          <button type="submit"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-line text-sm font-medium text-content-muted bg-surface hover:bg-surface-2 transition-colors">
+            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Regenerar QR
+          </button>
+        </form>
+      </div>
+      <div class="p-6 flex flex-col sm:flex-row items-center gap-6">
+        <div class="flex-shrink-0">
+          <img src="{{ url_for('rh.qrcode_png', funcionario_id=funcionario.id) }}"
+            alt="QR Code de {{ funcionario.nome }}"
+            class="w-48 h-48 rounded-xl border border-line shadow-sm"
+            id="qrcode-img" />
+        </div>
+        <div class="flex-1 text-center sm:text-left">
+          <p class="text-sm font-medium text-content">{{ funcionario.nome }}</p>
+          {% if funcionario.matricula %}
+          <p class="text-xs text-content-muted mt-1">Matrícula: {{ funcionario.matricula }}</p>
+          {% endif %}
+          <p class="text-xs text-content-muted mt-3 leading-relaxed">
+            O QR code contém os dados do colaborador criptografados.
+            Apresente-o ao leitor na entrada ou saída para registrar o ponto.
+          </p>
+          <a href="{{ url_for('rh.qrcode_png', funcionario_id=funcionario.id) }}"
+            download="qrcode_{{ funcionario.cpf or funcionario.id }}.png"
+            class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors shadow-sm">
+            <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Baixar PNG
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  </main>
+
+  {% if funcionario %}
+  <!-- MODAL DE REPROCESSAMENTO -->
+  <div id="modalReprocessar"
+    class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm transition-opacity flex items-center justify-center p-4">
+    <div
+      class="bg-surface rounded-2xl shadow-xl border border-line w-full max-w-md overflow-hidden transform transition-all">
+      <div class="p-6">
+        <h3 class="text-lg font-bold text-content mb-2">Reprocessar Banco de Horas</h3>
+        <p class="text-sm text-content-muted mb-6">
+          Recalcula todo o saldo de horários e atrasos para o período selecionado.
+          Use esta ferramenta apenas se houveram mudanças em regras de jornada
+          ou falhas de processamento reportadas.
+        </p>
+
+        <form method="POST" action="{{ url_for('rh.reprocessar_ponto', funcionario_id=funcionario.id) }}"
+          class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="data_inicio" class="block text-sm font-medium text-content mb-1">Data Inicial</label>
+              <input type="date" id="data_inicio" name="data_inicio" required
+                class="w-full px-3 py-2 rounded-lg border border-line text-sm focus:ring-2 focus:ring-primary/30" />
+            </div>
+            <div>
+              <label for="data_fim" class="block text-sm font-medium text-content mb-1">Data Final</label>
+              <input type="date" id="data_fim" name="data_fim" required
+                class="w-full px-3 py-2 rounded-lg border border-line text-sm focus:ring-2 focus:ring-primary/30" />
+            </div>
+          </div>
+
+          <div class="mt-4 bg-amber-50 dark:bg-amber-900/30 rounded-xl p-4 border border-amber-100 flex gap-3">
+            <div class="mt-0.5">
+              <input type="checkbox" id="sobrescrever_jornada" name="sobrescrever_jornada" value="1"
+                class="w-4 h-4 rounded border-amber-300 text-amber-600 dark:text-amber-300 focus:ring-amber-500" />
+            </div>
+            <div class="text-sm">
+              <label for="sobrescrever_jornada" class="font-medium text-amber-900 cursor-pointer">
+                Sobrescrever carga horária?
+              </label>
+              <p class="text-amber-700 dark:text-amber-300/80 mt-1">
+                Por padrão, o reprocessamento mantém o contrato (snapshot) do dia que a pessoa trabalhou.
+                Marque isso apenas se for aplicar a <b>jornada cadastrada atual</b> na tela de trás para todo aquele
+                período retroativo.
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-line">
+            <button type="button" onclick="document.getElementById('modalReprocessar').classList.add('hidden')"
+              class="ds-btn ds-btn-quiet">
+              Cancelar
+            </button>
+            <button type="submit" class="ds-btn ds-btn-primary">
+              Iniciar Reprocessamento
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</body>
+
+</html>

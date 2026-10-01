@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  RH — Dashboard com Abas (Visão Geral + Colaboradores)
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Recursos Humanos</title>
+
+  {% include '_design_system.html' %}
+
+  <style>
+    /* =============================================
+       BRIDGE — aliases legados → tokens semânticos
+       Os 122 usos de var(--slate-*)/--indigo-* abaixo passam a apontar
+       para os tokens do design system, que trocam sob .dark. Resultado:
+       dark mode automático + marca unificada (indigo → teal).
+    ============================================= */
+    :root {
+      /* Marca: indigo → teal (var(--c-primary)) */
+      --indigo-50:  var(--c-primary-light);
+      --indigo-100: var(--c-primary-light);
+      --indigo-500: var(--c-primary);
+      --indigo-600: var(--c-primary);
+      --indigo-700: var(--c-primary-dark);
+      --indigo-800: var(--c-primary-dark);
+
+      /* Neutros: escala slate colapsada nos 5 tokens semânticos */
+      --slate-50:  var(--c-surface-2);
+      --slate-100: var(--c-bg);
+      --slate-200: var(--c-border);
+      --slate-300: var(--c-border);
+      --slate-400: var(--c-text-muted);
+      --slate-500: var(--c-text-muted);
+      --slate-600: var(--c-text-muted);
+      --slate-700: var(--c-text);
+      --slate-800: var(--c-text);
+      --slate-900: var(--c-text);
+
+      /* Estados → tokens de estado (flipam no dark) */
+      --green-50:  var(--c-success-bg);
+      --green-500: var(--c-success-fg);
+      --green-600: var(--c-success-fg);
+      --amber-50:  var(--c-warning-bg);
+      --amber-100: var(--c-warning-bg);
+      --amber-500: var(--c-warning-fg);
+      --amber-600: var(--c-warning-fg);
+      --amber-800: var(--c-warning-fg);
+      --red-50:  var(--c-danger-bg);
+      --red-400: var(--c-danger-fg);
+      --red-500: var(--c-danger-fg);
+      --red-600: var(--c-danger-fg);
+      --violet-50:  var(--c-info-bg);
+      --violet-500: var(--c-info-fg);
+      --violet-600: var(--c-info-fg);
+
+      --shadow-xl: var(--shadow-lg);
+      --radius-full: 9999px;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'DM Mono', 'Fira Code', monospace;
+    }
+
+    /* =============================================
+       RESET & BASE (margin/padding; tokens vêm do partial)
+    ============================================= */
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--c-bg);
+      min-height: 100vh;
+    }
+
+    /* =============================================
+       LAYOUT
+    ============================================= */
+    .page-shell {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    .content-wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 1.25rem 3rem;
+      width: 100%;
+    }
+
+    /* =============================================
+       TOP BAR
+    ============================================= */
+    .top-bar {
+      background: color-mix(in srgb, var(--c-surface) 88%, transparent);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--slate-100);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .top-bar__inner {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+      height: 3.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .top-bar__left {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--slate-500);
+      text-decoration: none;
+      padding: .35rem .65rem;
+      border-radius: var(--radius-sm);
+      transition: all .15s;
+    }
+
+    .back-link:hover {
+      background: var(--indigo-100);
+      color: var(--indigo-700);
+    }
+
+    .top-bar__sep {
+      color: var(--slate-200);
+      font-size: .75rem;
+    }
+
+    .top-bar__title {
+      font-size: .9rem;
+      font-weight: 700;
+      color: var(--slate-700);
+    }
+
+    /* =============================================
+       FLASH MESSAGES
+    ============================================= */
+    .flash-area {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: .75rem 1.25rem 0;
+    }
+
+    .flash {
+      display: flex;
+      align-items: flex-start;
+      gap: .6rem;
+      padding: .8rem 1rem;
+      border-radius: var(--radius-md);
+      font-size: .85rem;
+      font-weight: 500;
+      border: 1px solid transparent;
+    }
+
+    .flash--sucesso {
+      background: var(--green-50);
+      border-color: var(--c-success-bd);
+      color: var(--green-600);
+    }
+
+    .flash--erro {
+      background: var(--red-50);
+      border-color: var(--c-danger-bd);
+      color: var(--red-600);
+    }
+
+    .flash--aviso {
+      background: var(--amber-50);
+      border-color: var(--c-warning-bd);
+      color: var(--amber-600);
+    }
+
+    /* =============================================
+       HERO BANNER
+    ============================================= */
+    .hero-banner {
+      background: linear-gradient(135deg, var(--indigo-700) 0%, var(--c-primary) 100%);
+      border-radius: var(--radius-xl);
+      padding: 2rem 2rem 1.75rem;
+      color: white;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 50px -12px rgba(79, 70, 229, .4);
+      margin-top: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-banner::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 80% 50%, rgba(255, 255, 255, .07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-banner__title {
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 900;
+      letter-spacing: -.03em;
+      margin-bottom: .35rem;
+    }
+
+    .hero-banner__sub {
+      font-size: .88rem;
+      opacity: .75;
+      font-weight: 500;
+    }
+
+    /* =============================================
+       SUMMARY CARDS
+    ============================================= */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 640px) {
+      .summary-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .summary-card {
+      background: var(--c-surface);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--slate-100);
+      transition: transform .15s, box-shadow .15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .summary-card--people::before {
+      background: var(--indigo-500);
+    }
+
+    .summary-card--hours::before {
+      background: var(--green-500);
+    }
+
+    .summary-card--balance::before {
+      background: var(--amber-500);
+    }
+
+    .summary-card--review::before {
+      background: var(--red-500);
+    }
+
+    .summary-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .summary-card__icon {
+      font-size: 1.5rem;
+      margin-bottom: .6rem;
+    }
+
+    .summary-card__label {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+      margin-bottom: .3rem;
+    }
+
+    .summary-card__value {
+      font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+      font-size: 1.35rem;
+      font-weight: 500;
+      color: var(--slate-800);
+      line-height: 1;
+      margin-bottom: .3rem;
+    }
+
+    .summary-card__sub {
+      font-size: .75rem;
+      font-weight: 600;
+      padding: .2rem .5rem;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+    }
+
+    .sub--pos {
+      color: var(--green-600);
+      background: var(--green-50);
+    }
+
+    .sub--neg {
+      color: var(--red-600);
+      background: var(--red-50);
+    }
+
+    .sub--warn {
+      color: var(--amber-800);
+      background: var(--amber-100);
+    }
+
+    .sub--zero {
+      color: var(--slate-400);
+      background: var(--slate-100);
+    }
+
+    /* =============================================
+       TABS
+    ============================================= */
+    .tabs-wrapper {
+      margin-bottom: 1.25rem;
+    }
+
+    .tabs-nav {
+      display: flex;
+      gap: .25rem;
+      background: var(--slate-100);
+      border-radius: var(--radius-lg);
+      padding: .3rem;
+      width: fit-content;
+    }
+
+    .tab-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .6rem 1.25rem;
+      border-radius: var(--radius-md);
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--slate-500);
+      text-decoration: none;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+
+    .tab-link:hover {
+      color: var(--indigo-700);
+      background: color-mix(in srgb, var(--c-surface) 60%, transparent);
+    }
+
+    .tab-link--active {
+      background: var(--c-surface);
+      color: var(--indigo-700);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* =============================================
+       SECTION CARD
+    ============================================= */
+    .section-card {
+      background: var(--c-surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--slate-100);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-card__header {
+      padding: 1.25rem 1.5rem .9rem;
+      border-bottom: 1px solid var(--slate-100);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .section-card__title {
+      font-size: .85rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--slate-500);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .section-card__body {
+      padding: .5rem 1rem 1rem;
+    }
+
+    /* =============================================
+       ALERT CARDS (Central de Alertas)
+    ============================================= */
+    .alerts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: .75rem;
+      padding: 1rem;
+    }
+
+    .alert-card {
+      background: var(--amber-50);
+      border: 1px solid var(--c-warning-bd);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+    }
+
+    .alert-card__top {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .alert-card__icon {
+      width: 2rem;
+      height: 2rem;
+      background: var(--c-warning-bg);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .alert-card__name {
+      font-size: .88rem;
+      font-weight: 700;
+      color: var(--slate-800);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .alert-card__date {
+      font-size: .75rem;
+      color: var(--amber-800);
+      font-weight: 600;
+    }
+
+    .alert-card__link {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--indigo-600);
+      text-decoration: none;
+      margin-top: .25rem;
+      padding: .3rem .65rem;
+      background: var(--indigo-50);
+      border-radius: var(--radius-sm);
+      transition: all .15s;
+      width: fit-content;
+    }
+
+    .alert-card__link:hover {
+      background: var(--indigo-100);
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1rem;
+      color: var(--slate-300);
+      gap: .6rem;
+      text-align: center;
+    }
+
+    .empty-state__icon {
+      font-size: 2.5rem;
+      opacity: .5;
+    }
+
+    .empty-state__text {
+      font-size: .9rem;
+      font-weight: 500;
+      color: var(--slate-400);
+    }
+
+    /* =============================================
+       FILTERS (Aba Colaboradores)
+    ============================================= */
+    .filters-bar {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--slate-100);
+      background: var(--slate-50);
+    }
+
+    .filters-bar input,
+    .filters-bar select {
+      font-family: var(--font);
+      font-size: .85rem;
+      padding: .55rem .85rem;
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius-sm);
+      background: var(--c-surface);
+      color: var(--slate-700);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .filters-bar input:focus,
+    .filters-bar select:focus {
+      border-color: var(--indigo-500);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, .15);
+    }
+
+    .filters-bar input {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .btn-filter {
+      font-family: var(--font);
+      font-size: .85rem;
+      font-weight: 600;
+      padding: .55rem 1.1rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .btn-filter--primary {
+      background: var(--indigo-600);
+      color: white;
+    }
+
+    .btn-filter--primary:hover {
+      background: var(--indigo-700);
+    }
+
+    .btn-filter--ghost {
+      background: var(--slate-100);
+      color: var(--slate-500);
+      border: 1px solid var(--slate-200);
+    }
+
+    .btn-filter--ghost:hover {
+      background: var(--c-surface);
+      color: var(--slate-700);
+    }
+
+    /* =============================================
+       EMPLOYEE TABLE
+    ============================================= */
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    .emp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+      min-width: 560px;
+    }
+
+    .emp-table thead th {
+      padding: .75rem 1rem;
+      text-align: left;
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+      background: var(--slate-50);
+      border-bottom: 1px solid var(--slate-100);
+      white-space: nowrap;
+    }
+
+    .emp-table tbody tr {
+      transition: background .12s;
+    }
+
+    .emp-table tbody tr:hover {
+      background: var(--slate-50);
+    }
+
+    .emp-table tbody tr.inactive-row {
+      opacity: .65;
+    }
+
+    .emp-table td {
+      padding: .9rem 1rem;
+      border-bottom: 1px solid var(--slate-50);
+      color: var(--slate-700);
+      vertical-align: middle;
+    }
+
+    /* Name cell */
+    .name-cell__main {
+      font-weight: 700;
+      color: var(--slate-800);
+    }
+
+    .name-cell__sub {
+      font-size: .73rem;
+      color: var(--slate-400);
+      margin-top: .1rem;
+    }
+
+    /* CPF cell */
+    .cpf-cell {
+      font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+      font-size: .82rem;
+      color: var(--slate-500);
+    }
+
+    /* Banco de Horas cell — always visible, highlighted */
+    .banco-cell {
+      font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+      font-weight: 700;
+      font-size: .95rem;
+    }
+
+    .banco-cell--pos {
+      color: var(--green-600);
+    }
+
+    .banco-cell--neg {
+      color: var(--red-500);
+    }
+
+    .banco-cell--zero {
+      color: var(--slate-400);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .2rem .55rem;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+    }
+
+    .badge--role-admin {
+      background: var(--violet-50);
+      color: var(--violet-600);
+    }
+
+    .badge--role {
+      background: var(--indigo-50);
+      color: var(--indigo-700);
+    }
+
+    .badge--no-role {
+      background: var(--slate-100);
+      color: var(--slate-500);
+    }
+
+    .badge--inactive {
+      background: var(--c-danger-bg);
+      color: var(--red-600);
+    }
+
+    /* Action buttons */
+    .actions-cell {
+      display: flex;
+      gap: .4rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      font-family: var(--font);
+      font-size: .75rem;
+      font-weight: 600;
+      padding: .35rem .7rem;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+
+    .btn-action--edit {
+      background: var(--indigo-50);
+      color: var(--indigo-700);
+    }
+
+    .btn-action--edit:hover {
+      background: var(--indigo-100);
+    }
+
+    .btn-action--deactivate {
+      background: var(--red-50);
+      color: var(--red-600);
+    }
+
+    .btn-action--deactivate:hover {
+      background: var(--c-danger-bg);
+    }
+
+    .btn-action--banco {
+      background: var(--green-50);
+      color: var(--green-600);
+    }
+
+    .btn-action--banco:hover {
+      background: var(--c-success-bg);
+    }
+
+    /* Responsive hidden columns */
+    @media (max-width: 640px) {
+      .col-cpf {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .col-cargo {
+        display: none;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .col-area {
+        display: none;
+      }
+
+      .col-role {
+        display: none;
+      }
+    }
+
+    /* =============================================
+       CONFIRM MODAL (Desativar)
+    ============================================= */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .45);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: var(--c-surface);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: var(--shadow-xl);
+      text-align: center;
+    }
+
+    .modal-box__icon {
+      font-size: 2.5rem;
+      margin-bottom: .75rem;
+    }
+
+    .modal-box__title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--slate-800);
+      margin-bottom: .5rem;
+    }
+
+    .modal-box__text {
+      font-size: .88rem;
+      color: var(--slate-500);
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-box__actions {
+      display: flex;
+      gap: .75rem;
+      justify-content: center;
+    }
+
+    .btn-modal {
+      font-family: var(--font);
+      font-size: .88rem;
+      font-weight: 700;
+      padding: .7rem 1.5rem;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .btn-modal--cancel {
+      background: var(--slate-100);
+      color: var(--slate-600);
+    }
+
+    .btn-modal--cancel:hover {
+      background: var(--slate-200);
+    }
+
+    .btn-modal--confirm {
+      background: var(--red-500);
+      color: white;
+    }
+
+    .btn-modal--confirm:hover {
+      background: var(--red-600);
+    }
+
+    /* =============================================
+       RESULT COUNT
+    ============================================= */
+    .result-count {
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--slate-400);
+      background: var(--slate-100);
+      padding: .2rem .6rem;
+      border-radius: var(--radius-full);
+    }
+
+    /* =============================================
+       NEW EMPLOYEE CTA
+    ============================================= */
+    .btn-new {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-family: var(--font);
+      font-size: .82rem;
+      font-weight: 700;
+      padding: .5rem 1rem;
+      border-radius: var(--radius-full);
+      background: var(--indigo-600);
+      color: white;
+      text-decoration: none;
+      transition: all .15s;
+    }
+
+    .btn-new:hover {
+      background: var(--indigo-700);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    /* =============================================
+       PLANILHA MENSAL DE BATIDAS
+    ============================================= */
+    .matrix-nav {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+
+    .matrix-nav__month {
+      font-size: .875rem;
+      font-weight: 700;
+      color: var(--slate-700);
+      min-width: 9rem;
+      text-align: center;
+    }
+
+    .matrix-nav__btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--slate-100);
+      color: var(--slate-600);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: .9rem;
+      transition: background .15s;
+      border: 1px solid var(--slate-200);
+    }
+
+    .matrix-nav__btn:hover {
+      background: var(--indigo-100);
+      color: var(--indigo-700);
+    }
+
+    .matrix-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .punch-matrix {
+      border-collapse: collapse;
+      font-size: .7rem;
+      width: 100%;
+      min-width: max-content;
+    }
+
+    .punch-matrix th,
+    .punch-matrix td {
+      padding: .35rem .45rem;
+      text-align: center;
+      border: 1px solid var(--slate-100);
+      white-space: nowrap;
+    }
+
+    .punch-matrix .matrix-emp {
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      background: var(--c-surface);
+      font-weight: 600;
+      text-align: left;
+      min-width: 160px;
+      border-right: 2px solid var(--slate-200);
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .punch-matrix thead tr {
+      background: var(--slate-50);
+    }
+
+    .punch-matrix thead .matrix-emp {
+      background: var(--slate-50);
+    }
+
+    .punch-matrix .matrix-weekend {
+      background: var(--c-info-bg) !important;
+    }
+
+    .punch-matrix thead .matrix-weekend {
+      background: var(--c-info-bg) !important;
+    }
+
+    .punch-matrix thead .matrix-day-label {
+      font-size: .72rem;
+      color: var(--slate-400);
+      font-weight: 500;
+    }
+
+    .punch-matrix thead .matrix-day-num {
+      font-weight: 700;
+      color: var(--slate-600);
+    }
+
+    .punch-matrix thead .matrix-weekend .matrix-day-num,
+    .punch-matrix thead .matrix-weekend .matrix-day-label {
+      color: var(--c-info-fg);
+    }
+
+    /* Linhas alternadas */
+    .punch-matrix tbody tr:nth-child(even) .matrix-emp {
+      background: var(--slate-50);
+    }
+
+    .punch-matrix tbody tr:nth-child(even) td:not(.matrix-emp):not(.matrix-weekend) {
+      background: var(--slate-50);
+    }
+
+    /* Células por contagem */
+    .matrix-cell--empty {
+      color: var(--slate-300);
+    }
+
+    .matrix-cell--complete {
+      background: var(--c-success-bg) !important;
+      color: var(--c-success-fg);
+      font-weight: 700;
+    }
+
+    .matrix-cell--incomplete {
+      background: var(--c-warning-bg) !important;
+      color: var(--c-warning-fg);
+      font-weight: 600;
+    }
+
+    .matrix-cell--odd {
+      background: var(--c-danger-bg) !important;
+      color: var(--c-danger-fg);
+      font-weight: 700;
+    }
+
+    .matrix-cell--extra {
+      background: var(--c-info-bg) !important;
+      color: var(--c-info-fg);
+      font-weight: 600;
+    }
+
+    .matrix-legend {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      margin-top: .75rem;
+      padding: .5rem .75rem;
+      background: var(--slate-50);
+      border-radius: 8px;
+      border: 1px solid var(--slate-100);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      font-size: .7rem;
+      color: var(--slate-500);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .legend-dot--complete {
+      background: var(--c-success-bg);
+      border: 1px solid var(--c-success-bd);
+    }
+
+    .legend-dot--incomplete {
+      background: var(--c-warning-bg);
+      border: 1px solid var(--c-warning-bd);
+    }
+
+    .legend-dot--odd {
+      background: var(--c-danger-bg);
+      border: 1px solid var(--c-danger-bd);
+    }
+
+    .legend-dot--weekend {
+      background: var(--c-info-bg);
+      border: 1px solid var(--c-info-bd);
+    }
+
+    /* =============================================
+       FERRAMENTAS DE RH
+    ============================================= */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+      padding: 1rem;
+    }
+    @media (min-width: 640px) {
+      .tools-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .tool-card {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      padding: 1rem 1.1rem 1.1rem;
+      background: var(--c-surface);
+      border: 1px solid var(--slate-100);
+      border-radius: var(--radius-md);
+      text-decoration: none;
+      color: inherit;
+      transition: box-shadow .15s, border-color .15s, transform .1s;
+      min-height: 44px;
+    }
+    .tool-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 16px rgba(0,0,0,.08);
+      transform: translateY(-1px);
+    }
+    .tool-card__icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+    .tool-card__title {
+      font-size: .83rem;
+      font-weight: 700;
+      color: var(--slate-800);
+      line-height: 1.2;
+    }
+    .tool-card__desc {
+      font-size: .73rem;
+      color: var(--slate-500);
+      line-height: 1.4;
+      flex: 1;
+    }
+    .tool-card__arrow {
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--primary);
+      margin-top: .25rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page-shell">
+
+    <!-- ── TOP BAR ──────────────── -->
+    <header class="top-bar">
+      <div class="top-bar__inner">
+        <div class="top-bar__left">
+          <a href="{{ url_for('portal.dashboard') }}" class="back-link">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            Dashboard
+          </a>
+          <span class="top-bar__sep">·</span>
+          <span class="top-bar__title">Recursos Humanos</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem;">
+          {% include '_avisos_bell.html' %}
+          <a href="{{ url_for('rh.novo_funcionario') }}" class="btn-new">
+            + Novo Colaborador
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── FLASH ─────────────────── -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-area">
+      {% for category, message in messages %}
+      <div class="flash flash--{{ category }}">{{ message | e }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <main>
+      <div class="content-wrap">
+
+        <!-- ── HERO ── -->
+        <div class="hero-banner">
+          <div class="hero-banner__title">Recursos Humanos</div>
+          <div class="hero-banner__sub">
+            {{ ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+            "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][mes-1] }} {{ ano }}
+            · {{ resumo.total_funcionarios }} colaborador{{ 'es' if resumo.total_funcionarios != 1 else '' }} ativo{{
+            's' if resumo.total_funcionarios != 1 else '' }}
+          </div>
+        </div>
+
+        <!-- ── SUMMARY CARDS ── -->
+        <div class="summary-grid">
+
+          <!-- Colaboradores Ativos -->
+          <div class="summary-card summary-card--people">
+            <div class="summary-card__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <div class="summary-card__label">Colaboradores</div>
+            <div class="summary-card__value">{{ resumo.total_funcionarios }}</div>
+            <span class="summary-card__sub sub--zero">Ativos</span>
+          </div>
+
+          <!-- Dias para Revisar -->
+          <div class="summary-card summary-card--review">
+            <div class="summary-card__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <div class="summary-card__label">Para Revisar</div>
+            <div class="summary-card__value">{{ resumo.dias_com_revisao }}</div>
+            {% if resumo.dias_com_revisao > 0 %}
+            <span class="summary-card__sub sub--warn">
+              <a href="{{ url_for('rh.dashboard') }}?aba=visao-geral#alertas"
+                style="color:inherit; text-decoration:none;">Ver alertas ↓</a>
+            </span>
+            {% else %}
+            <span class="summary-card__sub sub--zero">Sem pendências</span>
+            {% endif %}
+          </div>
+
+        </div>
+
+
+        <!-- ── TABS ── -->
+        <div class="tabs-wrapper">
+          <nav class="tabs-nav">
+            <a href="{{ url_for('rh.dashboard') }}?aba=visao-geral"
+              class="tab-link {{ 'tab-link--active' if aba == 'visao-geral' else '' }}">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg> Visão Geral
+            </a>
+            <a href="{{ url_for('rh.dashboard') }}?aba=colaboradores"
+              class="tab-link {{ 'tab-link--active' if aba == 'colaboradores' else '' }}">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Colaboradores
+              <span class="result-count">{{ resumo.total_funcionarios }}</span>
+            </a>
+          </nav>
+        </div>
+
+
+        {# ═══════════════════════════════════════════════════════
+        ABA 1 — VISÃO GERAL
+        ═══════════════════════════════════════════════════════ #}
+        {% if aba == 'visao-geral' %}
+
+        {# ── Folgas do dia (2.4) ─────────────────────────────────────────── #}
+        {% set _dow = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'] %}
+        <div class="section-card">
+          <div class="section-card__header">
+            <span class="section-card__title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> Folgas de hoje</span>
+            <span class="result-count">
+              {{ folgas_hoje | length }} colaborador{{ 'es' if folgas_hoje | length != 1 else '' }}
+              · {{ _dow[hoje.weekday()] }} {{ '%02d/%02d' | format(hoje.day, hoje.month) }}
+            </span>
+          </div>
+          <div class="section-card__body">
+            {% if folgas_hoje %}
+            <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
+              {% for item in folgas_hoje %}
+              {% set _cor = {
+                'ausencia': ['var(--c-danger-bg)', 'var(--c-danger-fg)', 'var(--c-danger-bd)'],
+                'escala':   ['var(--c-info-bg)', 'var(--c-info-fg)', 'var(--c-info-bd)'],
+                'jornada':  ['var(--c-surface-2)', 'var(--c-text-muted)', 'var(--c-border)']
+              }[item.fonte] %}
+              <span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .75rem;
+                           border-radius:999px;background:{{ _cor[0] }};border:1px solid {{ _cor[2] }};
+                           font-size:.8rem;min-height:36px;">
+                <strong style="color:var(--slate-700);font-weight:600;">
+                  {{ item.funcionario.nome.split()[0] }}{% if item.funcionario.nome.split()|length > 1 %} {{ item.funcionario.nome.split()[-1] }}{% endif %}
+                </strong>
+                <span style="color:{{ _cor[1] }};font-weight:600;font-size:.72rem;">{{ item.motivo }}</span>
+              </span>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p style="color:var(--slate-400);font-size:.85rem;text-align:center;padding:1rem 0;">
+              Ninguém de folga hoje — todos os colaboradores ativos estão escalados ou em jornada normal.
+            </p>
+            {% endif %}
+          </div>
+        </div>
+
+        {# ── Presença do dia (2.3) ────────────────────────────────────────── #}
+        {% if presenca_hoje %}
+        {% set _status_cfg = {
+          'presente':  ['var(--c-success-bg)', 'var(--c-success-fg)', 'var(--c-success-bd)', '✓'],
+          'atrasado':  ['var(--c-warning-bg)', 'var(--c-warning-fg)', 'var(--c-warning-bd)', '⏱'],
+          'ausente':   ['var(--c-danger-bg)',  'var(--c-danger-fg)',  'var(--c-danger-bd)',  '✗'],
+          'revisar':   ['var(--c-warning-bg)', 'var(--c-warning-fg)', 'var(--c-warning-bd)', '?'],
+          'pendente':  ['var(--c-surface-2)',  'var(--c-text-muted)', 'var(--c-border)',     '…'],
+        } %}
+        {% set _status_label = {
+          'presente': 'Presente', 'atrasado': 'Atrasado',
+          'ausente': 'Ausente', 'revisar': 'Revisar', 'pendente': 'Pendente',
+        } %}
+        <div class="section-card">
+          <div class="section-card__header">
+            <span class="section-card__title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Presença de hoje</span>
+            <span class="result-count">
+              {{ presenca_hoje | length }} escalado{{ 's' if presenca_hoje | length != 1 else '' }}
+              · {{ _dow[hoje.weekday()] }} {{ '%02d/%02d' | format(hoje.day, hoje.month) }}
+            </span>
+          </div>
+          <div class="section-card__body">
+            <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
+              {% for item in presenca_hoje %}
+              {% set _cfg = _status_cfg.get(item.status, _status_cfg['pendente']) %}
+              <span style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .75rem;
+                           border-radius:999px;background:{{ _cfg[0] }};border:1px solid {{ _cfg[2] }};
+                           font-size:.8rem;min-height:36px;"
+                    title="{{ _status_label.get(item.status, item.status) }}{% if item.primeira_batida %} · 1ª batida {{ item.primeira_batida.strftime('%H:%M') }}{% endif %}">
+                <strong style="color:var(--slate-700);font-weight:600;">
+                  {{ item.funcionario.nome.split()[0] }}{% if item.funcionario.nome.split()|length > 1 %} {{ item.funcionario.nome.split()[-1] }}{% endif %}
+                </strong>
+                <span style="color:{{ _cfg[1] }};font-weight:600;font-size:.72rem;">{{ _cfg[3] }} {{ _status_label.get(item.status, item.status) }}</span>
+              </span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {# ── Equipes de hoje (2.9k) ──────────────────────────────────────── #}
+        {% if equipes_hoje %}
+        <div class="section-card">
+          <div class="section-card__header">
+            <span class="section-card__title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Equipes de hoje</span>
+            <span class="result-count">
+              {{ equipes_hoje | length }} equipe{{ 's' if equipes_hoje | length != 1 else '' }}
+              · <a href="{{ url_for('organizacao.listar_equipes') }}"
+                   style="color:inherit;">gerenciar →</a>
+            </span>
+          </div>
+          <div class="section-card__body">
+            <div style="display:flex;flex-direction:column;gap:.9rem;">
+              {% for item in equipes_hoje %}
+              <div>
+                <div style="display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap;margin-bottom:.4rem;">
+                  <strong style="color:var(--slate-800);font-size:.85rem;">{{ item.equipe.nome }}</strong>
+                  {% if item.equipe.area %}
+                  <span class="area-chip area-c{{ item.equipe.area.cor_indice }}">{{ item.equipe.area.name }}</span>
+                  {% endif %}
+                  <span style="font-size:.72rem;font-weight:600;
+                               color:{{ 'var(--c-success-fg)' if item.disponiveis == item.total and item.total > 0 else 'var(--c-warning-fg)' if item.disponiveis > 0 else 'var(--slate-400)' }};">
+                    {{ item.disponiveis }}/{{ item.total }} disponíve{{ 'l' if item.total == 1 else 'is' }}
+                  </span>
+                </div>
+                {% if item.membros %}
+                <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+                  {% for m in item.membros %}
+                  {% if m.folga_motivo %}
+                  <span style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .7rem;
+                               border-radius:999px;background:var(--c-danger-bg);border:1px solid var(--c-danger-bd);
+                               font-size:.78rem;min-height:34px;opacity:.85;"
+                        title="{{ m.folga_motivo }}">
+                    <span style="color:var(--slate-500);font-weight:600;text-decoration:line-through;">
+                      {{ m.funcionario.nome.split()[0] }}
+                    </span>
+                    <span style="color:var(--c-danger-fg);font-weight:600;font-size:.7rem;">{{ m.folga_motivo }}</span>
+                  </span>
+                  {% else %}
+                  <span style="display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .7rem;
+                               border-radius:999px;background:var(--c-surface-2);border:1px solid var(--c-border);
+                               font-size:.78rem;min-height:34px;">
+                    <span style="color:var(--slate-700);font-weight:600;">{{ m.funcionario.nome.split()[0] }}</span>
+                    {% if m.funcao %}
+                    <span style="color:var(--slate-400);font-size:.7rem;">{{ m.funcao.nome }}</span>
+                    {% endif %}
+                  </span>
+                  {% endif %}
+                  {% endfor %}
+                </div>
+                {% else %}
+                <p style="color:var(--slate-400);font-size:.78rem;font-style:italic;margin:0;">Sem membros ativos.</p>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {# ── Planilha Mensal de Batidas ──────────────────────────────────── #}
+        {% set _meses_pt = ['', 'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+        'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'] %}
+        <div class="section-card">
+          <div class="section-card__header">
+            <span class="section-card__title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Planilha de Batidas</span>
+            <nav class="matrix-nav">
+              <a href="{{ url_for('rh.dashboard', mes=mes_ant_mes, ano=mes_ant_ano, aba='visao-geral') }}"
+                class="matrix-nav__btn" title="Mês anterior">‹</a>
+              <span class="matrix-nav__month">{{ _meses_pt[mes] }} {{ ano }}</span>
+              <a href="{{ url_for('rh.dashboard', mes=mes_prx_mes, ano=mes_prx_ano, aba='visao-geral') }}"
+                class="matrix-nav__btn" title="Próximo mês">›</a>
+            </nav>
+          </div>
+          <div class="section-card__body">
+            <div class="matrix-scroll">
+              <table class="punch-matrix">
+                <thead>
+                  <tr>
+                    <th class="matrix-emp">Funcionário</th>
+                    {% for dia in range(1, matriz.dias_no_mes + 1) %}
+                    {% set _is_wknd = dia in matriz.fins_semana %}
+                    <th class="{{ 'matrix-weekend' if _is_wknd else '' }}">
+                      <div class="matrix-day-num">{{ dia }}</div>
+                      <div class="matrix-day-label">{{ dias_semana_labels[dia] }}</div>
+                    </th>
+                    {% endfor %}
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for f in matriz.linhas %}
+                  <tr>
+                    <td class="matrix-emp" title="{{ f.nome }}">{{ f.nome }}</td>
+                    {% for dia in range(1, matriz.dias_no_mes + 1) %}
+                    {% set n = f.batidas.get(dia, 0) %}
+                    {% set _is_wknd = dia in matriz.fins_semana %}
+                    {% if n == 0 %}
+                    {% set _cls = 'matrix-cell--empty' %}
+                    {% elif n == 4 %}
+                    {% set _cls = 'matrix-cell--complete' %}
+                    {% elif n % 2 == 1 %}
+                    {% set _cls = 'matrix-cell--odd' %}
+                    {% elif n == 2 %}
+                    {% set _cls = 'matrix-cell--incomplete' %}
+                    {% else %}
+                    {% set _cls = 'matrix-cell--extra' %}
+                    {% endif %}
+                    <td class="{{ _cls }}{{ ' matrix-weekend' if _is_wknd else '' }}">
+                      {{ n if n > 0 else '–' }}
+                    </td>
+                    {% endfor %}
+                  </tr>
+                  {% endfor %}
+                  {% if not matriz.linhas %}
+                  <tr>
+                    <td class="matrix-emp" style="color:var(--slate-400);">Nenhum colaborador ativo</td>
+                    {% for _ in range(matriz.dias_no_mes) %}<td class="matrix-cell--empty">–</td>{% endfor %}
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+            <div class="matrix-legend">
+              <span class="legend-item"><span class="legend-dot legend-dot--complete"></span>4 batidas (completo)</span>
+              <span class="legend-item"><span class="legend-dot legend-dot--incomplete"></span>2 batidas
+                (parcial)</span>
+              <span class="legend-item"><span class="legend-dot legend-dot--odd"></span>Batidas ímpares (revisar)</span>
+              <span class="legend-item"><span class="legend-dot legend-dot--weekend"></span>Fim de semana</span>
+            </div>
+            {% if matriz.pagination.pages > 1 %}
+            <div style="display:flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem 0;flex-wrap:wrap;">
+              {% if matriz.pagination.has_prev %}
+              <a href="{{ url_for('rh.dashboard', aba='visao-geral', mes=mes, ano=ano, pag_matriz=matriz.pagination.prev_num) }}"
+                 style="padding:.4rem .9rem;border:1px solid var(--c-border);border-radius:.5rem;font-size:.8rem;color:var(--c-text);text-decoration:none;">← Anterior</a>
+              {% endif %}
+              <span style="font-size:.8rem;color:var(--c-text-muted);">
+                Colaboradores {{ (matriz.pagination.page - 1) * 30 + 1 }}–{{ [matriz.pagination.page * 30, matriz.pagination.total] | min }} de {{ matriz.pagination.total }}
+              </span>
+              {% if matriz.pagination.has_next %}
+              <a href="{{ url_for('rh.dashboard', aba='visao-geral', mes=mes, ano=ano, pag_matriz=matriz.pagination.next_num) }}"
+                 style="padding:.4rem .9rem;border:1px solid var(--c-border);border-radius:.5rem;font-size:.8rem;color:var(--c-text);text-decoration:none;">Próxima →</a>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Central de Alertas -->
+        <div class="section-card" id="alertas">
+          <div class="section-card__header">
+            <span class="section-card__title">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Central de Alertas
+            </span>
+            <span class="result-count">{{ alertas | length }} alerta{{ 's' if alertas | length != 1 else '' }} (últimos
+              7 dias)</span>
+          </div>
+
+          {% if alertas %}
+          <div class="alerts-grid">
+            {% for alerta in alertas %}
+            <div class="alert-card">
+              <div class="alert-card__top">
+                <div class="alert-card__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+                <div>
+                  <div class="alert-card__name">{{ alerta.nome | e }}</div>
+                  <div class="alert-card__date">
+                    {{ alerta.shift_date.strftime('%d/%m/%Y') }}
+                    · {{ ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"][alerta.shift_date.weekday()] }}
+                  </div>
+                </div>
+              </div>
+              {% set h = alerta.minutos_trabalhados // 60 %}
+              {% set m = alerta.minutos_trabalhados % 60 %}
+              <div style="font-size:.78rem; color: var(--slate-500);">
+                Trabalhado: <strong style="color:var(--slate-700); font-family:var(--font-mono);">{{ "%dh%02d" |
+                  format(h, m) }}</strong>
+                · Batidas ímpares
+              </div>
+              <a href="{{ url_for('rh.editar_funcionario', funcionario_id=alerta.funcionario_id) }}"
+                class="alert-card__link">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Corrigir
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <span class="empty-state__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+            <span class="empty-state__text">Nenhuma pendência nos últimos 7 dias.</span>
+          </div>
+          {% endif %}
+        </div>
+
+        {# ── Integridade do Banco de Horas (2.9c) ──
+           Só aparece quando HÁ divergência: é condição de exceção, não métrica
+           de rotina. Um card permanente dizendo "tudo certo" viraria ruído. #}
+        {% if divergencias_banco %}
+        <div class="section-card" id="integridade-banco">
+          <div class="section-card__header">
+            <span class="section-card__title">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Integridade do Banco de Horas
+            </span>
+            <span class="result-count">
+              {{ divergencias_banco | length }} divergência{{ 's' if divergencias_banco | length != 1 else '' }}
+            </span>
+          </div>
+
+          <p style="font-size:.78rem; color:var(--slate-500); margin:0 0 .75rem;">
+            O saldo em cache destes colaboradores não bate com a soma real dos dias menos os
+            abatimentos. Recalcular reconstrói o valor a partir dos registros de ponto.
+          </p>
+
+          <div class="alerts-grid">
+            {% for div in divergencias_banco %}
+            <div class="alert-card">
+              <div class="alert-card__top">
+                <div class="alert-card__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                <div>
+                  <div class="alert-card__name">{{ div.funcionario.nome | e }}</div>
+                  <div class="alert-card__date">
+                    Diferença de
+                    <strong style="font-family:var(--font-mono);">
+                      {{ '%+d' | format(div.diferenca) }} min
+                    </strong>
+                    ({{ '%+.1f' | format(div.diferenca / 60) }} h)
+                  </div>
+                </div>
+              </div>
+              <div style="font-size:.78rem; color: var(--slate-500);">
+                Em cache: <strong style="color:var(--slate-700); font-family:var(--font-mono);">{{ div.acumulado }}</strong>
+                · Real: <strong style="color:var(--slate-700); font-family:var(--font-mono);">{{ div.esperado }}</strong>
+              </div>
+              {% if has_permission(session.get('funcionario_id'), 'ponto', 'edit_admin') %}
+              <form method="POST"
+                    action="{{ url_for('rh.recalcular_banco_horas', funcionario_id=div.funcionario.id) }}"
+                    style="margin-top:.5rem;">
+                <button type="submit" class="alert-card__link"
+                        style="border:none; background:none; cursor:pointer; padding:0; font:inherit;">
+                  <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  Recalcular
+                </button>
+              </form>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- ── Ferramentas de RH ── -->
+        <div class="section-card">
+          <div class="section-card__header">
+            <span class="section-card__title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> Ferramentas de RH</span>
+          </div>
+          <div class="tools-grid">
+
+            {# Escala Mensal — permissão escala.view #}
+            {% if has_permission(session.get('funcionario_id'), 'escala', 'view') %}
+            <a href="{{ url_for('escala.calendario', mes=mes, ano=ano) }}" class="tool-card">
+              <div class="tool-card__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+              <div class="tool-card__title">Escala Mensal</div>
+              <div class="tool-card__desc">Grade de turnos por colaborador e dia do mês</div>
+              <div class="tool-card__arrow">Abrir →</div>
+            </a>
+            {% endif %}
+
+            {# Custo Diaristas — permissão escala.view #}
+            {% if has_permission(session.get('funcionario_id'), 'escala', 'view') %}
+            <a href="{{ url_for('escala.custo_diaristas', mes=mes, ano=ano) }}" class="tool-card">
+              <div class="tool-card__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+              <div class="tool-card__title">Custo Diaristas</div>
+              <div class="tool-card__desc">Estimativa de custo operacional com diaristas no mês</div>
+              <div class="tool-card__arrow">Abrir →</div>
+            </a>
+            {% endif %}
+
+            {# Funções — permissão funcoes.view #}
+            {% if has_permission(session.get('funcionario_id'), 'funcoes', 'view') %}
+            <a href="{{ url_for('organizacao.listar_funcoes') }}" class="tool-card">
+              <div class="tool-card__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+              <div class="tool-card__title">Funções</div>
+              <div class="tool-card__desc">Cargos e áreas de atuação dos colaboradores</div>
+              <div class="tool-card__arrow">Abrir →</div>
+            </a>
+            {% endif %}
+
+            {# Equipes — permissão equipes.view #}
+            {% if has_permission(session.get('funcionario_id'), 'equipes', 'view') %}
+            <a href="{{ url_for('organizacao.listar_equipes') }}" class="tool-card">
+              <div class="tool-card__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+              <div class="tool-card__title">Equipes</div>
+              <div class="tool-card__desc">Grupos de trabalho e seus membros</div>
+              <div class="tool-card__arrow">Abrir →</div>
+            </a>
+            {% endif %}
+
+          </div>
+        </div>
+
+        {% endif %}{# fim aba visao-geral #}
+
+
+        {# ═══════════════════════════════════════════════════════
+        ABA 2 — COLABORADORES
+        ═══════════════════════════════════════════════════════ #}
+        {% if aba == 'colaboradores' %}
+
+        <div class="section-card">
+          <div class="section-card__header">
+            <span class="section-card__title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Colaboradores</span>
+            <span class="result-count">{{ funcionarios.total }} encontrado{{ 's' if funcionarios.total != 1 else '' }}</span>
+          </div>
+
+          <!-- Filtros -->
+          <form method="GET" action="{{ url_for('rh.dashboard') }}">
+            <input type="hidden" name="aba" value="colaboradores" />
+            <div class="filters-bar">
+              <input type="text" name="q" value="{{ q | e }}" placeholder="Buscar por nome ou CPF…" />
+              <select name="area_id">
+                <option value="">Todas as Áreas</option>
+                {% for area in areas %}
+                <option value="{{ area.id }}" {{ 'selected' if area_id==area.id else '' }}>
+                  {{ area.name | e }}
+                </option>
+                {% endfor %}
+              </select>
+              <select name="status">
+                <option value="ativo" {{ 'selected' if status=='ativo' else '' }}>Ativos</option>
+                <option value="inativo" {{ 'selected' if status=='inativo' else '' }}>Inativos</option>
+                <option value="todos" {{ 'selected' if status=='todos' else '' }}>Todos</option>
+              </select>
+              <button type="submit" class="btn-filter btn-filter--primary">Filtrar</button>
+              <a href="{{ url_for('rh.dashboard') }}?aba=colaboradores" class="btn-filter btn-filter--ghost">Limpar</a>
+            </div>
+          </form>
+
+          <!-- Tabela -->
+          {% if funcionarios.items %}
+          <div class="table-wrap">
+            <table class="emp-table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th class="col-cpf">CPF</th>
+                  <th class="col-cargo">Cargo</th>
+                  <th class="col-area">Área</th>
+                  <th class="col-role">Perfil</th>
+                  <th>Banco de Horas</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for f in funcionarios.items %}
+                <tr class="{{ 'inactive-row' if not f.ativo else '' }}">
+
+                  <!-- Nome -->
+                  <td>
+                    <div class="name-cell__main">{{ f.nome | e }}</div>
+                    {% if f.matricula %}
+                    <div class="name-cell__sub">Matrícula {{ f.matricula | e }}</div>
+                    {% endif %}
+                    {% if not f.ativo %}
+                    <span class="badge badge--inactive" style="margin-top:.3rem;">Inativo</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- CPF -->
+                  <td class="col-cpf">
+                    <span class="cpf-cell">{{ f.cpf_formatado() }}</span>
+                  </td>
+
+                  <!-- Cargo -->
+                  <td class="col-cargo">{{ f.cargo | e if f.cargo else '—' }}</td>
+
+                  <!-- Área -->
+                  <td class="col-area">
+                    {% if f.area %}<span class="area-chip area-c{{ f.area.cor_indice }}">{{ f.area.name | e }}</span>{% else %}—{% endif %}
+                  </td>
+
+                  <!-- Perfil/Role -->
+                  <td class="col-role">
+                    {% if f.role %}
+                    {% if f.role.is_super_admin %}
+                    <span class="badge badge--role-admin"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> {{ f.role.nome | e }}</span>
+                    {% else %}
+                    <span class="badge badge--role">{{ f.role.nome | e }}</span>
+                    {% endif %}
+                    {% else %}
+                    <span class="badge badge--no-role">Sem perfil</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Banco de Horas — coluna em destaque -->
+                  <td>
+                    {% set saldo = f.saldo_banco_horas() %}
+                    {% if saldo > 0 %}
+                    <span class="banco-cell banco-cell--pos">+{{ f.saldo_banco_horas_formatado() }}</span>
+                    {% elif saldo < 0 %} <span class="banco-cell banco-cell--neg">{{ f.saldo_banco_horas_formatado()
+                      }}</span>
+                      {% else %}
+                      <span class="banco-cell banco-cell--zero">0h00</span>
+                      {% endif %}
+                  </td>
+
+                  <!-- Ações -->
+                  <td>
+                    <div class="actions-cell">
+                      <a href="{{ url_for('rh.folha_ponto', funcionario_id=f.id) }}"
+                        class="btn-action btn-action--banco">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Folha de Ponto
+                      </a>
+                      <a href="{{ url_for('rh.banco_horas_funcionario', funcionario_id=f.id) }}" class="btn-action"
+                        style="background:var(--green-50);color:var(--green-600);">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg> Banco de Horas
+                      </a>
+                      <a href="{{ url_for('rh.qrcode_png', funcionario_id=f.id) }}" target="_blank"
+                        class="btn-action" style="background:var(--c-info-bg);color:var(--c-info-fg);">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> QR Code
+                      </a>
+                      <a href="{{ url_for('rh.editar_funcionario', funcionario_id=f.id) }}"
+                        class="btn-action btn-action--edit">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Editar
+                      </a>
+                      {% if f.ativo %}
+                      <button type="button" class="btn-action btn-action--deactivate"
+                        onclick="openConfirm({{ f.id }}, '{{ f.nome | e }}')">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Desativar
+                      </button>
+                      {% endif %}
+                    </div>
+                  </td>
+
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          {% if funcionarios.pages > 1 %}
+          <div style="display:flex;align-items:center;justify-content:center;gap:.5rem;padding:1rem 0;flex-wrap:wrap;">
+            {% if funcionarios.has_prev %}
+            <a href="{{ url_for('rh.dashboard', aba='colaboradores', q=q, area_id=area_id or '', status=status, mes=mes, ano=ano, page=funcionarios.prev_num) }}"
+               style="padding:.4rem .9rem;border:1px solid var(--c-border);border-radius:.5rem;font-size:.8rem;color:var(--c-text);text-decoration:none;">← Anterior</a>
+            {% endif %}
+            <span style="font-size:.8rem;color:var(--c-text-muted);">
+              Página {{ funcionarios.page }} de {{ funcionarios.pages }}
+            </span>
+            {% if funcionarios.has_next %}
+            <a href="{{ url_for('rh.dashboard', aba='colaboradores', q=q, area_id=area_id or '', status=status, mes=mes, ano=ano, page=funcionarios.next_num) }}"
+               style="padding:.4rem .9rem;border:1px solid var(--c-border);border-radius:.5rem;font-size:.8rem;color:var(--c-text);text-decoration:none;">Próxima →</a>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% else %}
+          <div class="empty-state" style="padding: 3rem 1rem;">
+            <span class="empty-state__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+            <span class="empty-state__text">
+              Nenhum colaborador encontrado com os filtros aplicados.
+            </span>
+          </div>
+          {% endif %}
+
+        </div>{# .section-card #}
+
+        {% endif %}{# fim aba colaboradores #}
+
+
+
+      </div><!-- .content-wrap -->
+    </main>
+  </div><!-- .page-shell -->
+
+
+  <!-- ── MODAL CONFIRMAR DESATIVAÇÃO ── -->
+  <div class="modal-overlay" id="modal-desativar">
+    <div class="modal-box">
+      <div class="modal-box__icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div>
+      <div class="modal-box__title">Desativar Colaborador</div>
+      <p class="modal-box__text" id="modal-text">
+        Tem certeza que deseja desativar <strong id="modal-nome"></strong>?
+        O acesso ao portal será revogado imediatamente.
+      </p>
+      <div class="modal-box__actions">
+        <button type="button" class="btn-modal btn-modal--cancel" onclick="closeConfirm()">
+          Cancelar
+        </button>
+        <form id="form-desativar" method="POST">
+          <button type="submit" class="btn-modal btn-modal--confirm">
+            Confirmar Desativação
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openConfirm(id, nome) {
+      document.getElementById('modal-nome').textContent = nome;
+      document.getElementById('form-desativar').action =
+        '/rh/funcionarios/' + id + '/desativar';
+      document.getElementById('modal-desativar').classList.add('open');
+    }
+    function closeConfirm() {
+      document.getElementById('modal-desativar').classList.remove('open');
+    }
+    document.getElementById('modal-desativar').addEventListener('click', function (e) {
+      if (e.target === this) closeConfirm();
+    });
+  </script>
+
+
+</body>
+
+</html>

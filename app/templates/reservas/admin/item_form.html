@@ -1,0 +1,350 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}{% if item %}Editar Item{% else %}Novo Item{% endif %}{% endblock %}
+
+{% block page_title %}
+  {% if item %}Editar Item{% else %}Novo Item / Tarifa{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_listar_itens') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Voltar
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+<div class="max-w-lg">
+
+  {% if error %}
+  <div class="flex items-start gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-red-500 text-base shrink-0 mt-0.5"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+    <span class="text-red-800 font-medium">{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <div class="bg-surface rounded-xl border border-line shadow-sm p-6">
+    <form method="POST"
+          action="{% if item %}{{ url_for('reservas.admin_editar_item', item_id=item.id) }}{% else %}{{ url_for('reservas.admin_criar_item') }}{% endif %}">
+
+      <!-- Category dropdown -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="category_id">Categoria</label>
+        <select id="category_id" name="category_id" class="r-select" required>
+          <option value="">Selecione uma categoria...</option>
+          {% for category in categories %}
+          <option value="{{ category.id }}"
+                  {% if item and item.category_id == category.id %}selected
+                  {% elif not item and loop.first %}selected{% endif %}>
+            {{ category.name }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">Categoria que agrupa este item no sistema de reservas.</p>
+      </div>
+
+      <!-- Name -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="name">Nome do Item / Tarifa</label>
+        <input type="text"
+               id="name"
+               name="name"
+               class="r-input"
+               value="{{ item.name if item else '' }}"
+               placeholder="Ex: Day Use Inteira, Day Use Meia, Camping Tent..."
+               required />
+        <p class="r-hint">Nome comercial exibido para o cliente.</p>
+      </div>
+
+      <!-- Internal Slug -->
+      <div class="mb-5">
+        <label class="r-label" for="internal_slug">
+          Slug Interno <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <input type="text"
+               id="internal_slug"
+               name="internal_slug"
+               class="r-input"
+               value="{{ item.internal_slug if item and item.internal_slug else '' }}"
+               placeholder="Ex: dayuse_inteira"
+               pattern="[a-z0-9_]+"
+               title="Apenas letras minúsculas, números e underscores" />
+        <p class="r-hint">Identificador único para integração com o site (ex: dayuse_inteira). Letras minúsculas e sem espaços.</p>
+      </div>
+
+      <!-- Price -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="price">Preço Base (R$)</label>
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-bold text-content-muted">R$</span>
+          <input type="number"
+                 id="price"
+                 name="price"
+                 class="r-input flex-1"
+                 value="{{ "%.2f"|format(item.price|float) if item else '' }}"
+                 placeholder="0.00"
+                 step="0.01"
+                 min="0"
+                 required />
+        </div>
+        <p class="r-hint">Preço unitário — multiplicado conforme o tipo de cobrança.</p>
+      </div>
+
+      <!-- Price tiers (PER_DAY only) -->
+      <div id="price-tiers-section" class="mb-5 hidden">
+        <div class="rounded-lg border border-line bg-surface-2 p-4 space-y-4">
+          <p class="text-xs font-semibold text-content-muted uppercase tracking-wide">
+            Tarifas por tipo de dia
+            <span class="font-normal normal-case text-content-muted">— opcionais, substituem o preço base por tipo de dia</span>
+          </p>
+
+          <div>
+            <label class="r-label" for="price_weekday">Preço Dia de Semana (R$)</label>
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-bold text-content-muted">R$</span>
+              <input type="number"
+                     id="price_weekday"
+                     name="price_weekday"
+                     class="r-input flex-1"
+                     value="{{ "%.2f"|format(item.price_weekday|float) if item and item.price_weekday is not none else '' }}"
+                     placeholder="Padrão: usa Preço base"
+                     step="0.01"
+                     min="0" />
+            </div>
+            <p class="r-hint">Segunda a sexta-feira. Deixe vazio para usar o Preço base.</p>
+          </div>
+
+          <div>
+            <label class="r-label" for="price_weekend">Preço Fim de Semana (R$)</label>
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-bold text-content-muted">R$</span>
+              <input type="number"
+                     id="price_weekend"
+                     name="price_weekend"
+                     class="r-input flex-1"
+                     value="{{ "%.2f"|format(item.price_weekend|float) if item and item.price_weekend is not none else '' }}"
+                     placeholder="Padrão: usa Preço base"
+                     step="0.01"
+                     min="0" />
+            </div>
+            <p class="r-hint">Sábado e domingo. Deixe vazio para usar o Preço base.</p>
+          </div>
+
+          <div>
+            <label class="r-label" for="price_holiday">Preço Data Especial (R$)</label>
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-bold text-content-muted">R$</span>
+              <input type="number"
+                     id="price_holiday"
+                     name="price_holiday"
+                     class="r-input flex-1"
+                     value="{{ "%.2f"|format(item.price_holiday|float) if item and item.price_holiday is not none else '' }}"
+                     placeholder="Padrão: usa Preço base"
+                     step="0.01"
+                     min="0" />
+            </div>
+            <p class="r-hint">Feriados e alta temporada — qualquer data marcada como "afeta precificação" no calendário (máxima prioridade). Deixe vazio para usar o Preço base.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Billing type -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="billing_type">Tipo de Cobrança</label>
+        <select id="billing_type" name="billing_type" class="r-select" required>
+          <option value="">Selecione o tipo...</option>
+          <option value="FIXED"
+                  {% if item and item.billing_type.value == 'FIXED' %}selected{% endif %}>
+            Fixo — um valor único por reserva
+          </option>
+          <option value="PER_DAY"
+                  {% if item and item.billing_type.value == 'PER_DAY' %}selected{% endif %}>
+            Por Dia — preço × nº de dias de estadia
+          </option>
+          <option value="PER_HOUR"
+                  {% if item and item.billing_type.value == 'PER_HOUR' %}selected{% endif %}>
+            Por Hora — preço × nº de horas
+          </option>
+          <option value="DAILY_PRORATED_HOURLY"
+                  {% if item and item.billing_type.value == 'DAILY_PRORATED_HOURLY' %}selected{% endif %}>
+            Diária + Pró-rata — 1ª diária completa; horas extras a (preço ÷ 24)
+          </option>
+        </select>
+        <p class="r-hint">Define como o total é calculado no checkout.</p>
+      </div>
+
+      <!-- Group (optional) -->
+      <div class="mb-5">
+        <label class="r-label" for="group_id">
+          Grupo de Exibição <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <select id="group_id" name="group_id" class="r-select">
+          <option value="">Nenhum — exibe sem prefixo de grupo</option>
+          {% for group in groups %}
+          <option value="{{ group.id }}"
+                  {% if item and item.group_id == group.id %}selected
+                  {% elif not item and selected_group_id and selected_group_id == group.id %}selected{% endif %}>
+            {{ group.display_path }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">
+          Organiza o item no painel admin como
+          <strong>[Grupo] - Nome</strong> ou <strong>[Grupo &rsaquo; Sub] - Nome</strong>.
+          Não afeta preço nem a API pública.
+        </p>
+      </div>
+
+      <!-- Emoji label -->
+      <div class="mb-5">
+        <label class="r-label" for="emoji_label">
+          Emoji do Item <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <input type="text"
+               id="emoji_label"
+               name="emoji_label"
+               class="r-input w-24 text-2xl text-center"
+               value="{{ item.emoji_label if item and item.emoji_label else '' }}"
+               placeholder="🍖"
+               maxlength="10" />
+        <p class="r-hint">
+          Emoji exibido no relatório simplificado e no controle de itens
+          (ex: 🍖 🥤 💧 🏕️). Cole ou digite o emoji diretamente no campo.
+        </p>
+      </div>
+
+      <!-- Requires deposit checkbox -->
+      <div class="mb-4">
+        <label class="r-check-wrap" for="requires_deposit">
+          <input type="checkbox"
+                 id="requires_deposit"
+                 name="requires_deposit"
+                 {% if item and item.requires_deposit %}checked{% endif %} />
+          <span>Requer depósito / caução para confirmar a reserva</span>
+        </label>
+      </div>
+
+      <!-- Requires physical resource checkbox -->
+      <div class="mb-4">
+        <label class="r-check-wrap" for="requires_resource">
+          <input type="checkbox"
+                 id="requires_resource"
+                 name="requires_resource"
+                 {% if item and item.requires_resource %}checked{% endif %} />
+          <span>Exige vínculo com recurso físico disponível</span>
+        </label>
+        <p class="r-hint mt-1 ml-6">
+          Quando marcado, o item só pode ser reservado com um recurso do mesmo
+          <em>Grupo de Exibição</em>. O sistema aplica a checagem de disponibilidade
+          e bloqueia overbooking antes de criar a reserva.
+        </p>
+      </div>
+
+      <!-- Entry ticket checkbox -->
+      <div class="mb-4">
+        <label class="r-check-wrap" for="is_entry_ticket">
+          <input type="checkbox"
+                 id="is_entry_ticket"
+                 name="is_entry_ticket"
+                 {% if item and item.is_entry_ticket %}checked{% endif %} />
+          <span>Este item é um ticket de entrada?</span>
+        </label>
+        <p class="r-hint mt-1 ml-6">
+          Quando marcado, cada unidade vendida deste item conta como uma pessoa.
+          Isso alimenta os contadores <em>Pessoas Presentes</em> e <em>Novas Entradas</em>
+          na visão semanal do dashboard.
+        </p>
+      </div>
+
+      <!-- Bot visibility -->
+      <div class="mb-4">
+        <label class="r-check-wrap" for="visible_to_bot">
+          <input type="checkbox"
+                 id="visible_to_bot"
+                 name="visible_to_bot"
+                 {% if not item or item.visible_to_bot %}checked{% endif %} />
+          <span>Visível para o bot de WhatsApp?</span>
+        </label>
+        <p class="r-hint mt-1 ml-6">
+          Quando marcado, o bot pode citar e oferecer este item ao cliente.
+          Desmarque para itens internos (ex: estacionamento, uso administrativo).
+        </p>
+      </div>
+
+      <!-- Web visibility -->
+      <div class="mb-4">
+        <label class="r-check-wrap" for="visible_to_web">
+          <input type="checkbox"
+                 id="visible_to_web"
+                 name="visible_to_web"
+                 {% if not item or item.visible_to_web %}checked{% endif %} />
+          <span>Visível no site?</span>
+        </label>
+        <p class="r-hint mt-1 ml-6">
+          Quando marcado, o item aparece no formulário de reserva do site.
+          Independente da visibilidade no bot — um item pode estar em um canal e
+          não no outro.
+        </p>
+      </div>
+
+      <!-- Bot description -->
+      <div class="mb-6">
+        <label class="r-label" for="bot_description">
+          Descrição para o Bot <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <textarea id="bot_description"
+                  name="bot_description"
+                  class="r-input"
+                  rows="2"
+                  maxlength="300"
+                  placeholder="Ex: Churrasqueira com cobertura para até 10 pessoas, área A – som permitido."
+                  >{{ item.bot_description if item and item.bot_description else '' }}</textarea>
+        <p class="r-hint">
+          Descrição curta exibida pelo bot ao listar opções ao cliente (máx. 300 caracteres).
+          Evita que o assistente invente detalhes. Deixe vazio para o bot usar só o nome.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700
+                       text-white text-sm font-semibold rounded-lg transition-colors">
+          {% if item %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Alterações{% else %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Criar Item{% endif %}
+        </button>
+        <a href="{{ url_for('reservas.admin_listar_itens') }}"
+           class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-content-muted
+                  bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+          Cancelar
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var billingSelect = document.getElementById('billing_type');
+  var tiersSection  = document.getElementById('price-tiers-section');
+
+  function updateTiersVisibility() {
+    var bt = billingSelect.value;
+    if (bt === 'PER_DAY' || bt === 'FIXED' || bt === 'DAILY_PRORATED_HOURLY') {
+      tiersSection.classList.remove('hidden');
+    } else {
+      tiersSection.classList.add('hidden');
+    }
+  }
+
+  billingSelect.addEventListener('change', updateTiersVisibility);
+  updateTiersVisibility();
+})();
+</script>
+{% endblock %}

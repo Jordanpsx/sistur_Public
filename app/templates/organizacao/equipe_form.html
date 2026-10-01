@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if equipe else 'Nova' }} Equipe{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-6">
+
+  <a href="{{ url_for('organizacao.listar_equipes') }}" class="text-sm text-content-muted hover:text-primary">&larr; Equipes</a>
+  <h1 class="text-xl font-bold text-content mt-1 mb-6">
+    {{ 'Editar Equipe' if equipe else 'Nova Equipe' }}
+  </h1>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+    {% if cat == 'erro' %}bg-red-50 dark:bg-red-900/30 text-red-800 border border-red-200 dark:border-red-800
+    {% else %}bg-blue-50 dark:bg-blue-900/30 text-blue-800 border border-blue-200{% endif %}">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
+
+  <form method="post" class="space-y-5">
+
+    <!-- Dados básicos -->
+    <div class="bg-surface p-6 rounded-2xl border border-line shadow-sm space-y-4">
+      <h2 class="text-sm font-semibold text-content">Dados da equipe</h2>
+
+      <div>
+        <label for="nome" class="block text-sm font-medium text-content mb-1">Nome <span class="text-red-500">*</span></label>
+        <input type="text" id="nome" name="nome" required
+               value="{{ equipe.nome if equipe else '' }}"
+               placeholder="Ex.: Equipe Manhã, Recepção Fim de Semana"
+               class="w-full px-4 py-2.5 rounded-xl border border-line text-sm text-content
+                      focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+      </div>
+
+      <div>
+        <label for="area_id" class="block text-sm font-medium text-content mb-1">Área (opcional)</label>
+        <select id="area_id" name="area_id"
+                class="w-full px-4 py-2.5 rounded-xl border border-line bg-surface text-sm text-content
+                       focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+          <option value="">— Sem área —</option>
+          {% for area in areas %}
+          <option value="{{ area.id }}" {% if equipe and equipe.area_id == area.id %}selected{% endif %}>{{ area.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Membros -->
+    {% if equipe and funcionarios is defined %}
+    <div class="bg-surface p-6 rounded-2xl border border-line shadow-sm">
+      <h2 class="text-sm font-semibold text-content mb-3">Membros</h2>
+
+      <input type="text" placeholder="🔎 Buscar colaborador..."
+             oninput="filtrarMembros(this.value)"
+             class="w-full px-4 py-2.5 mb-3 rounded-xl border border-line text-sm text-content
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+
+      {% set membros_map = {} %}
+      {% for m in equipe.membros %}{% set _ = membros_map.update({m.funcionario_id: m}) %}{% endfor %}
+
+      {% set _alertas = alertas_disp if alertas_disp is defined else {} %}
+      <div id="membros-lista" class="space-y-2 max-h-72 overflow-y-auto pr-1">
+        {% for func in funcionarios %}
+        {% set membro = membros_map.get(func.id) %}
+        {% set avisos = _alertas.get(func.id) %}
+        <div class="flex items-center gap-3 py-1" data-nome="{{ func.nome | lower }}">
+          <input type="checkbox" name="membro_funcionario_id" value="{{ func.id }}"
+                 id="m_{{ func.id }}"
+                 {% if membro %}checked{% endif %}
+                 class="w-4 h-4 rounded border-line" style="accent-color:var(--primary)" />
+          <label for="m_{{ func.id }}" class="flex-1 text-sm text-content cursor-pointer min-w-0">
+            {{ func.nome }}
+            {% if avisos %}
+            <span class="block mt-0.5" style="display:flex;flex-wrap:wrap;gap:.25rem;">
+              {% for aviso in avisos %}
+              <span style="display:inline-flex;align-items:center;gap:.25rem;padding:.1rem .5rem;
+                           border-radius:999px;background:var(--c-warning-bg);
+                           border:1px solid var(--c-warning-bd);color:var(--c-warning-fg);
+                           font-size:.68rem;font-weight:600;white-space:nowrap;">⚠ {{ aviso }}</span>
+              {% endfor %}
+            </span>
+            {% endif %}
+          </label>
+          <select name="membro_funcao_{{ func.id }}"
+                  class="w-36 px-2 py-1.5 rounded-lg border border-line bg-surface text-xs text-content-muted
+                         focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <option value="">— Função —</option>
+            {% for fn in funcoes %}
+            <option value="{{ fn.id }}" {% if membro and membro.funcao_id == fn.id %}selected{% endif %}>{{ fn.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="flex items-center gap-3">
+      <button type="submit" class="ds-btn ds-btn-primary flex-1">
+        {{ 'Salvar alterações' if equipe else 'Criar equipe' }}
+      </button>
+      <a href="{{ url_for('organizacao.listar_equipes') }}" class="ds-btn ds-btn-quiet">
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+</div>
+
+<script>
+function filtrarMembros(q) {
+  const termo = q.trim().toLowerCase();
+  document.querySelectorAll('#membros-lista [data-nome]').forEach(function (row) {
+    row.style.display = row.dataset.nome.indexOf(termo) !== -1 ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

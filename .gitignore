@@ -1,0 +1,44 @@
+# === SISTUR PYTHON (New Core) ===
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+docker-compose.yml
+*.egg-info/
+.pytest_cache/
+docker-compose.yml
+
+# === GERAL & IDES (Global) ===
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.claude/settings.local.json
+
+# Logs
+*.log
+error_log
+debug.log
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+
+# Database (Local development)
+*.sqlite3
+*.db
+
+# Environment files
+.env
+.env.local
+.env.*

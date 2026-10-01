@@ -1,0 +1,253 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}{% if resource %}Editar Recurso{% else %}Novo Recurso{% endif %}{% endblock %}
+
+{% block page_title %}
+  {% if resource %}Editar Recurso{% else %}Novo Recurso{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_listar_recursos') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Voltar
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+<div class="max-w-lg">
+
+  {% if error %}
+  <div class="flex items-start gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-red-500 text-base shrink-0 mt-0.5"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+    <span class="text-red-800 font-medium">{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <div class="bg-surface rounded-xl border border-line shadow-sm p-6">
+    <form method="POST"
+          action="{% if resource %}{{ url_for('reservas.admin_editar_recurso', resource_id=resource.id) }}{% else %}{{ url_for('reservas.admin_criar_recurso') }}{% endif %}">
+
+      <!-- Source dropdown -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="source_id">Local / Venue</label>
+        <select id="source_id" name="source_id" class="r-select" required>
+          <option value="">Selecione um local...</option>
+          {% for source in sources %}
+          <option value="{{ source.id }}"
+                  {% if resource and resource.source_id == source.id %}selected
+                  {% elif not resource and selected_source_id and selected_source_id == source.id %}selected
+                  {% elif not resource and not selected_source_id and loop.first %}selected{% endif %}>
+            {{ source.name }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">Local ao qual este recurso físico pertence.</p>
+      </div>
+
+      <!-- Group (optional) -->
+      <div class="mb-5">
+        <label class="r-label" for="group_id">
+          Grupo de Exibição <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <select id="group_id" name="group_id" class="r-select">
+          <option value="">Nenhum — exibe sem grupo</option>
+          {% for group in groups %}
+          <option value="{{ group.id }}"
+                  {% if resource and resource.group_id == group.id %}selected
+                  {% elif not resource and selected_group_id and selected_group_id == group.id %}selected{% endif %}>
+            {{ group.display_path }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">Organiza o recurso no accordion do formulário de reserva (ex: Churrasqueiras &rsaquo; Pequenas).</p>
+      </div>
+
+      <!-- Name -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="name">Nome do Recurso</label>
+        <input type="text"
+               id="name"
+               name="name"
+               class="r-input"
+               value="{{ resource.name if resource else '' }}"
+               placeholder="Ex: Capacidade Day Use, Churrasqueira, Salas de Reunião..."
+               required />
+        <p class="r-hint">Nome que identifica este recurso (capacidade, equipamento, espaço físico).</p>
+      </div>
+
+      <!-- Description (optional) -->
+      <div class="mb-5">
+        <label class="r-label" for="description">
+          Descrição <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <textarea id="description"
+                  name="description"
+                  class="r-input"
+                  rows="2"
+                  placeholder="Ex: Churrasqueira com cobertura, capacidade para 8 pessoas...">{{ resource.description if resource and resource.description else '' }}</textarea>
+        <p class="r-hint">Exibida na galeria do formulário de reserva.</p>
+      </div>
+
+      <!-- Gallery (multiple images) -->
+      <div class="mb-5">
+        <label class="r-label">
+          Galeria de Imagens <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <p class="r-hint mb-3">
+          Adicione uma ou mais URLs de imagem. A primeira (menor ordem) aparece como
+          thumbnail; as demais ficam acessíveis pelo carousel/lightbox.
+        </p>
+
+        <div id="gallery-rows" class="space-y-2">
+          {% if resource and resource.images %}
+            {% for img in resource.images %}
+            <div class="gallery-row flex items-center gap-2">
+              <input type="number"
+                     name="sort_orders[]"
+                     class="r-input w-16 text-center shrink-0"
+                     value="{{ img.sort_order }}"
+                     min="0"
+                     title="Ordem de exibição" />
+              <input type="url"
+                     name="image_urls[]"
+                     class="r-input flex-1 font-mono text-xs"
+                     value="{{ img.image_url }}"
+                     placeholder="https://..." />
+              <button type="button"
+                      class="gallery-remove shrink-0 px-2 py-1.5 text-red-500 hover:text-red-700 dark:hover:text-red-300
+                             bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 rounded-lg text-sm font-bold transition-colors"
+                      title="Remover imagem"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            {% endfor %}
+          {% else %}
+            <!-- Linha vazia inicial -->
+            <div class="gallery-row flex items-center gap-2">
+              <input type="number" name="sort_orders[]"
+                     class="r-input w-16 text-center shrink-0" value="0" min="0" title="Ordem" />
+              <input type="url" name="image_urls[]"
+                     class="r-input flex-1 font-mono text-xs" placeholder="https://..." />
+              <button type="button"
+                      class="gallery-remove shrink-0 px-2 py-1.5 text-red-500 hover:text-red-700 dark:hover:text-red-300
+                             bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 rounded-lg text-sm font-bold transition-colors"
+                      title="Remover imagem"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+          {% endif %}
+        </div>
+
+        <button type="button" id="gallery-add"
+                class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold
+                       text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-800/40 rounded-lg transition-colors">
+          ＋ Adicionar imagem
+        </button>
+      </div>
+
+      <!-- Unlimited checkbox -->
+      <div class="mb-5">
+        <label class="r-check-wrap" for="is_unlimited">
+          <input type="checkbox"
+                 id="is_unlimited"
+                 name="is_unlimited"
+                 {% if resource and resource.stock_quantity is none %}checked{% endif %} />
+          <span>Sem limite de capacidade/estoque (∞ Ilimitado)</span>
+        </label>
+      </div>
+
+      <!-- Capacity -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="stock_quantity">Capacidade Máxima</label>
+        <div class="flex items-center gap-3">
+          <input type="number"
+                 id="stock_quantity"
+                 name="stock_quantity"
+                 class="r-input flex-1"
+                 value="{{ resource.stock_quantity if resource and resource.stock_quantity is not none else '' }}"
+                 placeholder="Ex: 100"
+                 min="0"
+                 {% if resource and resource.stock_quantity is none %}disabled{% endif %} />
+          <span class="text-sm text-content-muted font-medium whitespace-nowrap">unidades</span>
+        </div>
+        <p class="r-hint">Quantas vagas/spots estão disponíveis. Marque "Sem limite" para estoque infinito.</p>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700
+                       text-white text-sm font-semibold rounded-lg transition-colors">
+          {% if resource %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Alterações{% else %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Criar Recurso{% endif %}
+        </button>
+        <a href="{{ url_for('reservas.admin_listar_recursos') }}"
+           class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-content-muted
+                  bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+          Cancelar
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  /* ── Unlimited checkbox sync ── */
+  const cb    = document.getElementById('is_unlimited');
+  const input = document.getElementById('stock_quantity');
+  if (cb && input) {
+    function sync() {
+      if (cb.checked) {
+        input.disabled = true; input.value = '';
+        input.style.background = '#f1f5f9'; input.style.color = '#94a3b8';
+      } else {
+        input.disabled = false;
+        input.style.background = ''; input.style.color = '';
+        input.focus();
+      }
+    }
+    cb.addEventListener('change', sync);
+    sync();
+  }
+
+  /* ── Gallery add/remove rows ── */
+  const galleryRows = document.getElementById('gallery-rows');
+  const addBtn      = document.getElementById('gallery-add');
+  if (!galleryRows || !addBtn) return;
+
+  function makeRow(order, url) {
+    const div = document.createElement('div');
+    div.className = 'gallery-row flex items-center gap-2';
+    div.innerHTML = `
+      <input type="number" name="sort_orders[]"
+             class="r-input w-16 text-center shrink-0"
+             value="${order}" min="0" title="Ordem de exibição" />
+      <input type="url" name="image_urls[]"
+             class="r-input flex-1 font-mono text-xs"
+             value="${url}" placeholder="https://..." />
+      <button type="button"
+              class="gallery-remove shrink-0 px-2 py-1.5 text-red-500 hover:text-red-700 dark:hover:text-red-300
+                     bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 rounded-lg text-sm font-bold transition-colors"
+              title="Remover imagem"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    `;
+    return div;
+  }
+
+  addBtn.addEventListener('click', function () {
+    const existingRows = galleryRows.querySelectorAll('.gallery-row');
+    const nextOrder = existingRows.length;
+    galleryRows.appendChild(makeRow(nextOrder, ''));
+  });
+
+  galleryRows.addEventListener('click', function (e) {
+    if (e.target.classList.contains('gallery-remove')) {
+      const row = e.target.closest('.gallery-row');
+      if (row) row.remove();
+    }
+  });
+})();
+</script>
+{% endblock %}

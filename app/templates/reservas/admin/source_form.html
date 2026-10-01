@@ -1,0 +1,159 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}{% if source %}Editar Local{% else %}Novo Local{% endif %}{% endblock %}
+
+{% block page_title %}
+  {% if source %}Editar Local{% else %}Novo Local{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_listar_sources') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Voltar
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+<div class="max-w-lg">
+
+  {% if error %}
+  <div class="flex items-start gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-red-500 text-base shrink-0 mt-0.5"><svg class="r-icon r-icon-danger" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+    <span class="text-red-800 font-medium">{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <div class="bg-surface rounded-xl border border-line shadow-sm p-6">
+    <form method="POST"
+          action="{% if source %}{{ url_for('reservas.admin_editar_source', source_id=source.id) }}{% else %}{{ url_for('reservas.admin_criar_source') }}{% endif %}">
+
+      {# ── Nome de exibição (editável) ────────────────────────────────────── #}
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="display_name">Nome de Exibição</label>
+        <input type="text"
+               id="display_name"
+               name="display_name"
+               class="r-input"
+               value="{{ source.display_name if source else '' }}"
+               placeholder="Ex: Cachoeira, Piscina Natural, Área de Camping..."
+               required />
+        <p class="r-hint">Nome visível para os operadores. Pode ser alterado a qualquer momento.</p>
+      </div>
+
+      {# ── Identificador de sistema (somente leitura na edição) ────────────── #}
+      {% if source %}
+      <div class="mb-5">
+        <label class="r-label">Identificador do Sistema</label>
+        <div class="flex items-center gap-2 mt-1">
+          <code class="flex-1 px-3 py-2 bg-surface-2 border border-line rounded-lg
+                       text-sm font-mono text-content-muted select-all">{{ source.name }}</code>
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+                       bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+            <svg class="r-icon r-icon-lock" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Imutável
+          </span>
+        </div>
+        <p class="r-hint">
+          Usado por sistemas externos para identificar este venue. Não pode ser alterado.
+        </p>
+      </div>
+      {% else %}
+      <div class="mb-5 px-4 py-3 bg-surface-2 border border-line rounded-lg text-xs text-content-muted">
+        O identificador de sistema será definido automaticamente com base no nome de exibição
+        e <strong>não poderá ser alterado</strong> depois da criação.
+      </div>
+      {% endif %}
+
+      {# ── Separador — Chatwoot ─────────────────────────────────────────────── #}
+      <div class="border-t border-line my-5"></div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-content-muted mb-4">
+        Integração Chatwoot
+      </p>
+
+      {# ── Inbox ID ─────────────────────────────────────────────────────────── #}
+      <div class="mb-5">
+        <label class="r-label" for="inbox_id">Inbox do Chatwoot</label>
+        <select id="inbox_id" name="inbox_id" class="r-input">
+          <option value="">— Nenhum (comprovante desativado) —</option>
+          {% for inbox in chatwoot_inboxes %}
+          <option value="{{ inbox.id }}"
+            {% if source and source.inbox_id == inbox.id %}selected{% endif %}>
+            #{{ inbox.id }} — {{ inbox.name }}
+          </option>
+          {% endfor %}
+          {% if not chatwoot_inboxes %}
+          <option disabled>Não foi possível carregar os inboxes</option>
+          {% endif %}
+        </select>
+        <p class="r-hint">
+          Inbox pelo qual o comprovante de pagamento será enviado ao cliente via WhatsApp.
+          O inbox deve estar conectado ao número WhatsApp deste venue.
+        </p>
+      </div>
+
+      {# ── Separador — Relatório ─────────────────────────────────────────────── #}
+      <div class="border-t border-line my-5"></div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-content-muted mb-4">
+        Identidade Visual do Relatório
+      </p>
+
+      {# ── Nome no relatório ────────────────────────────────────────────────── #}
+      <div class="mb-5">
+        <label class="r-label" for="report_name">Nome no Relatório</label>
+        <input type="text"
+               id="report_name"
+               name="report_name"
+               class="r-input"
+               value="{{ source.report_name if source and source.report_name else '' }}"
+               placeholder="Ex: Parque Cachoeira do Girassol (deixe vazio para usar o nome de exibição)" />
+        <p class="r-hint">
+          Nome exibido no cabeçalho do comprovante enviado ao cliente via WhatsApp.
+          Se não preenchido, usa o nome de exibição.
+        </p>
+      </div>
+
+      {# ── Logo no relatório (URL) ──────────────────────────────────────────── #}
+      <div class="mb-5">
+        <label class="r-label" for="report_logo">URL da Logo no Relatório</label>
+        <input type="url"
+               id="report_logo"
+               name="report_logo"
+               class="r-input"
+               value="{{ source.report_logo if source and source.report_logo else '' }}"
+               placeholder="https://exemplo.com/logo.png" />
+        <p class="r-hint">
+          URL pública da imagem da logo. Será incluída no comprovante de pagamento enviado
+          ao cliente. Formatos recomendados: PNG ou JPG, fundo branco ou transparente.
+        </p>
+        {% if source and source.report_logo %}
+        <div class="mt-2 flex items-center gap-3">
+          <img src="{{ source.report_logo }}"
+               alt="Logo atual"
+               class="h-10 w-auto rounded border border-line bg-surface-2 p-1"
+               onerror="this.style.display='none'" />
+          <span class="text-xs text-content-muted">Logo atual</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700
+                       text-white text-sm font-semibold rounded-lg transition-colors">
+          {% if source %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Alterações{% else %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Criar Local{% endif %}
+        </button>
+        <a href="{{ url_for('reservas.admin_listar_sources') }}"
+           class="inline-flex items-center gap-1 px-4 py-2.5 text-sm font-semibold text-content-muted
+                  bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+          Cancelar
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+
+{% endblock %}

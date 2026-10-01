@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Admin — Gerenciamento de Roles (RBAC)
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Roles do Sistema</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    :root {
+      --primary: #0d9488;
+      --primary-dark: #0f766e;
+      --purple: #7c3aed;
+      --purple-bg: #ede9fe;
+      --green: #059669;
+      --green-bg: #d1fae5;
+      --red: #dc2626;
+      --red-bg: #fee2e2;
+      --amber: #d97706;
+      --amber-bg: #fef3c7;
+      --bg-page: #f8fafc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-page);
+      margin: 0;
+      color: #1e293b;
+    }
+
+    /* ─── Topbar ─────────────────────────────────────────────────────────── */
+    .topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+
+    .topbar-inner {
+      max-width: 1100px; margin: 0 auto;
+      padding: 0 1.5rem; height: 60px;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+
+    .topbar-back {
+      display: flex; align-items: center; gap: 0.5rem;
+      color: var(--purple); font-weight: 600; font-size: 0.9rem;
+      text-decoration: none;
+    }
+
+    .topbar-back:hover { color: var(--purple-dark, #6d28d9); }
+
+    /* ─── Hero ───────────────────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #6d28d9 100%);
+      padding: 2rem 1.5rem;
+    }
+
+    .hero-inner { max-width: 1100px; margin: 0 auto; }
+    .hero-title { color: #fff; font-size: 1.35rem; font-weight: 800; margin: 0 0 0.25rem; }
+    .hero-sub   { color: rgba(255,255,255,0.7); font-size: 0.875rem; margin: 0; }
+
+    /* ─── Content ────────────────────────────────────────────────────────── */
+    .content { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* ─── Flash ──────────────────────────────────────────────────────────── */
+    .flash-list { list-style: none; padding: 0; margin: 0 0 1.25rem; }
+    .flash-msg  { padding: 0.75rem 1rem; border-radius: 10px; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem; }
+    .flash-sucesso { background: var(--green-bg); color: var(--green); }
+    .flash-erro    { background: var(--red-bg);   color: var(--red);   }
+    .flash-aviso   { background: var(--amber-bg); color: var(--amber); }
+
+    /* ─── Roles table card ───────────────────────────────────────────────── */
+    .card {
+      background: #fff; border-radius: 16px;
+      border: 1px solid #e2e8f0; overflow: hidden;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .card-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin: 0; }
+
+    /* ─── Table ──────────────────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+
+    th {
+      padding: 0.75rem 1.25rem;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #64748b;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+
+    .role-nome { font-weight: 700; color: #0f172a; font-family: 'DM Mono', monospace; font-size: 0.85rem; }
+    .role-desc { font-size: 0.78rem; color: #64748b; margin-top: 0.15rem; }
+
+    /* ─── Badges ─────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge-super   { background: var(--purple-bg); color: var(--purple); }
+    .badge-regular { background: #f1f5f9; color: #64748b; }
+    .badge-ativo   { background: var(--green-bg); color: var(--green); }
+    .badge-inativo { background: var(--red-bg); color: var(--red); }
+
+    .perm-count { font-size: 0.8rem; font-family: 'DM Mono', monospace; color: #475569; }
+
+    /* ─── Actions ────────────────────────────────────────────────────────── */
+    .actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+    .btn-sm {
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.775rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-family: 'Inter', sans-serif;
+      text-decoration: none;
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      min-height: 32px;
+    }
+
+    .btn-edit    { background: var(--purple-bg); color: var(--purple); }
+    .btn-edit:hover { background: #ddd6fe; }
+    .btn-danger  { background: var(--red-bg); color: var(--red); }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-disabled {
+      background: #f1f5f9; color: #94a3b8;
+      cursor: not-allowed; pointer-events: none;
+    }
+
+    /* ─── Novo role form ─────────────────────────────────────────────────── */
+    .new-role-card {
+      background: #fff; border-radius: 16px;
+      border: 1.5px dashed #c7d2fe;
+      padding: 1.5rem;
+    }
+
+    .new-role-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; margin: 0 0 1.25rem; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+
+    @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
+
+    .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+
+    .form-label { font-size: 0.8rem; font-weight: 600; color: #374151; }
+
+    .form-input {
+      padding: 0.6rem 0.875rem;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-family: 'Inter', sans-serif;
+      color: #1e293b;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .form-input:focus { border-color: var(--purple); }
+
+    .checkbox-row {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin: 0.75rem 0;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 16px; height: 16px; accent-color: var(--purple); cursor: pointer;
+    }
+
+    .checkbox-label { font-size: 0.85rem; font-weight: 500; color: #374151; cursor: pointer; }
+
+    .super-warning {
+      background: var(--purple-bg);
+      border: 1px solid #c4b5fd;
+      border-radius: 8px;
+      padding: 0.6rem 0.875rem;
+      font-size: 0.775rem;
+      color: var(--purple);
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .super-warning.visible { display: block; }
+
+    .btn-primary {
+      padding: 0.65rem 1.5rem;
+      background: var(--purple);
+      color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 600;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: background 0.15s;
+      min-height: 44px;
+    }
+
+    .btn-primary:hover { background: #6d28d9; }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .content { padding: 1.25rem 1rem; }
+      .hero { padding: 1.5rem 1rem; }
+      .card-header { flex-direction: column; align-items: flex-start; }
+      td, th { padding: 0.75rem 1rem; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Topbar ───────────────────────────────────────────────────────────── -->
+  <nav class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ url_for('portal.dashboard') if is_delegated_admin else url_for('configuracoes.index') }}" class="topbar-back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M19 12H5M5 12l7-7M5 12l7 7"/>
+        </svg>
+        {{ "Dashboard" if is_delegated_admin else "Configurações" }}
+      </a>
+      <span style="font-size:0.85rem; font-weight:700; color:#1e293b;">Roles do Sistema</span>
+    </div>
+  </nav>
+
+  <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+  <div class="hero">
+    <div class="hero-inner">
+      <h1 class="hero-title">Controle de Acesso — Roles</h1>
+      <p class="hero-sub">
+        {% if is_delegated_admin %}
+          Revise e edite permissões dos roles dentro do seu domínio de supervisão.
+        {% else %}
+          Crie roles, edite permissões e gerencie o acesso dos colaboradores ao portal.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Content ──────────────────────────────────────────────────────────── -->
+  <main class="content">
+
+    <!-- Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-list">
+          {% for category, message in messages %}
+            <li class="flash-msg flash-{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <!-- ── Roles table ──────────────────────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <p class="card-title">{{ "Roles Administráveis" if is_delegated_admin else "Roles Cadastrados" }}</p>
+        <span style="font-size:0.8rem; color:#64748b;">{{ roles|length }} role(s)</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome / Descrição</th>
+              <th>Tipo</th>
+              <th>Permissões</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for role in roles %}
+            <tr>
+              <td>
+                <p class="role-nome">{{ role.nome }}</p>
+                {% if role.descricao %}
+                  <p class="role-desc">{{ role.descricao }}</p>
+                {% endif %}
+              </td>
+              <td>
+                {% if role.is_super_admin %}
+                  <span class="badge badge-super">Super Admin</span>
+                {% else %}
+                  <span class="badge badge-regular">Regular</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if role.is_super_admin %}
+                  <span class="perm-count" title="Super admin tem acesso irrestrito">∞</span>
+                {% else %}
+                  <span class="perm-count">{{ role.permissoes|length }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if role.ativo %}
+                  <span class="badge badge-ativo">Ativo</span>
+                {% else %}
+                  <span class="badge badge-inativo">Inativo</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="actions">
+                  {% if role.id in editable_role_ids %}
+                    <a href="{{ url_for('configuracoes.editar_permissoes', role_id=role.id) }}"
+                       class="btn-sm btn-edit">Permissões</a>
+                  {% endif %}
+
+                  {% if not is_delegated_admin and not role.is_super_admin and role.ativo %}
+                    <form method="POST"
+                          action="{{ url_for('configuracoes.desativar_role', role_id=role.id) }}"
+                          onsubmit="return confirm('Desativar o role \'{{ role.nome }}\'? Colaboradores perderão o acesso.')">
+                      <button type="submit" class="btn-sm btn-danger">Desativar</button>
+                    </form>
+                  {% elif not is_delegated_admin and role.is_super_admin %}
+                    <span class="btn-sm btn-disabled" title="Não é possível desativar um role de super_admin">Protegido</span>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" style="text-align:center; color:#94a3b8; padding:2rem;">
+                Nenhum role cadastrado ainda.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Novo Role ─────────────────────────────────────────────────────── -->
+    {% if not is_delegated_admin %}
+    <div class="new-role-card">
+      <p class="new-role-title">+ Criar Novo Role</p>
+
+      <form method="POST" action="{{ url_for('configuracoes.criar_role') }}">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="nome">Slug do Role</label>
+            <input class="form-input" type="text" id="nome" name="nome"
+                   placeholder="ex: gerente_rh" required maxlength="50"
+                   pattern="[a-z0-9_]+" title="Use apenas letras minúsculas, números e underscores" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="descricao">Descrição</label>
+            <input class="form-input" type="text" id="descricao" name="descricao"
+                   placeholder="ex: Gerente de Recursos Humanos" maxlength="255" />
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="is_super_admin" name="is_super_admin"
+                 onchange="document.getElementById('super-warning').classList.toggle('visible', this.checked)" />
+          <label class="checkbox-label" for="is_super_admin">
+            Este role tem acesso irrestrito (Super Admin)
+          </label>
+        </div>
+
+        <div class="super-warning" id="super-warning">
+          ⚠ Cuidado: roles Super Admin têm acesso total ao sistema sem necessidade de permissões explícitas.
+          Use somente para administradores de confiança.
+        </div>
+
+        <button type="submit" class="btn-primary">Criar Role</button>
+      </form>
+    </div>
+    {% endif %}
+
+  </main>
+
+</body>
+</html>

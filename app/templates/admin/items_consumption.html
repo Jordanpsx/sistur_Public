@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Admin — Relatório de Consumo de Itens
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Consumo de Itens</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #0d9488; --primary-dark: #0f766e; --primary-hero: #134e4a;
+      --bg-page: #f0fdfa;
+      --green: #059669; --green-bg: #d1fae5;
+      --red: #dc2626;   --red-bg: #fee2e2;
+      --amber: #d97706; --amber-bg: #fef3c7;
+      --blue: #2563eb;  --blue-bg: #dbeafe;
+      --slate: #475569;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-page); margin: 0; color: #1e293b; }
+
+    /* ─── Topbar ── */
+    .topbar { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,.9); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(0,0,0,.06); }
+    .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 0 1rem; height: 56px; display: flex; align-items: center; gap: 10px; }
+    .back-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--slate); font-size: .875rem; font-weight: 500; padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; min-height: 44px; }
+    .back-btn:hover { background: #f1f5f9; }
+    .topbar-title { font-size: 1rem; font-weight: 700; color: #0f172a; flex: 1; }
+
+    /* ─── Page ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
+
+    /* ─── Filter form ── */
+    .filter-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px 20px; margin-bottom: 1.5rem; }
+    .filter-card h2 { font-size: .8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--slate); margin: 0 0 14px; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+    .filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 160px; }
+    .filter-group label { font-size: .8125rem; font-weight: 600; color: #374151; }
+    .filter-group input[type="date"] {
+      padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: .875rem; font-family: 'Inter', sans-serif;
+      background: #f8fafc; color: #1e293b; min-height: 44px;
+    }
+    .filter-group input[type="date"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,148,136,.12); background: #fff; }
+    .btn-filter { display: inline-flex; align-items: center; gap: 6px; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: .875rem; font-weight: 700; cursor: pointer; min-height: 44px; white-space: nowrap; }
+    .btn-filter:hover { background: var(--primary-dark); }
+
+    /* ─── Summary badge ── */
+    .summary { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; flex-wrap: wrap; }
+    .summary-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--green-bg); color: var(--green); border-radius: 8px; padding: 6px 12px; font-size: .8125rem; font-weight: 700; }
+    .summary-period { font-size: .8125rem; color: var(--slate); }
+
+    /* ─── Items table ── */
+    .table-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: #f8fafc; padding: 11px 16px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--slate); text-align: left; border-bottom: 1px solid #e2e8f0; }
+    thead th.right { text-align: right; }
+    tbody tr { border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background .12s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f0fdfa; }
+    tbody tr.open { background: #f0fdfa; }
+    td { padding: 13px 16px; font-size: .875rem; vertical-align: middle; }
+    td.qty { text-align: right; font-family: 'DM Mono', monospace; font-weight: 700; font-size: 1rem; color: var(--primary); }
+    td.action { text-align: right; width: 32px; padding-right: 14px; }
+
+    /* Chevron icon */
+    .chevron { transition: transform .2s; display: inline-block; color: #94a3b8; }
+    tr.open .chevron { transform: rotate(90deg); }
+
+    /* Item name pill */
+    .item-name { font-weight: 600; }
+    .item-id   { font-size: .75rem; color: #94a3b8; font-family: 'DM Mono', monospace; }
+
+    /* ─── Drill-down row ── */
+    .detail-row { display: none; }
+    .detail-row.open { display: table-row; }
+    .detail-cell { padding: 0 !important; background: #f8fafc; border-bottom: 2px solid #e2e8f0; }
+    .detail-inner { padding: 14px 20px; }
+
+    /* Sub-table */
+    .sub-table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .sub-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+    .sub-table thead th { background: #f1f5f9; padding: 8px 12px; font-weight: 700; color: var(--slate); text-align: left; font-size: .75rem; }
+    .sub-table tbody td { padding: 9px 12px; border-top: 1px solid #f1f5f9; color: #374151; }
+    .sub-table tbody tr:hover { background: #fff; }
+    .sub-table a { color: var(--primary); font-weight: 600; text-decoration: none; }
+    .sub-table a:hover { text-decoration: underline; }
+
+    /* Status badge */
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: .7rem; font-weight: 700; text-transform: uppercase; }
+    .status-PENDING        { background: #fef3c7; color: #d97706; }
+    .status-PARTIALLY_PAID { background: #dbeafe; color: #1d4ed8; }
+    .status-PAID           { background: #d1fae5; color: #059669; }
+    .status-COMPLETED      { background: #ccfbf1; color: #0d9488; }
+
+    /* Loading / error states in drill-down */
+    .loading-msg, .error-msg { font-size: .8125rem; color: var(--slate); padding: 12px 0; }
+    .error-msg { color: var(--red); }
+
+    /* ─── Empty state ── */
+    .empty-state { text-align: center; padding: 3.5rem 1rem; color: var(--slate); }
+    .empty-state svg { margin-bottom: 12px; opacity: .35; }
+    .empty-state p { font-size: .9375rem; font-weight: 500; margin: 0; }
+    .empty-state small { font-size: .8125rem; color: #94a3b8; }
+
+    /* ─── Mobile ── */
+    @media (max-width: 640px) {
+      thead .hide-mobile { display: none; }
+      td.hide-mobile { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<nav class="topbar">
+  <div class="topbar-inner">
+    <a href="{{ url_for('portal.dashboard') }}" class="back-btn">← Dashboard</a>
+    <span class="topbar-title">📦 Consumo de Itens</span>
+  </div>
+</nav>
+
+<main class="page">
+
+  <!-- ── Filter form ── -->
+  <div class="filter-card">
+    <h2>Filtrar período</h2>
+    <form method="GET" action="{{ url_for('admin.items_consumption') }}">
+      <div class="filter-row">
+        <div class="filter-group">
+          <label for="start_date">Data inicial</label>
+          <input type="date" id="start_date" name="start_date"
+                 value="{{ start_date.isoformat() }}" />
+        </div>
+        <div class="filter-group">
+          <label for="end_date">Data final</label>
+          <input type="date" id="end_date" name="end_date"
+                 value="{{ end_date.isoformat() }}" />
+        </div>
+        <button type="submit" class="btn-filter">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Consultar
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Summary line ── -->
+  <div class="summary">
+    {% if itens %}
+      <span class="summary-badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke="currentColor" stroke-width="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2M8 7V5a2 2 0 0 0-4 0v2" stroke="currentColor" stroke-width="2"/></svg>
+        {{ itens | length }} {{ "item" if itens | length == 1 else "itens" }}
+      </span>
+    {% endif %}
+    <span class="summary-period">
+      {% if start_date == end_date %}
+        {{ start_date.strftime('%d/%m/%Y') }}
+      {% else %}
+        {{ start_date.strftime('%d/%m/%Y') }} até {{ end_date.strftime('%d/%m/%Y') }}
+      {% endif %}
+      — reservas ativas e concluídas
+    </span>
+  </div>
+
+  <!-- ── Results table ── -->
+  {% if itens %}
+    <div class="table-wrap">
+      <table id="consumoTable">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="hide-mobile">ID</th>
+            <th class="right">Total Solicitado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in itens %}
+          <tr class="item-row" data-item-id="{{ item.item_id }}"
+              data-item-name="{{ item.item_name }}"
+              onclick="toggleDrilldown(this)">
+            <td><span class="item-name">{{ item.item_name }}</span></td>
+            <td class="hide-mobile"><span class="item-id">#{{ item.item_id }}</span></td>
+            <td class="qty">{{ item.total_qty }}</td>
+            <td class="action">
+              <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </td>
+          </tr>
+          <!-- Drill-down row (hidden until click) -->
+          <tr class="detail-row" id="detail-{{ item.item_id }}">
+            <td class="detail-cell" colspan="4">
+              <div class="detail-inner" id="detail-inner-{{ item.item_id }}">
+                <p class="loading-msg">Carregando reservas…</p>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  {% else %}
+    <div class="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+        <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z" stroke="#94a3b8" stroke-width="1.5"/>
+        <path d="M16 7V5a2 2 0 0 0-4 0v2M8 7V5a2 2 0 0 0-4 0v2" stroke="#94a3b8" stroke-width="1.5"/>
+      </svg>
+      <p>Nenhum item encontrado para o período selecionado.</p>
+      <small>Apenas reservas Pendentes, Pagas e Concluídas são contabilizadas.</small>
+    </div>
+  {% endif %}
+
+</main>
+
+<script>
+  // ── Drill-down: fetch reservations async on row click ──────────────────
+  const _loaded = {};   // cache: item_id → true (already fetched)
+  const _open   = {};   // state: item_id → open/closed
+
+  const START = "{{ start_date.isoformat() }}";
+  const END   = "{{ end_date.isoformat() }}";
+
+  function toggleDrilldown(row) {
+    const itemId   = row.dataset.itemId;
+    const detailRow   = document.getElementById('detail-' + itemId);
+    const isOpen   = _open[itemId];
+
+    // Close all other open rows
+    document.querySelectorAll('.item-row.open').forEach(r => {
+      if (r !== row) {
+        const oid = r.dataset.itemId;
+        r.classList.remove('open');
+        document.getElementById('detail-' + oid).classList.remove('open');
+        _open[oid] = false;
+      }
+    });
+
+    if (isOpen) {
+      // Toggle closed
+      row.classList.remove('open');
+      detailRow.classList.remove('open');
+      _open[itemId] = false;
+      return;
+    }
+
+    // Open
+    row.classList.add('open');
+    detailRow.classList.add('open');
+    _open[itemId] = true;
+
+    // Already loaded — just show
+    if (_loaded[itemId]) return;
+
+    // Fetch drill-down data
+    const url = `/admin/reports/items-consumption/${itemId}/reservations?start_date=${START}&end_date=${END}`;
+    fetch(url, { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(data => {
+        _loaded[itemId] = true;
+        renderDrilldown(itemId, data);
+      })
+      .catch(() => {
+        document.getElementById('detail-inner-' + itemId).innerHTML =
+          '<p class="error-msg">Erro ao carregar reservas. Tente novamente.</p>';
+      });
+  }
+
+  const STATUS_LABELS = {
+    PENDING:        'Pendente',
+    PARTIALLY_PAID: 'Parc. Pago',
+    PAID:           'Pago',
+    COMPLETED:      'Concluída',
+  };
+
+  function renderDrilldown(itemId, data) {
+    const container = document.getElementById('detail-inner-' + itemId);
+    const reservations = data.reservations || [];
+
+    if (!reservations.length) {
+      container.innerHTML = '<p class="loading-msg">Nenhuma reserva encontrada para este item no período.</p>';
+      return;
+    }
+
+    let rows = reservations.map(r => {
+      const statusLabel = STATUS_LABELS[r.status] || r.status;
+      const statusClass = 'status-' + r.status;
+      const checkin = r.check_in_date || '—';
+      return `
+        <tr>
+          <td><a href="${r.detail_url}" target="_blank">#${r.reserva_id}</a></td>
+          <td>${escHtml(r.customer_name)}</td>
+          <td>${checkin}</td>
+          <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:700">${r.quantity}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="sub-table-wrap">
+        <table class="sub-table">
+          <thead>
+            <tr>
+              <th>Reserva</th>
+              <th>Cliente</th>
+              <th>Check-in</th>
+              <th>Status</th>
+              <th style="text-align:right">Qtd</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+
+</body>
+</html>

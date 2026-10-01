@@ -1,0 +1,267 @@
+{% extends "reservas/reservas_base.html" %}
+{#
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Reservas — Consumo de Itens
+#}
+
+{% block html_title %}Consumo de Itens{% endblock %}
+
+{% block page_title %}<svg class="r-icon r-icon-resource" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Consumo de Itens{% endblock %}
+{% block page_subtitle %}
+  <p class="text-xs text-content-muted leading-tight mt-0.5 hidden sm:block">
+    Itens mais solicitados nas reservas do período
+  </p>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# ── Filter card ──────────────────────────────────────────────────────────── #}
+<div class="bg-surface border border-line rounded-xl p-4 mb-5">
+  <p class="text-xs font-bold text-content-muted uppercase tracking-widest mb-3">Filtrar período</p>
+  <form method="GET" action="{{ url_for('reservas.consumo_itens') }}">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div class="flex flex-col gap-1 flex-1 min-w-[160px]">
+        <label for="start_date" class="r-label">Data inicial</label>
+        <input type="date" id="start_date" name="start_date"
+               value="{{ start_date.isoformat() }}"
+               class="r-input" />
+      </div>
+      <div class="flex flex-col gap-1 flex-1 min-w-[160px]">
+        <label for="end_date" class="r-label">Data final</label>
+        <input type="date" id="end_date" name="end_date"
+               value="{{ end_date.isoformat() }}"
+               class="r-input" />
+      </div>
+      <button type="submit"
+              class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700
+                     text-white font-bold text-sm rounded-lg px-5 py-2.5 min-h-[44px]
+                     transition-colors shrink-0">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+          <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Consultar
+      </button>
+    </div>
+  </form>
+</div>
+
+{# ── Summary line ─────────────────────────────────────────────────────────── #}
+<div class="flex items-center gap-3 flex-wrap mb-4">
+  {% if itens %}
+    <span class="inline-flex items-center gap-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300
+                 border border-teal-200 dark:border-teal-800 rounded-lg px-3 py-1.5 text-xs font-bold">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+        <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"
+              stroke="currentColor" stroke-width="2"/>
+        <path d="M16 7V5a2 2 0 0 0-4 0v2M8 7V5a2 2 0 0 0-4 0v2"
+              stroke="currentColor" stroke-width="2"/>
+      </svg>
+      {{ itens | length }} {{ "item" if itens | length == 1 else "itens" }}
+    </span>
+  {% endif %}
+  <span class="text-xs text-content-muted">
+    {% if start_date == end_date %}
+      {{ start_date.strftime('%d/%m/%Y') }}
+    {% else %}
+      {{ start_date.strftime('%d/%m/%Y') }} até {{ end_date.strftime('%d/%m/%Y') }}
+    {% endif %}
+    — excluindo canceladas e arquivadas
+  </span>
+</div>
+
+{# ── Results ──────────────────────────────────────────────────────────────── #}
+{% if itens %}
+  <div class="bg-surface border border-line rounded-xl overflow-hidden">
+    <table class="r-table" id="consumoTable">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="hidden sm:table-cell">ID</th>
+          <th class="text-right">Total Solicitado</th>
+          <th class="w-8"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in itens %}
+        <tr class="item-row cursor-pointer"
+            data-item-id="{{ item.item_id }}"
+            data-item-name="{{ item.item_name }}"
+            onclick="toggleDrilldown(this)">
+          <td>
+            <span class="font-semibold text-content">{{ item.item_name }}</span>
+          </td>
+          <td class="hidden sm:table-cell">
+            <span class="text-xs text-content-muted font-mono">#{{ item.item_id }}</span>
+          </td>
+          <td class="text-right font-mono font-bold text-teal-600 dark:text-teal-300 text-base">
+            {{ item.total_qty }}
+          </td>
+          <td class="text-right pr-3">
+            <svg class="chevron w-4 h-4 text-content-muted inline-block transition-transform duration-200"
+                 viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </td>
+        </tr>
+        {# Drill-down row — hidden until click #}
+        <tr class="detail-row hidden" id="detail-{{ item.item_id }}">
+          <td colspan="4" class="p-0 bg-surface-2 border-b-2 border-line">
+            <div class="p-4" id="detail-inner-{{ item.item_id }}">
+              <p class="text-sm text-content-muted">Carregando reservas…</p>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+{% else %}
+  <div class="bg-surface border border-line rounded-xl flex flex-col items-center
+              justify-center py-14 px-4 text-center">
+    <svg class="w-12 h-12 text-content-muted mb-3" viewBox="0 0 24 24" fill="none">
+      <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"
+            stroke="currentColor" stroke-width="1.5"/>
+      <path d="M16 7V5a2 2 0 0 0-4 0v2M8 7V5a2 2 0 0 0-4 0v2"
+            stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    <p class="text-content-muted font-medium text-sm mb-1">
+      Nenhum item encontrado para o período selecionado.
+    </p>
+    <p class="text-xs text-content-muted">
+      Reservas canceladas e versões arquivadas são excluídas.
+    </p>
+  </div>
+{% endif %}
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+  // ── Drill-down: busca reservas de forma assíncrona ao clicar na linha ────
+  const _loaded = {};  // cache: item_id → true (já carregado)
+  const _open   = {};  // estado: item_id → aberto/fechado
+
+  const START = "{{ start_date.isoformat() }}";
+  const END   = "{{ end_date.isoformat() }}";
+
+  function toggleDrilldown(row) {
+    const itemId    = row.dataset.itemId;
+    const detailRow = document.getElementById('detail-' + itemId);
+    const isOpen    = _open[itemId];
+
+    // Fecha todas as linhas abertas (exceto a atual)
+    document.querySelectorAll('.item-row.row-open').forEach(r => {
+      if (r !== row) {
+        const oid = r.dataset.itemId;
+        r.classList.remove('row-open', 'bg-teal-50', 'dark:bg-teal-900/30');
+        r.querySelector('.chevron').style.transform = '';
+        document.getElementById('detail-' + oid).classList.add('hidden');
+        _open[oid] = false;
+      }
+    });
+
+    if (isOpen) {
+      row.classList.remove('row-open', 'bg-teal-50', 'dark:bg-teal-900/30');
+      row.querySelector('.chevron').style.transform = '';
+      detailRow.classList.add('hidden');
+      _open[itemId] = false;
+      return;
+    }
+
+    // Abre
+    row.classList.add('row-open', 'bg-teal-50', 'dark:bg-teal-900/30');
+    row.querySelector('.chevron').style.transform = 'rotate(90deg)';
+    detailRow.classList.remove('hidden');
+    _open[itemId] = true;
+
+    if (_loaded[itemId]) return;
+
+    // Busca dados
+    const url = `/reservas/consumo-itens/${itemId}/reservas-detalhe?start_date=${START}&end_date=${END}`;
+    fetch(url, { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(data => {
+        _loaded[itemId] = true;
+        renderDrilldown(itemId, data);
+      })
+      .catch(() => {
+        document.getElementById('detail-inner-' + itemId).innerHTML =
+          '<p class="text-sm text-red-500">Erro ao carregar reservas. Tente novamente.</p>';
+      });
+  }
+
+  const STATUS_LABELS = {
+    PENDING:        'Pendente',
+    PARTIALLY_PAID: 'Parc. Pago',
+    PAID:           'Pago',
+    COMPLETED:      'Concluída',
+  };
+
+  const STATUS_CLASSES = {
+    PENDING:        'bg-amber-100 text-amber-700 dark:text-amber-300',
+    PARTIALLY_PAID: 'bg-blue-100 text-blue-700 dark:text-blue-300',
+    PAID:           'bg-green-100 text-green-700 dark:text-green-300',
+    COMPLETED:      'bg-teal-100 dark:bg-teal-800/40 text-teal-700 dark:text-teal-300',
+  };
+
+  function renderDrilldown(itemId, data) {
+    const container    = document.getElementById('detail-inner-' + itemId);
+    const reservations = data.reservations || [];
+
+    if (!reservations.length) {
+      container.innerHTML =
+        '<p class="text-sm text-content-muted">Nenhuma reserva encontrada para este item no período.</p>';
+      return;
+    }
+
+    const rows = reservations.map(r => {
+      const label  = STATUS_LABELS[r.status] || r.status;
+      const cls    = STATUS_CLASSES[r.status] || 'bg-surface-2 text-content-muted';
+      const checkin = r.check_in_date || '—';
+      return `
+        <tr class="border-t border-line hover:bg-surface">
+          <td class="py-2 px-3">
+            <a href="${escHtml(r.detail_url)}" target="_blank"
+               class="text-teal-600 dark:text-teal-300 hover:underline font-semibold">#${r.reserva_id}</a>
+          </td>
+          <td class="py-2 px-3 text-sm text-content">${escHtml(r.customer_name)}</td>
+          <td class="py-2 px-3 text-sm text-content-muted">${checkin}</td>
+          <td class="py-2 px-3">
+            <span class="inline-block px-2 py-0.5 rounded text-xs font-bold uppercase ${cls}">
+              ${label}
+            </span>
+          </td>
+          <td class="py-2 px-3 text-right font-mono font-bold text-teal-600 dark:text-teal-300">${r.quantity}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="overflow-x-auto rounded-lg border border-line">
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr class="bg-surface-2">
+              <th class="py-2 px-3 text-left text-xs font-bold text-content-muted uppercase tracking-wide">Reserva</th>
+              <th class="py-2 px-3 text-left text-xs font-bold text-content-muted uppercase tracking-wide">Cliente</th>
+              <th class="py-2 px-3 text-left text-xs font-bold text-content-muted uppercase tracking-wide">Check-in</th>
+              <th class="py-2 px-3 text-left text-xs font-bold text-content-muted uppercase tracking-wide">Status</th>
+              <th class="py-2 px-3 text-right text-xs font-bold text-content-muted uppercase tracking-wide">Qtd</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+{% endblock %}

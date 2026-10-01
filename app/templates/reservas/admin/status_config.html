@@ -1,0 +1,195 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}Configuração de Status{% endblock %}
+
+{% block page_title %}Configuração de Status{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">
+  Rótulos, cores e regras de negócio por status de reserva
+</p>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# ── Flash messages ── #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+    <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+                {{ 'bg-green-50 dark:bg-green-900/30 text-green-800 border border-green-200 dark:border-green-800' if category == 'sucesso' else 'bg-red-50 dark:bg-red-900/30 text-red-800 border border-red-200 dark:border-red-800' }}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{# ── Existing configs table ── #}
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden mb-8">
+  <div class="px-5 py-4 border-b border-line flex items-center justify-between">
+    <div>
+      <h3 class="font-bold text-content">Status Configurados</h3>
+      <p class="text-xs text-content-muted mt-0.5">
+        Entradas marcadas com cadeado são reservadas pelo sistema e não podem ser excluídas.
+      </p>
+      <p class="text-xs text-content-muted mt-0.5">
+        <strong>Cancelar automaticamente após</strong> conta a partir do vencimento do soft-lock
+        (quando o estoque já foi liberado), não da criação da reserva. Em branco, o status nunca
+        cancela sozinho — o padrão para todos. Só tem efeito em status não-finais, como Pendente.
+      </p>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="r-table">
+      <thead>
+        <tr>
+          <th>Nome Interno</th>
+          <th>Rótulo (pt-BR)</th>
+          <th>Cor</th>
+          <th class="hidden sm:table-cell">Bloqueia Recurso</th>
+          <th class="hidden md:table-cell">Exibir no Dashboard</th>
+          <th style="width: 160px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cfg in configs %}
+        <tr>
+          <td>
+            <span class="font-mono text-xs font-bold text-content-muted">{{ cfg.internal_name }}</span>
+            {% if cfg.is_system_reserved %}
+              <span class="ml-1 text-content-muted" title="Reservado pelo sistema" aria-hidden="true"><svg class="r-icon r-icon-lock inline-block" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            {% endif %}
+          </td>
+
+          {# Inline edit form per row #}
+          <td colspan="4">
+            <form method="post"
+                  action="{{ url_for('reservas.admin_status_config_editar', config_id=cfg.id) }}"
+                  class="flex flex-wrap items-center gap-2">
+              <input type="text" name="label" value="{{ cfg.label }}"
+                     class="border border-line rounded-lg px-3 py-1.5 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                     required>
+
+              <div class="flex items-center gap-1.5">
+                <input type="color" name="color_hex" value="{{ cfg.color_hex }}"
+                       class="w-8 h-8 rounded border border-line cursor-pointer p-0.5"
+                       title="Escolher cor">
+                <span class="text-xs text-content-muted font-mono">{{ cfg.color_hex }}</span>
+              </div>
+
+              <label class="flex items-center gap-1.5 text-sm text-content-muted cursor-pointer hidden sm:flex">
+                <input type="checkbox" name="blocks_resource" value="1"
+                       {{ 'checked' if cfg.blocks_resource else '' }}
+                       class="w-4 h-4 rounded text-teal-600 dark:text-teal-300 focus:ring-teal-400">
+                Bloqueia
+              </label>
+
+              <label class="flex items-center gap-1.5 text-sm text-content-muted cursor-pointer hidden md:flex">
+                <input type="checkbox" name="show_on_dashboard" value="1"
+                       {{ 'checked' if cfg.show_on_dashboard else '' }}
+                       class="w-4 h-4 rounded text-teal-600 dark:text-teal-300 focus:ring-teal-400">
+                Dashboard
+              </label>
+
+              <label class="flex items-center gap-1.5 text-sm text-content-muted hidden lg:flex"
+                     title="Horas após o vencimento do soft-lock para cancelar sozinho. Em branco = nunca.">
+                <input type="number" name="auto_cancel_hours" min="1" step="1"
+                       value="{{ cfg.auto_cancel_hours or '' }}" placeholder="nunca"
+                       class="border border-line rounded-lg px-2 py-1.5 text-sm w-20
+                              focus:outline-none focus:ring-2 focus:ring-teal-400">
+                h p/ cancelar
+              </label>
+
+              <button type="submit"
+                      class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs
+                             font-semibold rounded-lg transition-colors">
+                Salvar
+              </button>
+            </form>
+          </td>
+
+          <td>
+            {% if not cfg.is_system_reserved %}
+            <form method="post"
+                  action="{{ url_for('reservas.admin_status_config_deletar', config_id=cfg.id) }}"
+                  onsubmit="return confirm('Excluir {{ cfg.internal_name }}?')">
+              <button type="submit"
+                      class="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 text-red-600 dark:text-red-400 text-xs
+                             font-semibold rounded-lg border border-red-200 dark:border-red-800 transition-colors">
+                Excluir
+              </button>
+            </form>
+            {% else %}
+            <span class="text-xs text-content-muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ── New config form ── #}
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-line">
+    <h3 class="font-bold text-content">Adicionar Configuração</h3>
+    <p class="text-xs text-content-muted mt-0.5">
+      Use para indicadores visuais extras como 'DEPOSIT' (caução no Mapa de Ativos).
+    </p>
+  </div>
+  <form method="post"
+        action="{{ url_for('reservas.admin_status_config_novo') }}"
+        class="px-5 py-4 flex flex-wrap items-end gap-3">
+
+    <div>
+      <label class="block text-xs font-semibold text-content-muted mb-1">Nome Interno</label>
+      <input type="text" name="internal_name" placeholder="EX: DEPOSIT"
+             class="border border-line rounded-lg px-3 py-2 text-sm uppercase
+                    focus:outline-none focus:ring-2 focus:ring-teal-400 w-36"
+             required>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold text-content-muted mb-1">Rótulo</label>
+      <input type="text" name="label" placeholder="Com Caução"
+             class="border border-line rounded-lg px-3 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-teal-400 w-36"
+             required>
+    </div>
+
+    <div>
+      <label class="block text-xs font-semibold text-content-muted mb-1">Cor</label>
+      <input type="color" name="color_hex" value="#7C3AED"
+             class="w-10 h-10 rounded border border-line cursor-pointer p-0.5">
+    </div>
+
+    <label class="flex items-center gap-1.5 text-sm text-content-muted cursor-pointer mb-0.5">
+      <input type="checkbox" name="blocks_resource" value="1"
+             class="w-4 h-4 rounded text-teal-600 dark:text-teal-300 focus:ring-teal-400">
+      Bloqueia Recurso
+    </label>
+
+    <label class="flex items-center gap-1.5 text-sm text-content-muted cursor-pointer mb-0.5">
+      <input type="checkbox" name="show_on_dashboard" value="1"
+             class="w-4 h-4 rounded text-teal-600 dark:text-teal-300 focus:ring-teal-400">
+      Exibir no Dashboard
+    </label>
+
+    <div>
+      <label class="block text-xs font-semibold text-content-muted mb-1">Cancelar após (h)</label>
+      <input type="number" name="auto_cancel_hours" min="1" step="1" placeholder="nunca"
+             class="border border-line rounded-lg px-3 py-2 text-sm w-24
+                    focus:outline-none focus:ring-2 focus:ring-teal-400">
+    </div>
+
+    <button type="submit"
+            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm
+                   font-semibold rounded-lg transition-colors">
+      Adicionar
+    </button>
+  </form>
+</div>
+
+{% endblock %}

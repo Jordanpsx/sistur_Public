@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Organização — Áreas{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+
+  {% set aba_ativa = 'areas' %}
+  {% set novo_url = url_for('organizacao.nova_area') %}
+  {% set novo_label = 'Nova Área' %}
+  {% set novo_perm = 'funcoes' %}
+  {% include 'organizacao/_tabs.html' %}
+
+  <!-- Filtro de status -->
+  <form method="get" class="mb-4">
+    <select name="status" onchange="this.form.submit()"
+            class="px-4 py-2.5 rounded-xl border border-line bg-surface text-sm text-content
+                   focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
+      <option value="ativo"  {% if status_filtro == 'ativo' %}selected{% endif %}>Ativas</option>
+      <option value="inativo" {% if status_filtro == 'inativo' %}selected{% endif %}>Inativas</option>
+      <option value="todos"  {% if status_filtro == 'todos' %}selected{% endif %}>Todas</option>
+    </select>
+  </form>
+
+  <!-- Flash -->
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+    {% if cat == 'sucesso' %}bg-green-50 dark:bg-green-900/30 text-green-800 border border-green-200
+    {% elif cat == 'erro' %}bg-red-50 dark:bg-red-900/30 text-red-800 border border-red-200 dark:border-red-800
+    {% else %}bg-blue-50 dark:bg-blue-900/30 text-blue-800 border border-blue-200{% endif %}">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
+
+  <!-- Lista -->
+  {% if areas %}
+  <div class="space-y-2">
+    {% for a in areas %}
+    <div class="flex items-center justify-between px-4 py-3 bg-surface rounded-xl border border-line">
+      <div>
+        <p class="text-sm font-semibold text-content flex items-center gap-2">
+          <span class="area-dot area-c{{ a.cor_indice }}"></span>{{ a.name }}
+        </p>
+        <p class="text-xs text-content-muted">
+          slug: <span class="font-mono">{{ a.slug }}</span>
+          {% if a.description %}&nbsp;· {{ a.description }}{% endif %}
+          {% if not a.is_active %}<span class="ml-2 text-red-500 font-medium">Inativa</span>{% endif %}
+        </p>
+      </div>
+      <div class="flex gap-2">
+        {% if has_permission(session.get('funcionario_id'), 'funcoes', 'edit') %}
+        <a href="{{ url_for('organizacao.editar_area', area_id=a.id) }}"
+           class="px-3 py-1.5 text-xs font-medium text-content border border-line rounded-lg
+                  hover:bg-surface-2 min-h-[36px] flex items-center">Editar</a>
+        {% endif %}
+        {% if a.is_active and has_permission(session.get('funcionario_id'), 'funcoes', 'delete') %}
+        <form method="post" action="{{ url_for('organizacao.desativar_area', area_id=a.id) }}">
+          <button type="button"
+                  data-confirm-titulo="Desativar área?"
+                  data-confirm-msg="A área &quot;{{ a.name }}&quot; ficará inativa. Funções e equipes vinculadas a ela não são removidas."
+                  onclick="abrirConfirm(this)"
+                  class="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg
+                         hover:bg-red-50 dark:hover:bg-red-900/30 min-h-[36px]">Desativar</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-16 text-content-muted">
+    <div class="text-4xl mb-3" style="color:var(--primary)">
+      <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <p class="text-sm">Nenhuma área cadastrada ainda.</p>
+    {% if has_permission(session.get('funcionario_id'), 'funcoes', 'create') %}
+    <a href="{{ url_for('organizacao.nova_area') }}"
+       class="mt-4 inline-block text-sm font-medium" style="color:var(--primary)">Criar primeira área →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+{% include '_confirm_modal.html' %}
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}Locais / Venues{% endblock %}
+
+{% block page_title %}Locais / Venues{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">Fontes de reserva cadastradas</p>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_criar_source') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-600 hover:bg-teal-700
+          text-white text-sm font-semibold rounded-lg transition-colors">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+  Novo Local
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+{% if not sources %}
+<div class="bg-surface rounded-xl border border-line shadow-sm py-16 text-center">
+  <div class="text-5xl mb-4"><svg class="r-icon r-icon-resource" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+  <p class="text-content font-semibold">Nenhum local cadastrado</p>
+  <p class="text-content-muted text-sm mt-1 mb-6">Crie o primeiro venue para começar.</p>
+  <a href="{{ url_for('reservas.admin_criar_source') }}"
+     class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700
+            text-white text-sm font-semibold rounded-lg transition-colors">
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Criar Primeiro Local
+  </a>
+</div>
+
+{% else %}
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
+  <table class="r-table">
+    <thead>
+      <tr>
+        <th>Nome do Local</th>
+        <th class="hidden sm:table-cell">Categorias</th>
+        <th class="hidden md:table-cell">Criado em</th>
+        <th style="width: 190px;">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for source in sources %}
+      <tr>
+        <td>
+          <span class="font-semibold text-content">{{ source.display_name or source.name }}</span>
+          <span class="block text-xs font-mono text-content-muted mt-0.5">{{ source.name }}</span>
+        </td>
+        <td class="hidden sm:table-cell">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+                       bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300">
+            {{ source.categories | selectattr('deleted_at', 'none') | list | length }} cat.
+          </span>
+        </td>
+        <td class="hidden md:table-cell text-content-muted text-xs">
+          {{ source.criado_em.strftime('%d/%m/%Y') if source.criado_em else '—' }}
+        </td>
+        <td>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <a href="{{ url_for('reservas.admin_listar_categorias', source_id=source.id) }}"
+               class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                      text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 transition-colors"
+               title="Gerenciar categorias">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2H3Z"/><path d="M3 11h18l-2 8H5Z"/></svg> Categorias
+            </a>
+            <a href="{{ url_for('reservas.admin_editar_source', source_id=source.id) }}"
+               class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                      text-content-muted bg-surface-2 hover:bg-surface-2 transition-colors"
+               title="Editar">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            </a>
+            <form method="POST"
+                  action="{{ url_for('reservas.admin_deletar_source', source_id=source.id) }}"
+                  class="inline"
+                  onsubmit="return confirm('Deletar o local \'{{ source.display_name or source.name }}\'? Esta ação não pode ser desfeita.')">
+              <button type="submit"
+                      class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                             text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors"
+                      title="Deletar">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  IA do Sistur — Cofre de Segredos / Integrações
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Segredos / Integrações</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #0d9488;
+      --primary-dark: #0f766e;
+      --bg-page: #f8fafc;
+      --border: #e2e8f0;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-page); margin: 0; color: #1e293b;
+    }
+    header {
+      background: #fff; border-bottom: 1px solid var(--border);
+      padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+    }
+    header h1 { font-size: 17px; margin: 0; font-weight: 700; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 40px; padding: 0 14px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; text-decoration: none;
+      border: 1px solid var(--border); background: #fff; color: #334155; cursor: pointer;
+    }
+    .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn-ghost-danger { color: #b91c1c; border-color: #fecaca; background: #fff; }
+    main { max-width: 720px; margin: 0 auto; padding: 16px; }
+    .intro { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 4px 0 16px; }
+    .card {
+      background: #fff; border: 1px solid var(--border); border-radius: 14px;
+      padding: 16px; margin-bottom: 14px;
+    }
+    .card-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .card-head h2 { font-size: 15px; margin: 0; font-weight: 700; }
+    .pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+    .pill-ok { background: #d1fae5; color: #047857; }
+    .pill-off { background: #f1f5f9; color: #64748b; }
+    .ajuda { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 8px 0 12px; }
+    .mascara { font-family: monospace; font-size: 13px; color: #334155; margin: 6px 0 12px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+    input[type="password"], input[type="text"] {
+      width: 100%; min-height: 46px; padding: 11px 12px;
+      border: 1px solid var(--border); border-radius: 10px; font-size: 14px; font-family: inherit;
+    }
+    input:focus { outline: none; border-color: var(--primary); }
+    .row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .row form { display: inline; }
+    .flash { border-radius: 10px; padding: 11px 14px; font-size: 13px; margin-bottom: 12px; }
+    .flash.sucesso { background: #d1fae5; color: #065f46; }
+    .flash.erro { background: #fee2e2; color: #991b1b; }
+    .flash.aviso { background: #fef3c7; color: #92400e; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <a href="{{ url_for('configuracoes.index') }}" class="btn" title="Voltar" style="min-width:40px;padding:0 10px;">Voltar</a>
+    <h1>Segredos / Integrações</h1>
+  </header>
+
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for categoria, msg in messages %}
+        <div class="flash {{ categoria }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <p class="intro">
+      Credenciais sensíveis ficam <strong>criptografadas</strong> no cofre do Sistur
+      (chave mestra fora do banco). O valor bruto nunca é exibido nem registrado — só a máscara.
+    </p>
+
+    {% for s in segredos %}
+    <div class="card">
+      <div class="card-head">
+        <h2>{{ s.label }}</h2>
+        {% if s.configurado %}
+        <span class="pill pill-ok">Configurado</span>
+        {% else %}
+        <span class="pill pill-off">Não configurado</span>
+        {% endif %}
+      </div>
+
+      <p class="ajuda">{{ s.ajuda }}</p>
+
+      {% if s.configurado %}
+      <div class="mascara">Atual: {{ s.mascara }}</div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('configuracoes.segredos_salvar') }}">
+        <input type="hidden" name="key" value="{{ s.key }}" />
+        <label for="value-{{ loop.index }}">
+          {{ 'Substituir valor' if s.configurado else 'Novo valor' }}
+        </label>
+        <input type="password" id="value-{{ loop.index }}" name="value"
+               placeholder="{{ s.placeholder }}" autocomplete="off" />
+        <div class="row">
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+
+      {% if s.configurado %}
+      <form method="POST" action="{{ url_for('configuracoes.segredos_remover', key=s.key) }}"
+            onsubmit="return confirm('Remover esta credencial do cofre?');" style="margin-top:8px;">
+        <button type="submit" class="btn btn-ghost-danger">Remover</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </main>
+</body>
+
+</html>

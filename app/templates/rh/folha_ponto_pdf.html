@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  RH — Folha de Ponto PDF Template (WeasyPrint)
+  NÃO usar fontes externas, JS ou recursos de rede — apenas CSS inline.
+-->
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Folha de Ponto — {{ dados.funcionario.nome }}</title>
+    <style>
+        /* ── Base ── */
+        @page {
+            size: A4 landscape;
+            margin: 1.5cm 2cm;
+        }
+
+        body {
+            font-family: 'DejaVu Sans', Arial, Helvetica, sans-serif;
+            font-size: 8.5pt;
+            color: #1e293b;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ── Cabeçalho da empresa ── */
+        .company-header {
+            border-bottom: 2pt solid #4f46e5;
+            padding-bottom: 6pt;
+            margin-bottom: 10pt;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .company-name {
+            font-size: 13pt;
+            font-weight: bold;
+            color: #312e81;
+            letter-spacing: -.4pt;
+        }
+
+        .company-meta {
+            font-size: 7pt;
+            color: #64748b;
+            margin-top: 2pt;
+        }
+
+        .doc-label {
+            text-align: right;
+            font-size: 9pt;
+            font-weight: bold;
+            color: #4f46e5;
+            text-transform: uppercase;
+            letter-spacing: .5pt;
+        }
+
+        .doc-period {
+            font-size: 7.5pt;
+            color: #64748b;
+            text-align: right;
+        }
+
+        /* ── Info do funcionário ── */
+        .emp-block {
+            background: #f8fafc;
+            border: 1pt solid #e2e8f0;
+            border-radius: 4pt;
+            padding: 7pt 10pt;
+            margin-bottom: 10pt;
+        }
+
+        .emp-name {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        .emp-details {
+            font-size: 7pt;
+            color: #64748b;
+            margin-top: 2pt;
+        }
+
+        /* ── Tabela ── */
+        table.ponto {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10pt;
+        }
+
+        table.ponto thead th {
+            background: #4f46e5;
+            color: #fff;
+            font-size: 7pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: .3pt;
+            padding: 4pt 5pt;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        table.ponto thead th.col-l {
+            text-align: left;
+        }
+
+        table.ponto tbody tr {
+            page-break-inside: avoid;
+        }
+
+        table.ponto tbody tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        table.ponto td {
+            padding: 3.5pt 5pt;
+            border-bottom: .5pt solid #e2e8f0;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        table.ponto td.col-l {
+            text-align: left;
+        }
+
+        .td-mono {
+            font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+        }
+
+        .td-miss {
+            color: #94a3b8;
+        }
+
+        .td-rev {
+            background: #fef9ec !important;
+        }
+
+        /* Saldo */
+        .sal-pos {
+            color: #15803d;
+            font-weight: bold;
+        }
+
+        .sal-neg {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .sal-zero {
+            color: #94a3b8;
+        }
+
+        /* Dia trocado por folga compensatória. O PDF é impresso e assinado:
+           o rótulo precisa caber na célula sem depender de cor. */
+        .td-folga {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 6.5pt;
+            font-weight: bold;
+            color: #4338ca;
+            white-space: nowrap;
+        }
+
+        /* ── Totais ── */
+        table.ponto tfoot td {
+            background: #eef2ff;
+            font-weight: bold;
+            border-top: 1.5pt solid #4f46e5;
+            padding: 4pt 5pt;
+        }
+
+        /* ── Resumo final ── */
+        .summary-row {
+            display: flex;
+            gap: 10pt;
+            margin-bottom: 10pt;
+        }
+
+        .sbox {
+            flex: 1;
+            border: .5pt solid #e2e8f0;
+            border-radius: 4pt;
+            padding: 5pt 8pt;
+            background: #f8fafc;
+        }
+
+        .sbox__label {
+            font-size: 7pt;
+            text-transform: uppercase;
+            letter-spacing: .3pt;
+            color: #64748b;
+        }
+
+        .sbox__val {
+            font-size: 10.5pt;
+            font-weight: bold;
+            color: #0f172a;
+            font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+        }
+
+        /* ── Rodapé ── */
+        .footer {
+            border-top: .5pt solid #e2e8f0;
+            padding-top: 5pt;
+            font-size: 6.5pt;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* ── Linha de assinatura ── */
+        .sig-row {
+            margin-top: 20pt;
+            display: flex;
+            gap: 40pt;
+        }
+
+        .sig-line {
+            flex: 1;
+        }
+
+        .sig-line__line {
+            border-bottom: .5pt solid #334155;
+            margin-bottom: 3pt;
+        }
+
+        .sig-line__label {
+            font-size: 6.5pt;
+            color: #64748b;
+        }
+    </style>
+</head>
+
+<body>
+
+    {% set _meses_pt = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'] %}
+
+    <!-- ── CABEÇALHO DA EMPRESA ── -->
+    <div class="company-header">
+        <div>
+            <div class="company-name">{{ empresa_razao_social or empresa_nome or 'Empresa' }}</div>
+            <div class="company-meta">
+                {% if empresa_cnpj %}CNPJ: {{ empresa_cnpj }}{% endif %}
+                {% if empresa_cnpj and empresa_endereco %} · {% endif %}
+                {% if empresa_endereco %}{{ empresa_endereco }}{% endif %}
+            </div>
+        </div>
+        <div>
+            <div class="doc-label">Folha de Ponto</div>
+            <div class="doc-period">{{ _meses_pt[mes] }} / {{ ano }}</div>
+        </div>
+    </div>
+
+    <!-- ── INFO DO FUNCIONÁRIO ── -->
+    <div class="emp-block">
+        <div class="emp-name">{{ dados.funcionario.nome }}</div>
+        <div class="emp-details">
+            {% if dados.funcionario.cargo %}Cargo: {{ dados.funcionario.cargo }} · {% endif %}
+            {% if dados.funcionario.cpf %}CPF: {{ dados.funcionario.cpf }} · {% endif %}
+            {% if dados.funcionario.matricula %}Matrícula: {{ dados.funcionario.matricula }}{% endif %}
+        </div>
+    </div>
+
+    <!-- ── RESUMO ── -->
+    {% set h_trab = dados.total_minutos_trabalhados // 60 %}
+    {% set m_trab = dados.total_minutos_trabalhados % 60 %}
+    {% set h_exp = dados.total_expected_minutos // 60 %}
+    {% set m_exp = dados.total_expected_minutos % 60 %}
+    {% set saldo = dados.total_saldo_minutos %}
+    {% set h_sal = (saldo | abs) // 60 %}
+    {% set m_sal = (saldo | abs) % 60 %}
+
+    <div class="summary-row">
+        <div class="sbox">
+            <div class="sbox__label">Horas Trabalhadas</div>
+            <div class="sbox__val">{{ "%dh%02d" | format(h_trab, m_trab) }}</div>
+        </div>
+        <div class="sbox">
+            <div class="sbox__label">Horas Esperadas</div>
+            <div class="sbox__val">{{ "%dh%02d" | format(h_exp, m_exp) }}</div>
+        </div>
+        <div class="sbox">
+            <div class="sbox__label">Saldo do Mês</div>
+            <div class="sbox__val {{ 'sal-pos' if saldo > 0 else ('sal-neg' if saldo < 0 else 'sal-zero') }}">
+                {% if saldo >= 0 %}+{% else %}–{% endif %}{{ "%dh%02d" | format(h_sal, m_sal) }}
+            </div>
+        </div>
+        <div class="sbox">
+            <div class="sbox__label">Dias para Revisar</div>
+            <div class="sbox__val {{ 'sal-neg' if dados.dias_com_revisao > 0 else 'sal-zero' }}">
+                {{ dados.dias_com_revisao }}
+            </div>
+        </div>
+    </div>
+
+    <!-- ── TABELA CLT ── -->
+    <table class="ponto">
+        <thead>
+            <tr>
+                <th class="col-l">Data</th>
+                <th>Dia</th>
+                <th>Entrada</th>
+                <th>Saída Almoço</th>
+                <th>Volta Almoço</th>
+                <th>Saída</th>
+                <th>Trabalhadas</th>
+                <th>Esperadas</th>
+                <th>Desvio</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for linha in dados.linhas %}
+            {% set h_w = linha.minutos_trabalhados // 60 %}
+            {% set m_w = linha.minutos_trabalhados % 60 %}
+            {% set h_e = linha.expected_minutes_snapshot // 60 %}
+            {% set m_e = linha.expected_minutes_snapshot % 60 %}
+            {% set dev = linha.desvio_minutos %}
+            {% set h_d = (dev | abs) // 60 %}
+            {% set m_d = (dev | abs) % 60 %}
+            <tr class="{{ 'td-rev' if linha.needs_review else '' }}">
+                <td class="col-l td-mono">{{ linha.shift_date.strftime('%d/%m/%Y') }}</td>
+                <td>{{ linha.dia_semana }}</td>
+                <td class="td-mono">{{ (linha.clock_in.punch_time|to_brasilia_time)[:5] if linha.clock_in else '—' }}</td>
+                <td class="td-mono">{{ (linha.lunch_start.punch_time|to_brasilia_time)[:5] if linha.lunch_start else '—' }}
+                </td>
+                <td class="td-mono">{{ (linha.lunch_end.punch_time|to_brasilia_time)[:5] if linha.lunch_end else '—' }}</td>
+                <td class="td-mono">{{ (linha.clock_out.punch_time|to_brasilia_time)[:5] if linha.clock_out else '—' }}</td>
+                <td class="td-mono">{{ "%dh%02d" | format(h_w, m_w) }}</td>
+                <td class="td-mono">
+                    {% if linha.folga_compensatoria %}<span class="td-folga">Folga compensatória</span>
+                    {% else %}{{ "%dh%02d" | format(h_e, m_e) }}{% endif %}
+                </td>
+                <td class="td-mono {{ 'sal-pos' if dev > 0 else ('sal-neg' if dev < 0 else 'sal-zero') }}">
+                    {% if dev >= 0 %}+{% else %}–{% endif %}{{ "%dh%02d" | format(h_d, m_d) }}
+                </td>
+                <td>{% if linha.needs_review %}⚠ Revisar{% else %}OK{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="6" style="text-align:right; font-size:7pt; color:#64748b;">Totais →</td>
+                <td class="td-mono">{{ "%dh%02d" | format(h_trab, m_trab) }}</td>
+                <td class="td-mono">{{ "%dh%02d" | format(h_exp, m_exp) }}</td>
+                <td class="td-mono {{ 'sal-pos' if saldo > 0 else ('sal-neg' if saldo < 0 else 'sal-zero') }}">
+                    {% if saldo >= 0 %}+{% else %}–{% endif %}{{ "%dh%02d" | format(h_sal, m_sal) }}
+                </td>
+                <td>{{ dados.dias_com_revisao }} rev.</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- ── LINHA DE ASSINATURA ── -->
+    <div class="sig-row">
+        <div class="sig-line">
+            <div class="sig-line__line" style="height:20pt;"></div>
+            <div class="sig-line__label">Assinatura do Colaborador</div>
+        </div>
+        <div class="sig-line">
+            <div class="sig-line__line" style="height:20pt;"></div>
+            <div class="sig-line__label">Assinatura do Responsável RH</div>
+        </div>
+        <div class="sig-line">
+            <div class="sig-line__line" style="height:20pt;"></div>
+            <div class="sig-line__label">Data e Carimbo</div>
+        </div>
+    </div>
+
+    <!-- ── RODAPÉ ── -->
+    <div class="footer">
+        <span>Documento gerado em {{ gerado_em.strftime('%d/%m/%Y %H:%M') }} UTC · SISTUR RH</span>
+        <span>{{ empresa_nome or '' }}</span>
+    </div>
+
+</body>
+
+</html>

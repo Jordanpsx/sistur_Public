@@ -1,0 +1,558 @@
+{% extends "reservas/reservas_base.html" %}
+{#
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Reservas — Relatório Diário
+#}
+
+{% block html_title %}Relatório — {{ dia.strftime('%d/%m/%Y') }}{% endblock %}
+
+{% block page_title %}
+  {% set _day_names = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+  Relatório — {{ _day_names[dia.weekday()] }}, {{ dia.strftime('%d/%m/%Y') }}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.index', view='semanal') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Visão Geral
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# ── Navegação de datas ──────────────────────────────────────────────────── #}
+<div class="flex items-center justify-between mb-4">
+  <a href="{{ url_for('reservas.relatorio_dia', date_str=dia_ant.isoformat(), aba=aba, q=q) }}"
+     class="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+            bg-surface border border-line rounded-lg hover:bg-surface-2 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+    </svg>
+    {{ dia_ant.strftime('%d/%m') }}
+  </a>
+
+  <div class="flex flex-col items-center">
+    {% set _full_days = ['Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado','Domingo'] %}
+    <span class="text-xs font-bold text-content-muted uppercase tracking-widest">
+      {{ _full_days[dia.weekday()] }}
+    </span>
+    <span class="text-xl font-extrabold text-content leading-tight">
+      {{ dia.strftime('%d/%m/%Y') }}
+    </span>
+  </div>
+
+  <a href="{{ url_for('reservas.relatorio_dia', date_str=dia_prox.isoformat(), aba=aba, q=q) }}"
+     class="flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+            bg-surface border border-line rounded-lg hover:bg-surface-2 transition-colors">
+    {{ dia_prox.strftime('%d/%m') }}
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+    </svg>
+  </a>
+</div>
+
+{# ── Busca ────────────────────────────────────────────────────────────────── #}
+<form method="GET" action="{{ url_for('reservas.relatorio_dia', date_str=dia.isoformat()) }}"
+      class="mb-4">
+  <input type="hidden" name="aba" value="{{ aba }}" />
+  <div class="relative">
+    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-content-muted pointer-events-none"
+         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+    </svg>
+    <input type="text" name="q"
+           value="{{ q }}"
+           placeholder="Buscar por nome, CPF, telefone ou #ID da reserva…"
+           class="r-input pl-9 {% if q %}pr-9{% endif %}" />
+    {% if q %}
+    <a href="{{ url_for('reservas.relatorio_dia', date_str=dia.isoformat(), aba=aba) }}"
+       class="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-muted transition-colors"
+       title="Limpar busca">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </a>
+    {% endif %}
+  </div>
+  {% if q %}
+  <div class="mt-2 flex items-center gap-2 px-3 py-2 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-lg text-sm">
+    <svg class="w-4 h-4 text-teal-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/>
+    </svg>
+    <span class="text-teal-700 dark:text-teal-300">Buscando por <strong>{{ q }}</strong></span>
+  </div>
+  {% endif %}
+</form>
+
+{# ── Abas principais ─────────────────────────────────────────────────────── #}
+<div class="flex gap-1 mb-5 bg-surface-2 p-1 rounded-xl">
+  <a href="{{ url_for('reservas.relatorio_dia', date_str=dia.isoformat(), aba='total', q=q) }}"
+     class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold
+            transition-colors {{ 'bg-surface text-content shadow-sm' if aba == 'total' else 'text-content-muted hover:text-content' }}">
+    <svg class="r-icon r-icon-info w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75a2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/>
+    </svg>
+    Relatório Total
+  </a>
+  <a href="{{ url_for('reservas.relatorio_dia', date_str=dia.isoformat(), aba='pendentes', q=q) }}"
+     class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold
+            transition-colors {{ 'bg-surface text-content shadow-sm' if aba == 'pendentes' else 'text-content-muted hover:text-content' }}">
+    <svg class="r-icon r-icon-warning w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    Pendentes
+    {% if resumo_pendentes %}
+    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold
+                 {{ 'bg-amber-500 text-white' if aba != 'pendentes' else 'bg-amber-100 text-amber-700 dark:text-amber-300' }}">
+      {{ resumo_pendentes | length }}
+    </span>
+    {% endif %}
+  </a>
+</div>
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+   ABA: RELATÓRIO TOTAL
+   ════════════════════════════════════════════════════════════════════════════ #}
+{% if aba == 'total' %}
+
+  {% if not reservas_total %}
+  <div class="bg-surface border border-line rounded-xl flex flex-col items-center
+              justify-center py-16 text-center">
+    <svg class="w-12 h-12 text-line mb-3" fill="none" stroke="currentColor"
+         stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5A2.25 2.25 0 015.25 5.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5"/>
+    </svg>
+    <p class="text-content-muted font-medium text-sm">Nenhuma reserva com check-in neste dia.</p>
+  </div>
+
+  {% else %}
+
+  {# ── Seção 1: Por Reserva ──────────────────────────────────────────────── #}
+  <div class="mb-2">
+    <p class="text-[11px] font-bold text-content-muted uppercase tracking-widest mb-3">
+      Por Reserva
+    </p>
+    <div class="space-y-3">
+      {% for r in reservas_total %}
+        {% set sv = r.status.value %}
+        {% set scfg = status_config_map.get(sv) %}
+        {% set cor = scfg.color_hex if scfg else '#94a3b8' %}
+        {% set links_ativos = r.items | selectattr('deleted_at', 'none') | list
+                              if false else r.items | list %}
+        {# Filtra links ativos #}
+        {% set ns = namespace(ativos=[]) %}
+        {% for lk in r.items %}{% if not lk.deleted_at %}{% set ns.ativos = ns.ativos + [lk] %}{% endif %}{% endfor %}
+
+      <div class="bg-surface border rounded-xl overflow-hidden"
+           style="border-color: {{ cor }}44;">
+
+        {# Header do card #}
+        <div class="flex items-center gap-3 px-4 py-3 border-b"
+             style="background-color: {{ cor }}0d; border-color: {{ cor }}22;">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-bold text-content text-sm truncate">{{ r.customer_name }}</span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                    style="background-color: {{ cor }}22; color: {{ cor }};">
+                {{ scfg.label if scfg else sv }}
+              </span>
+            </div>
+            <div class="flex items-center gap-3 mt-0.5 flex-wrap">
+              {% if r.check_in_date %}
+              <span class="text-xs text-content-muted">
+                Check-in: {{ r.check_in_date.strftime('%H:%M') if r.check_in_date.hour or r.check_in_date.minute else r.check_in_date.strftime('%d/%m/%Y') }}
+              </span>
+              {% endif %}
+              {% if r.check_out_date %}
+              <span class="text-xs text-content-muted">
+                Check-out: {{ r.check_out_date.strftime('%d/%m') }}
+              </span>
+              {% endif %}
+            </div>
+          </div>
+          <a href="{{ url_for('reservas.detalhe', reserva_id=r.id) }}"
+             class="shrink-0 text-xs font-semibold text-teal-600 dark:text-teal-300 hover:underline">
+            #{{ r.id }}
+          </a>
+        </div>
+
+        {# Nota de relatório #}
+        {% if r.nota_relatorio %}
+        <div class="px-4 py-2.5 border-b border-line flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30/60">
+          <span class="text-base leading-none shrink-0 mt-0.5" aria-hidden="true"><svg class="r-icon r-icon-note" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M5 17h14"/><path d="M7 9V5a5 5 0 0 1 10 0v4"/><path d="M5 9h14l-2 8H7Z"/></svg></span>
+          <p class="text-xs text-amber-800 leading-relaxed">{{ r.nota_relatorio }}</p>
+        </div>
+        {% endif %}
+
+        {# Lista de itens #}
+        {% if ns.ativos %}
+        <ul class="divide-y divide-line">
+          {% for lk in ns.ativos %}
+          {% if lk.item %}
+          <li class="flex items-center gap-3 px-4 py-2.5">
+            <span class="text-xl leading-none w-7 text-center shrink-0">
+              {{ lk.item.emoji_label or '▫️' }}
+            </span>
+            <span class="flex-1 text-sm text-content font-medium">{{ lk.item.name }}</span>
+            <span class="text-lg font-extrabold text-content leading-none tabular-nums shrink-0">
+              ×{{ lk.quantity }}
+            </span>
+            {% if lk.entregue_em %}
+            <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200
+                         rounded px-1.5 py-0.5 shrink-0"><svg class="r-icon r-icon-success" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> entregue</span>
+            {% endif %}
+          </li>
+          {% endif %}
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="px-4 py-3 text-xs text-content-muted">Nenhum item nesta reserva.</p>
+        {% endif %}
+
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Seção 2: Resumo do Dia ───────────────────────────────────────────── #}
+  {% if resumo_total %}
+  <div class="mt-6">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-[11px] font-bold text-content-muted uppercase tracking-widest">
+        Resumo do Dia
+      </p>
+      <button type="button" id="btn-copiar-wa"
+              onclick="copiarWhatsApp()"
+              class="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700
+                     text-white text-xs font-bold rounded-lg transition-colors">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+          <path d="M11.999 2.003A9.994 9.994 0 002 12c0 1.761.46 3.408 1.26 4.845L2 22l5.33-1.238A9.97 9.97 0 0012 22c5.522 0 10-4.478 10-10S17.522 2.003 12 2.003zm0 18.003a7.97 7.97 0 01-4.098-1.13l-.293-.175-3.162.733.758-3.07-.19-.31A7.964 7.964 0 014 12c0-4.418 3.582-8 8-8 4.418 0 8 3.582 8 8s-3.582 8-7.999 8z"/>
+        </svg>
+        Copiar para WhatsApp
+      </button>
+    </div>
+
+    <div class="bg-surface border border-line rounded-xl overflow-hidden">
+      {% for it in resumo_total %}
+      <div class="flex items-center gap-4 px-4 py-3 {{ 'border-t border-line' if not loop.first else '' }}">
+        <span class="text-2xl leading-none w-9 text-center shrink-0">
+          {{ it.emoji_label or '▫️' }}
+        </span>
+        <span class="flex-1 text-sm font-semibold text-content">{{ it.item_name }}</span>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-2xl font-extrabold text-content tabular-nums leading-none">
+            {{ it.total_qty }}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# Textarea escondida para cópia #}
+    <textarea id="wa-text" class="sr-only" readonly>{{ whatsapp_text }}</textarea>
+  </div>
+  {% endif %}
+
+  {% endif %}{# fim reservas_total #}
+
+
+{# ════════════════════════════════════════════════════════════════════════════
+   ABA: PENDENTES
+   ════════════════════════════════════════════════════════════════════════════ #}
+{% elif aba == 'pendentes' %}
+
+  {# Sub-abas: Por Reserva / Por Dia #}
+  {% set sub_aba = request.args.get('sub', 'por_reserva') %}
+
+  <div class="flex gap-1 mb-5 bg-surface-2 p-1 rounded-lg">
+    <a href="{{ url_for('reservas.relatorio_dia', date_str=dia.isoformat(), aba='pendentes', sub='por_reserva', q=q) }}"
+       class="flex-1 text-center py-2 rounded-md text-xs font-bold transition-colors
+              {{ 'bg-surface text-content shadow-sm' if sub_aba == 'por_reserva' else 'text-content-muted hover:text-content' }}">
+      Por Reserva
+    </a>
+    <a href="{{ url_for('reservas.relatorio_dia', date_str=dia.isoformat(), aba='pendentes', sub='por_dia', q=q) }}"
+       class="flex-1 text-center py-2 rounded-md text-xs font-bold transition-colors
+              {{ 'bg-surface text-content shadow-sm' if sub_aba == 'por_dia' else 'text-content-muted hover:text-content' }}">
+      Por Item
+    </a>
+  </div>
+
+  {% if not reservas_pendentes %}
+  <div class="bg-surface border border-emerald-200 rounded-xl flex flex-col items-center
+              justify-center py-16 text-center">
+    <div class="text-5xl mb-3"><svg class="r-icon r-icon-success" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+    <p class="text-emerald-700 dark:text-emerald-300 font-bold text-sm">Todos os itens foram entregues!</p>
+    <p class="text-xs text-content-muted mt-1">Nenhum item pendente para este dia.</p>
+  </div>
+
+  {% elif sub_aba == 'por_reserva' %}
+  {# Botão WhatsApp pendentes #}
+  {% if whatsapp_pendentes_text %}
+  <div class="flex justify-end mb-3">
+    <button type="button" id="btn-copiar-wa-pend"
+            onclick="copiarWhatsAppPendentes()"
+            class="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700
+                   text-white text-xs font-bold rounded-lg transition-colors">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+        <path d="M11.999 2.003A9.994 9.994 0 002 12c0 1.761.46 3.408 1.26 4.845L2 22l5.33-1.238A9.97 9.97 0 0012 22c5.522 0 10-4.478 10-10S17.522 2.003 12 2.003zm0 18.003a7.97 7.97 0 01-4.098-1.13l-.293-.175-3.162.733.758-3.07-.19-.31A7.964 7.964 0 014 12c0-4.418 3.582-8 8-8 4.418 0 8 3.582 8 8s-3.582 8-7.999 8z"/>
+      </svg>
+      Copiar Pendentes para WhatsApp
+    </button>
+    <textarea id="wa-pend-text" class="sr-only" readonly>{{ whatsapp_pendentes_text }}</textarea>
+  </div>
+  {% endif %}
+  {# ── Por Reserva ──────────────────────────────────────────────────────── #}
+  <div class="space-y-3" id="reservas-pendentes-list">
+    {% for entry in reservas_pendentes %}
+    {% set r = entry.reserva %}
+    {% set sv = r.status.value %}
+    {% set scfg = status_config_map.get(sv) %}
+    {% set cor = scfg.color_hex if scfg else '#94a3b8' %}
+    {% set pct = entry.pct_entregue %}
+
+    <div class="bg-surface border rounded-xl overflow-hidden transition-all"
+         style="border-color: {{ cor }}44;"
+         data-reserva="{{ r.id }}">
+
+      {# Header #}
+      <div class="flex items-center gap-3 px-4 py-3"
+           style="background-color: {{ cor }}0d;">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-bold text-content text-sm">{{ r.customer_name }}</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                  style="background-color: {{ cor }}22; color: {{ cor }};">
+              {{ scfg.label if scfg else sv }}
+            </span>
+            {% if r.check_out_date and r.check_in_date %}
+              {% set checkin_d = r.check_in_date.date() %}
+              {% if checkin_d < dia %}
+              <span class="text-[10px] font-semibold text-violet-600 bg-violet-50 dark:bg-violet-900/30 border border-violet-200 rounded px-1.5 py-0.5">
+                em estadia
+              </span>
+              {% endif %}
+            {% endif %}
+          </div>
+          {# Barra de progresso de entrega #}
+          <div class="mt-2 flex items-center gap-2">
+            <div class="flex-1 bg-surface-2 rounded-full h-1.5">
+              <div class="h-1.5 rounded-full transition-all duration-500
+                          {{ 'bg-emerald-500' if pct == 100 else 'bg-amber-400' }}"
+                   style="width: {{ pct }}%;"
+                   id="prog-bar-{{ r.id }}"></div>
+            </div>
+            <span class="text-[10px] font-bold text-content-muted tabular-nums shrink-0"
+                  id="prog-label-{{ r.id }}">
+              {{ entry.links_entregues | length }}/{{ entry.total_links }}
+            </span>
+          </div>
+        </div>
+        <a href="{{ url_for('reservas.detalhe', reserva_id=r.id) }}"
+           class="text-xs font-semibold text-teal-600 dark:text-teal-300 hover:underline shrink-0">#{{ r.id }}</a>
+      </div>
+
+      {# Nota de relatório #}
+      {% if r.nota_relatorio %}
+      <div class="px-4 py-2 border-t border-line flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30/60">
+        <span class="text-sm leading-none shrink-0 mt-0.5" aria-hidden="true"><svg class="r-icon r-icon-note" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M5 17h14"/><path d="M7 9V5a5 5 0 0 1 10 0v4"/><path d="M5 9h14l-2 8H7Z"/></svg></span>
+        <p class="text-xs text-amber-800 leading-relaxed">{{ r.nota_relatorio }}</p>
+      </div>
+      {% endif %}
+
+      {# Itens entregues (dobráveis) #}
+      {% if entry.links_entregues %}
+      <details class="border-t border-line">
+        <summary class="px-4 py-2 text-[11px] font-bold text-emerald-600 cursor-pointer
+                        bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 select-none list-none flex items-center gap-1.5">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+          </svg>
+          {{ entry.links_entregues | length }} entregue{{ 's' if entry.links_entregues | length != 1 else '' }}
+        </summary>
+        {% for lk in entry.links_entregues %}
+        {% if lk.item %}
+        <div class="flex items-center gap-3 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30/40 border-t border-line
+                    opacity-60" id="link-row-{{ lk.id }}">
+          <span class="text-lg w-7 text-center shrink-0">{{ lk.item.emoji_label or '▫️' }}</span>
+          <span class="flex-1 text-sm text-content-muted line-through">{{ lk.item.name }}</span>
+          <span class="text-sm font-bold text-content-muted tabular-nums">×{{ lk.quantity }}</span>
+          <button type="button"
+                  onclick="toggleEntrega({{ lk.id }}, this)"
+                  class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px]
+                         font-bold border transition-colors
+                         bg-emerald-100 text-emerald-700 dark:text-emerald-300 border-emerald-300 hover:bg-surface-2 hover:text-content-muted hover:border-line"
+                  data-link="{{ lk.id }}" data-reserva="{{ r.id }}">
+            <svg class="r-icon r-icon-success" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Desfazer
+          </button>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </details>
+      {% endif %}
+
+      {# Itens pendentes #}
+      {% for lk in entry.links_pendentes %}
+      {% if lk.item %}
+      <div class="flex items-center gap-3 px-4 py-3 border-t border-line" id="link-row-{{ lk.id }}">
+        <span class="text-xl w-7 text-center shrink-0">{{ lk.item.emoji_label or '▫️' }}</span>
+        <span class="flex-1 text-sm font-semibold text-content">{{ lk.item.name }}</span>
+        <span class="text-lg font-extrabold text-content tabular-nums shrink-0">×{{ lk.quantity }}</span>
+        <button type="button"
+                onclick="toggleEntrega({{ lk.id }}, this)"
+                class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs
+                       font-bold border transition-colors min-h-[36px]
+                       bg-surface text-content-muted border-line hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-700 dark:hover:text-emerald-300 hover:border-emerald-300"
+                data-link="{{ lk.id }}" data-reserva="{{ r.id }}">
+          Entregar
+        </button>
+      </div>
+      {% endif %}
+      {% endfor %}
+
+    </div>
+    {% endfor %}
+  </div>
+
+  {% elif sub_aba == 'por_dia' %}
+  {# ── Por Item (resumo do dia com totais pendentes) ─────────────────────── #}
+  {% if not resumo_pendentes %}
+  <div class="bg-surface border border-emerald-200 rounded-xl flex flex-col items-center
+              justify-center py-16 text-center">
+    <div class="text-5xl mb-3"><svg class="r-icon r-icon-success" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+    <p class="text-emerald-700 dark:text-emerald-300 font-bold text-sm">Tudo entregue!</p>
+  </div>
+  {% else %}
+  <div class="bg-surface border border-line rounded-xl overflow-hidden">
+    {% for it in resumo_pendentes %}
+    <div class="flex items-center gap-4 px-5 py-4 {{ 'border-t border-line' if not loop.first else '' }}">
+      <span class="text-2xl leading-none w-9 text-center shrink-0">
+        {{ it.emoji_label or '▫️' }}
+      </span>
+      <span class="flex-1 text-sm font-bold text-content">{{ it.item_name }}</span>
+      <div class="flex flex-col items-end shrink-0">
+        <span class="text-2xl font-extrabold text-amber-600 dark:text-amber-300 tabular-nums leading-none">
+          {{ it.total_pendente }}
+        </span>
+        <span class="text-[10px] font-semibold text-content-muted uppercase tracking-wide mt-0.5">
+          pendente{{ 's' if it.total_pendente != 1 else '' }}
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="text-center text-xs text-content-muted mt-3">
+    Para marcar como entregue, use a visão <strong>Por Reserva</strong>.
+  </p>
+  {% endif %}
+
+  {% endif %}{# fim sub_aba #}
+
+{% endif %}{# fim aba #}
+
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+(function () {
+
+  // ── Copiar texto WhatsApp ────────────────────────────────────────────────
+  window.copiarWhatsApp = function () {
+    const txt = document.getElementById('wa-text');
+    if (!txt) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt.value).then(function () {
+        _flashCopy();
+      }).catch(function () {
+        _fallbackCopy(txt);
+      });
+    } else {
+      _fallbackCopy(txt);
+    }
+  };
+
+  function _fallbackCopy(el) {
+    el.removeAttribute('class');
+    el.select();
+    document.execCommand('copy');
+    el.classList.add('sr-only');
+    _flashCopy();
+  }
+
+  function _flashCopy() {
+    const btn = document.getElementById('btn-copiar-wa');
+    if (!btn) return;
+    const original = btn.innerHTML;
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Copiado!';
+    btn.classList.replace('bg-emerald-600', 'bg-emerald-700');
+    setTimeout(function () {
+      btn.innerHTML = original;
+      btn.classList.replace('bg-emerald-700', 'bg-emerald-600');
+    }, 2000);
+  }
+
+  // ── Copiar pendentes para WhatsApp ──────────────────────────────────────
+  window.copiarWhatsAppPendentes = function () {
+    const txt = document.getElementById('wa-pend-text');
+    if (!txt) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt.value).then(_flashCopyPend).catch(function () {
+        _fallbackCopyPend(txt);
+      });
+    } else {
+      _fallbackCopyPend(txt);
+    }
+  };
+
+  function _fallbackCopyPend(el) {
+    el.removeAttribute('class');
+    el.select();
+    document.execCommand('copy');
+    el.classList.add('sr-only');
+    _flashCopyPend();
+  }
+
+  function _flashCopyPend() {
+    const btn = document.getElementById('btn-copiar-wa-pend');
+    if (!btn) return;
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Copiado!';
+    btn.classList.replace('bg-emerald-600', 'bg-emerald-700');
+    setTimeout(function () {
+      btn.innerHTML = orig;
+      btn.classList.replace('bg-emerald-700', 'bg-emerald-600');
+    }, 2000);
+  }
+
+  // ── Toggle entrega (pendentes) ───────────────────────────────────────────
+  window.toggleEntrega = function (linkId, btn) {
+    btn.disabled = true;
+    btn.textContent = '…';
+
+    fetch('/reservas/controle-itens/link/' + linkId + '/entregar', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { btn.disabled = false; btn.textContent = 'Erro'; return; }
+        // Recarrega a página para refletir o novo estado de forma consistente
+        window.location.reload();
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = 'Erro';
+      });
+  };
+
+})();
+</script>
+{% endblock %}

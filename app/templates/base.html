@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  base.html — Template base compartilhado por escala, organizacao e outros módulos
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | {% block title %}SISTUR{% endblock %}</title>
+
+  {% include '_design_system.html' %}
+
+  <style>
+    /* ── RESET ── */
+    *, *::before, *::after { margin: 0; padding: 0; }
+
+    body { min-height: 100vh; }
+
+    /* ── LAYOUT ── */
+    .page-shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+    .content-wrap { max-width: 1100px; margin: 0 auto; padding: 0 1.25rem 3rem; width: 100%; }
+
+    /* ── TOPBAR ── */
+    .top-bar {
+      background: color-mix(in srgb, var(--c-surface) 88%, transparent);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--c-border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .top-bar__inner {
+      max-width: 1100px; margin: 0 auto; padding: 0 1.25rem;
+      height: 3.75rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    }
+    .top-bar__left { display: flex; align-items: center; gap: .75rem; }
+    .back-link {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .8rem; font-weight: 600; color: var(--c-text-muted);
+      text-decoration: none; padding: .35rem .65rem;
+      border-radius: var(--radius-sm); transition: all .15s; min-height: 44px;
+    }
+    .back-link:hover { background: var(--c-primary-light); color: var(--c-primary-dark); }
+    .top-bar__sep { color: var(--c-border); font-size: .75rem; }
+    .top-bar__title { font-size: .9rem; font-weight: 700; color: var(--c-text); }
+
+    /* ── FLASH ── */
+    .flash-area { max-width: 1100px; margin: 0 auto; padding: .75rem 1.25rem 0; }
+    .flash {
+      display: flex; align-items: flex-start; gap: .6rem;
+      padding: .8rem 1rem; border-radius: var(--radius-md);
+      font-size: .85rem; font-weight: 500; border: 1px solid transparent;
+      margin-bottom: .5rem;
+    }
+    .flash--sucesso { background: var(--c-success-bg); border-color: var(--c-success-bd); color: var(--c-success-fg); }
+    .flash--erro    { background: var(--c-danger-bg);  border-color: var(--c-danger-bd);  color: var(--c-danger-fg); }
+    .flash--aviso   { background: var(--c-warning-bg); border-color: var(--c-warning-bd); color: var(--c-warning-fg); }
+
+    /* ── per-page CSS ── */
+    {% block styles %}{% endblock %}
+  </style>
+</head>
+<body>
+<div class="page-shell">
+
+  <header class="top-bar">
+    <div class="top-bar__inner">
+      <div class="top-bar__left">
+        {% block topbar_left %}
+        <a href="{{ url_for('rh.dashboard') }}" class="back-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          RH
+        </a>
+        <span class="top-bar__sep">·</span>
+        <span class="top-bar__title">{% block topbar_title %}{% endblock %}</span>
+        {% endblock %}
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        {% block topbar_right %}{% endblock %}
+        {% include '_avisos_bell.html' %}
+      </div>
+    </div>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-area">
+    {% for category, message in messages %}
+    <div class="flash flash--{{ category }}">{{ message | e }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <main>
+    <div class="content-wrap">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

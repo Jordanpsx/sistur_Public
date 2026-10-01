@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if area else 'Nova' }} Área{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6">
+
+  <a href="{{ url_for('organizacao.listar_areas') }}" class="text-sm text-content-muted hover:text-primary">&larr; Áreas</a>
+  <h1 class="text-xl font-bold text-content mt-1 mb-6">
+    {{ 'Editar Área' if area else 'Nova Área' }}
+  </h1>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div class="mb-4 px-4 py-3 rounded-xl text-sm font-medium
+    {% if cat == 'erro' %}bg-red-50 dark:bg-red-900/30 text-red-800 border border-red-200 dark:border-red-800
+    {% else %}bg-blue-50 dark:bg-blue-900/30 text-blue-800 border border-blue-200{% endif %}">{{ msg }}</div>
+  {% endfor %}
+  {% endwith %}
+
+  <form method="post" class="space-y-4 bg-surface p-6 rounded-2xl border border-line shadow-sm">
+
+    <div>
+      <label for="nome" class="block text-sm font-medium text-content mb-1">
+        Nome <span class="text-red-500">*</span>
+      </label>
+      <input type="text" id="nome" name="nome" required autofocus
+             value="{{ area.name if area else '' }}"
+             placeholder="Ex.: Recepção, Bar, Limpeza, Salva-vidas"
+             class="w-full px-4 py-2.5 rounded-xl border border-line text-sm text-content
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+      {% if not area %}
+      <p class="mt-1 text-xs text-content-muted">O slug é gerado automaticamente ao salvar e não muda após a criação.</p>
+      {% endif %}
+    </div>
+
+    <div>
+      <label for="descricao" class="block text-sm font-medium text-content mb-1">Descrição (opcional)</label>
+      <input type="text" id="descricao" name="descricao"
+             value="{{ area.description if area and area.description else '' }}"
+             placeholder="Ex.: Atendimento ao público na entrada"
+             class="w-full px-4 py-2.5 rounded-xl border border-line text-sm text-content
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-content mb-1">Cor da área</label>
+      <p class="text-xs text-content-muted mb-2">
+        Identifica a área em funções, equipes e escalas. "Auto" usa uma cor fixa derivada do cadastro.
+      </p>
+      <style>
+        .cor-opcao { display:inline-flex; align-items:center; justify-content:center;
+                     min-width:44px; min-height:44px; cursor:pointer; }
+        .cor-opcao input { position:absolute; opacity:0; pointer-events:none; }
+        .cor-swatch { width:32px; height:32px; border-radius:999px; border:1px solid;
+                      transition: transform .15s, box-shadow .15s; }
+        .cor-opcao input:checked + .cor-swatch {
+          transform: scale(1.15);
+          box-shadow: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--primary);
+        }
+        .cor-auto { display:inline-flex; align-items:center; justify-content:center;
+                    width:auto; padding:0 .8rem; height:32px; border-radius:999px;
+                    font-size:.72rem; font-weight:600; }
+      </style>
+      <div style="display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;">
+        <label class="cor-opcao" title="Cor automática">
+          <input type="radio" name="cor" value=""
+                 {% if not area or area.color_index is none %}checked{% endif %} />
+          <span class="cor-swatch cor-auto {{ 'area-c' ~ (area.id % 8) if area else 'bg-surface-2 border-line text-content-muted' }}">Auto</span>
+        </label>
+        {% for i in range(8) %}
+        <label class="cor-opcao" title="Cor {{ i + 1 }}">
+          <input type="radio" name="cor" value="{{ i }}"
+                 {% if area and area.color_index == i %}checked{% endif %} />
+          <span class="cor-swatch area-c{{ i }}"></span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if area %}
+    <p class="text-xs text-content-muted">
+      slug atual: <span class="font-mono">{{ area.slug }}</span>
+    </p>
+    {% endif %}
+
+    <div class="flex items-center gap-3 pt-2">
+      <button type="submit" class="ds-btn ds-btn-primary flex-1">
+        {{ 'Salvar alterações' if area else 'Criar área' }}
+      </button>
+      <a href="{{ url_for('organizacao.listar_areas') }}" class="ds-btn ds-btn-quiet">
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

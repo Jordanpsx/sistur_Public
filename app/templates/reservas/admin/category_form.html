@@ -1,0 +1,183 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}{% if category %}Editar Categoria{% else %}Nova Categoria{% endif %}{% endblock %}
+
+{% block page_title %}
+  {% if category %}Editar Categoria{% else %}Nova Categoria{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_listar_sources') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Voltar
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+<div class="max-w-lg">
+
+  {% if error %}
+  <div class="flex items-start gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-red-500 text-base shrink-0 mt-0.5"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+    <span class="text-red-800 font-medium">{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <div class="bg-surface rounded-xl border border-line shadow-sm p-6">
+    <form method="POST"
+          action="{% if category %}{{ url_for('reservas.admin_editar_categoria', category_id=category.id) }}{% else %}{{ url_for('reservas.admin_criar_categoria') }}{% endif %}">
+
+      <!-- Source dropdown -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="source_id">Local / Venue</label>
+        <select id="source_id" name="source_id" class="r-select" required>
+          <option value="">Selecione um local...</option>
+          {% for source in sources %}
+          <option value="{{ source.id }}"
+                  {% if category and category.source_id == source.id %}selected
+                  {% elif not category and loop.first %}selected{% endif %}>
+            {{ source.name }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">Local ao qual esta categoria pertence.</p>
+      </div>
+
+      <!-- Name -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="name">Nome da Categoria</label>
+        <input type="text"
+               id="name"
+               name="name"
+               class="r-input"
+               value="{{ category.name if category else '' }}"
+               placeholder="Ex: Day Use, Camping, Passeios, Refeições..."
+               required />
+        <p class="r-hint">Nome que agrupa itens similares neste local.</p>
+      </div>
+
+      <div class="mb-5">
+        <label class="flex items-start gap-3 rounded-lg border border-line bg-surface-2 px-3 py-3">
+          <input type="checkbox"
+                 name="single_day_only"
+                 class="mt-1 h-4 w-4 rounded border-line text-teal-600 dark:text-teal-300 focus:ring-teal-500"
+                 {% if category and category.single_day_only %}checked{% endif %} />
+          <span>
+            <span class="block text-sm font-semibold text-content">Categoria de dia único</span>
+            <span class="block text-xs text-content-muted mt-0.5">
+              Use para Day Use e modalidades que não possuem check-out. Reservas desta categoria ignoram data de saída.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <!-- Same-day booking cutoff -->
+      <div class="mb-5">
+        <label class="r-label" for="same_day_cutoff_time">Horário limite para reserva no mesmo dia</label>
+        <input type="time"
+               id="same_day_cutoff_time"
+               name="same_day_cutoff_time"
+               class="r-input"
+               value="{{ category.same_day_cutoff_time.strftime('%H:%M') if category and category.same_day_cutoff_time else '' }}" />
+        <p class="r-hint">
+          Opcional. Depois deste horário, reservas via site ou bot com check-in para HOJE são
+          recusadas automaticamente. Deixe em branco para não aplicar limite. Não afeta vendas
+          feitas pelo balcão (o operador avalia a disponibilidade real no local).
+        </p>
+      </div>
+
+      <!-- Foto da experiência -->
+      <div class="mb-5">
+        <label class="r-label" for="imagem_url">Foto da experiência</label>
+        <input type="text"
+               id="imagem_url"
+               name="imagem_url"
+               class="r-input"
+               maxlength="500"
+               placeholder="https://cachoeiradogirassol.com.br/wp-content/uploads/..."
+               value="{{ category.imagem_url or '' if category else '' }}" />
+        <p class="r-hint">
+          Endereço (URL) de uma foto da experiência em si — o que a pessoa vai fazer —,
+          não a logomarca.
+        </p>
+      </div>
+
+      <!-- Tema do formulário -->
+      <div class="mb-5">
+        <label class="r-label" for="tema">Tema do formulário no site</label>
+        <select id="tema" name="tema" class="r-input">
+          <option value="" {{ 'selected' if not (category and category.tema) }}>
+            Claro (padrão)
+          </option>
+          <option value="noturno" {{ 'selected' if category and category.tema == 'noturno' }}>
+            Noturno — céu estrelado
+          </option>
+          <option value="diurno" {{ 'selected' if category and category.tema == 'diurno' }}>
+            Diurno — paisagem da cachoeira
+          </option>
+        </select>
+        <p class="r-hint">
+          Veste o formulário desta experiência. O noturno combina com o camping,
+          onde a pessoa está reservando uma noite; o diurno combina com o day use.
+          Numa visita à vinícola nenhum dos dois faz sentido. Não muda nada do
+          preço nem das regras.
+        </p>
+      </div>
+
+      <!-- Stay time window — só para modalidades onde a hora entra no preço -->
+      <fieldset class="mb-5 border border-line rounded-lg p-4">
+        <legend class="px-1 text-sm font-semibold text-content">Janela de horário da estadia</legend>
+        <p class="r-hint mb-3">
+          Preencha apenas quando a hora fizer parte do preço — é o caso do Camping, cuja diária
+          é pró-rata por hora: das 08:00 às 17:00 do dia seguinte são 33 horas, não 24. Preenchido,
+          o formulário do site passa a pedir hora de entrada e de saída. Deixe tudo em branco
+          (Day Use) para o site pedir só a data.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="r-label" for="check_in_from">Entrada a partir de</label>
+            <input type="time" id="check_in_from" name="check_in_from" class="r-input"
+                   value="{{ category.check_in_from.strftime('%H:%M') if category and category.check_in_from else '' }}" />
+          </div>
+          <div>
+            <label class="r-label" for="check_in_until">Entrada até</label>
+            <input type="time" id="check_in_until" name="check_in_until" class="r-input"
+                   value="{{ category.check_in_until.strftime('%H:%M') if category and category.check_in_until else '' }}" />
+          </div>
+          <div>
+            <label class="r-label" for="check_out_until">Saída até</label>
+            <input type="time" id="check_out_until" name="check_out_until" class="r-input"
+                   value="{{ category.check_out_until.strftime('%H:%M') if category and category.check_out_until else '' }}" />
+          </div>
+          <div>
+            <label class="r-label" for="min_stay_hours">Permanência mínima (horas)</label>
+            <input type="number" id="min_stay_hours" name="min_stay_hours" class="r-input"
+                   min="1" max="720" inputmode="numeric"
+                   value="{{ category.min_stay_hours if category and category.min_stay_hours else '' }}" />
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700
+                       text-white text-sm font-semibold rounded-lg transition-colors">
+          {% if category %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Alterações{% else %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Criar Categoria{% endif %}
+        </button>
+        <a href="{{ url_for('reservas.admin_listar_sources') }}"
+           class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-content-muted
+                  bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+          Cancelar
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,903 @@
+{% extends 'reservas/reservas_base.html' %}
+{# Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved #}
+
+{% block html_title %}Editar Reserva #{{ reserva.id }}{% endblock %}
+
+{% block page_title %}Editar Reserva{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">
+  #{{ reserva.id }} · v{{ reserva.version }} · {{ reserva.group_id[:8] }}…
+</p>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_historico_reserva', reserva_id=reserva.id) }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface border border-line hover:bg-surface-2 rounded-lg transition-colors">
+  <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Histórico
+</a>
+<a href="{{ url_for('reservas.detalhe', reserva_id=reserva.id) }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Voltar ao Detalhe
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+<div class="max-w-2xl">
+
+  {# ── Aviso de versionamento ── #}
+  <div class="flex items-start gap-3 px-4 py-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-amber-500 shrink-0 mt-0.5 text-base" aria-hidden="true"><svg class="r-icon r-icon-warning" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+    <span class="text-amber-800">
+      Salvar criará uma <strong>nova versão imutável</strong> (v{{ reserva.version + 1 }}).
+      A versão atual (#{{ reserva.id }}) será arquivada e o histórico completo fica preservado.
+    </span>
+  </div>
+
+  {# ── Erro ── #}
+  {% if error %}
+  <div class="flex items-start gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-red-500 text-base shrink-0 mt-0.5"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+    <span class="text-red-800 font-medium">{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <form method="POST"
+        action="{{ url_for('reservas.admin_editar_reserva_submit', reserva_id=reserva.id) }}"
+        id="edit-form">
+
+    {# ── Status Editável ── #}
+    <div class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4"><svg class="r-icon r-icon-info" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Status da Reserva</h2>
+
+      <label class="r-label" for="status">Status</label>
+      <select id="status" name="status" class="r-input mb-3">
+        {% for cfg in status_configs %}
+        <option value="{{ cfg.internal_name }}"
+          {% if reserva.status.value == cfg.internal_name %}selected{% endif %}>
+          {{ cfg.label }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <p class="r-hint">
+        {% if reserva.status.value == 'PAID' %}
+        <svg class="r-icon r-icon-warning" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Se o total aumentar, o status mudará automaticamente para PENDING ao salvar.
+        {% endif %}
+      </p>
+
+      <label class="r-label mt-4" for="manual_discount_percent">Desconto manual (%)</label>
+      <input type="text"
+             inputmode="decimal"
+             id="manual_discount_percent"
+             name="manual_discount_percent"
+             class="r-input"
+             value="{{ desconto_efetivo_pct if desconto_efetivo_pct else '' }}"
+             placeholder="0" />
+      <p class="r-hint">
+        Aplicado sobre o subtotal ao salvar. Deixe em branco para manter o desconto
+        atual da reserva; use 0 para removê-lo.
+      </p>
+    </div>
+
+    {# ── Dados do Cliente ── #}
+    <div class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4"><svg class="r-icon r-icon-primary" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Dados do Cliente</h2>
+
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="customer_name">Nome Completo</label>
+        <input type="text"
+               id="customer_name"
+               name="customer_name"
+               class="r-input"
+               value="{{ reserva.customer_name }}"
+               required />
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+        <div>
+          <label class="r-label" for="customer_document">
+            CPF / CNPJ <span class="text-content-muted font-normal">(opcional)</span>
+          </label>
+          <input type="text"
+                 id="customer_document"
+                 name="customer_document"
+                 class="r-input font-mono"
+                 value="{{ reserva.customer_document or '' }}"
+                 placeholder="000.000.000-00" />
+        </div>
+        <div>
+          <label class="r-label" for="telefone">
+            Telefone <span class="text-content-muted font-normal">(metadata)</span>
+          </label>
+          <input type="tel"
+                 id="telefone"
+                 name="telefone"
+                 class="r-input"
+                 value="{{ telefone_atual }}"
+                 placeholder="(00) 00000-0000" />
+          <p class="r-hint">Salvo em metadata_info.telefone.</p>
+        </div>
+      </div>
+    </div>
+
+    {# ── Datas ── #}
+    <div class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-4"><svg class="r-icon r-icon-info" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Datas</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="r-label r-label-req" for="check_in_date">Check-in</label>
+          <input type="datetime-local"
+                 id="check_in_date"
+                 name="check_in_date"
+                 class="r-input"
+                 step="60"
+                 value="{{ reserva.check_in_date.strftime('%Y-%m-%dT%H:%M') if reserva.check_in_date else '' }}"
+                 required />
+        </div>
+        <div>
+          <label class="r-label" for="check_out_date">
+            Check-out <span class="text-content-muted font-normal">(opcional)</span>
+          </label>
+          <input type="datetime-local"
+                 id="check_out_date"
+                 name="check_out_date"
+                 class="r-input"
+                 step="60"
+                 value="{{ reserva.check_out_date.strftime('%Y-%m-%dT%H:%M') if reserva.check_out_date else '' }}" />
+          <p class="r-hint">Para Day Use, pode ser igual ao check-in.</p>
+        </div>
+      </div>
+    </div>
+
+    {# ── Itens / Tarifas ── #}
+    <div class="bg-surface rounded-xl border border-line shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-1 inline-flex items-center gap-2"><svg class="r-icon r-icon-payment" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h7.72a2 2 0 0 0 2-1.61L20 7H5.12"/></svg> Itens da Reserva</h2>
+      <p class="text-xs text-content-muted mb-4">
+        Defina a quantidade de cada item. Itens com quantidade 0 serão removidos.
+        Para itens com recurso físico, selecione o ativo abaixo — apenas os recursos
+        da mesma categoria do item são exibidos.
+        O preço será recalculado automaticamente pelo servidor.
+      </p>
+
+      {# ── Macro: uma opção de recurso físico (radio) ─────────────────── #}
+      {% macro render_resource_option(r, item_id) %}
+      {% set is_sel = resource_atual.get(item_id) == r.id %}
+      <label class="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer border
+                    transition-colors resource-option
+                    {{ 'border-teal-300 bg-teal-50 dark:bg-teal-900/30' if is_sel else 'border-transparent hover:border-line hover:bg-surface-2' }}"
+             data-resource-id="{{ r.id }}">
+        <input type="radio"
+               name="resource_{{ item_id }}"
+               value="{{ r.id }}"
+               class="accent-teal-600 mt-0.5 shrink-0"
+               {% if is_sel %}checked{% endif %} />
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-sm font-semibold text-content">{{ r.name }}</span>
+            <span class="availability-badge text-xs font-medium px-1.5 py-0.5 rounded-full
+                         bg-surface-2 text-content-muted"
+                  data-resource-id="{{ r.id }}">...</span>
+          </div>
+          {% if r.stock_quantity is not none %}
+          <p class="text-xs text-content-muted mt-0.5">Capacidade: {{ r.stock_quantity }}</p>
+          {% endif %}
+        </div>
+      </label>
+      {% endmacro %}
+
+      {# ── Macro: linha de item com stepper + seletor de recurso ────────── #}
+      {% macro render_item_row(item, item_resources) %}
+      {% set qty_item = qtd_atual.get(item.id, 0) %}
+      {% set sel_nome = resource_atual_nome.get(item.id) %}
+      <div class="py-3">
+        <div class="flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-content">{{ item.name }}</div>
+            <div class="text-xs text-content-muted mt-0.5">
+              R$ {{ "%.2f"|format(item.price|float) }}
+              {% if item.billing_type.value == 'PER_DAY' %}/ dia
+              {% elif item.billing_type.value == 'PER_HOUR' %}/ hora
+              {% elif item.billing_type.value == 'DAILY_PRORATED_HOURLY' %}/ diária+h
+              {% else %}fixo{% endif %}
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button type="button"
+                    class="qty-btn w-8 h-8 rounded-lg border border-line bg-surface-2
+                           hover:bg-surface-2 text-content-muted font-bold text-lg
+                           flex items-center justify-center transition-colors"
+                    data-action="dec" data-target="qty_{{ item.id }}">−</button>
+            <input type="number"
+                   id="qty_{{ item.id }}"
+                   name="items_{{ item.id }}"
+                   value="{{ qty_item }}"
+                   min="0" max="999"
+                   class="w-16 text-center text-sm font-semibold border border-line
+                          rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2
+                          focus:ring-teal-400 qty-input" />
+            <button type="button"
+                    class="qty-btn w-8 h-8 rounded-lg border border-line bg-surface-2
+                           hover:bg-surface-2 text-content-muted font-bold text-lg
+                           flex items-center justify-center transition-colors"
+                    data-action="inc" data-target="qty_{{ item.id }}">+</button>
+          </div>
+        </div>
+
+        {% if item_resources %}
+        <details class="mt-2 resource-item-details" data-item-id="{{ item.id }}"
+                 {% if resource_atual.get(item.id) is not none %}open{% endif %}>
+          <summary class="flex items-center gap-1.5 text-xs font-semibold text-teal-600 dark:text-teal-300
+                          cursor-pointer list-none hover:text-teal-700 dark:hover:text-teal-300 select-none">
+            <svg class="w-3.5 h-3.5 shrink-0 transition-transform details-chevron"
+                 fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="resource-summary-label">
+              {% if sel_nome %}Recurso selecionado — {{ sel_nome }}
+              {% else %}Selecionar recurso físico (opcional){% endif %}
+            </span>
+          </summary>
+          <div class="mt-2 space-y-0.5 resource-accordion" data-item-id="{{ item.id }}">
+            <label class="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer
+                          border border-transparent hover:border-line hover:bg-surface-2
+                          transition-colors resource-option" data-resource-id="">
+              <input type="radio" name="resource_{{ item.id }}" value=""
+                     class="accent-teal-600"
+                     {% if not resource_atual.get(item.id) %}checked{% endif %} />
+              <span class="text-sm text-content-muted italic">Sem recurso físico</span>
+            </label>
+            {% for r in item_resources %}
+              {{ render_resource_option(r, item.id) }}
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+      </div>
+      {% endmacro %}
+
+      {# ── Macro recursivo: accordion de grupo com seus itens ─────────────── #}
+      {% macro render_group_accordion(node, depth=0) %}
+      <details class="rounded-lg border border-line overflow-hidden"
+               {% if node.group.id in open_group_ids %}open{% endif %}>
+        <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer select-none
+                        bg-surface-2 hover:bg-surface-2 transition-colors list-none"
+                 {% if depth > 0 %}style="padding-left: {{ 16 + depth * 16 }}px;"{% endif %}>
+          <svg class="w-4 h-4 shrink-0 transition-transform details-chevron text-content-muted"
+               fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <span class="text-sm font-semibold text-content">{{ node.group.name }}</span>
+          {% set cnt = node.itens | length %}
+          <span class="ml-auto text-xs text-content-muted font-normal">
+            {{ cnt }} item{% if cnt != 1 %}s{% endif %}
+          </span>
+        </summary>
+        <div class="px-2 divide-y divide-line">
+          {% for child in node.children %}
+            <div class="py-2">{{ render_group_accordion(child, depth + 1) }}</div>
+          {% endfor %}
+          {% for item in node.itens %}
+            {{ render_item_row(item, node.resources_list) }}
+          {% endfor %}
+        </div>
+      </details>
+      {% endmacro %}
+
+      {# ── Renderização ──────────────────────────────────────────────────── #}
+      {% if grupos_com_itens or itens_sem_grupo %}
+      <div class="space-y-2">
+        {% for node in grupos_com_itens %}
+          {{ render_group_accordion(node) }}
+        {% endfor %}
+
+        {% if itens_sem_grupo %}
+        <div class="rounded-lg border border-line overflow-hidden">
+          {% if grupos_com_itens %}
+          <div class="px-4 py-2.5 bg-surface-2 border-b border-line flex items-center gap-2">
+            <span class="text-sm font-semibold text-content">Outros</span>
+            <span class="ml-auto text-xs text-content-muted font-normal">{{ itens_sem_grupo | length }} item{% if itens_sem_grupo | length != 1 %}s{% endif %}</span>
+          </div>
+          {% endif %}
+          <div class="px-2 divide-y divide-line">
+            {% for item in itens_sem_grupo %}
+              {{ render_item_row(item, recursos_sem_grupo) }}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      {# Resumo de preços (readonly, calculado via API simulate) #}
+      <div id="price-preview"
+           class="mt-4 px-4 py-3 bg-surface-2 rounded-lg border border-line hidden">
+        <div class="text-xs font-semibold text-content-muted mb-2">Previsão de total</div>
+
+        {# Subtotal (antes do desconto) — exibido apenas quando há desconto #}
+        <div id="price-preview-subtotal-row" class="hidden flex justify-between text-sm text-content-muted mb-0.5">
+          <span>Subtotal</span>
+          <span id="price-preview-subtotal" class="tabular-nums"></span>
+        </div>
+
+        {# Linha de desconto — exibida apenas quando há desconto #}
+        <div id="price-preview-discount-row" class="hidden flex justify-between text-sm text-green-700 dark:text-green-300 mb-1">
+          <span id="price-preview-discount-label">Desconto antecipado</span>
+          <span id="price-preview-discount" class="tabular-nums font-medium"></span>
+        </div>
+
+        {# Total final #}
+        <div id="price-preview-total" class="text-lg font-extrabold text-teal-700 dark:text-teal-300">—</div>
+
+        <div class="text-xs text-content-muted mt-1">
+          O valor final é validado e recalculado pelo servidor.
+        </div>
+      </div>
+
+      {% else %}
+      <div class="py-8 text-center text-sm text-content-muted">
+        Nenhum item disponível para esta categoria.
+      </div>
+      {% endif %}
+    </div>
+
+    {# ── Informações de Pagamento (somente leitura) ── #}
+    {% if reserva.payment_data %}
+    <div class="bg-surface rounded-xl border border-emerald-200 shadow-sm p-6 mb-5">
+      <h2 class="text-sm font-bold text-content mb-1 inline-flex items-center gap-2"><svg class="r-icon r-icon-payment" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Informações de Pagamento</h2>
+      <p class="text-xs text-content-muted mb-4">
+        Registro imutável gerado no momento da confirmação. Estes dados não podem ser editados.
+      </p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <p class="text-xs font-semibold text-content-muted mb-1">ID da Transação</p>
+          <p class="text-sm font-mono bg-surface-2 border border-line rounded-lg px-3 py-2
+                     text-content select-all break-all">
+            {{ reserva.payment_data.transaction_id or '—' }}
+          </p>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-content-muted mb-1">Valor Pago</p>
+          <p class="text-sm font-semibold bg-surface-2 border border-line rounded-lg px-3 py-2
+                     text-emerald-700 dark:text-emerald-300">
+            R$ {{ "%.2f"|format(reserva.payment_data.amount_paid|float) }}
+          </p>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-content-muted mb-1">Método de Pagamento</p>
+          <p class="text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-content uppercase">
+            {{ reserva.payment_data.payment_type or '—' }}
+          </p>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-content-muted mb-1">Data de Aprovação</p>
+          <p class="text-sm bg-surface-2 border border-line rounded-lg px-3 py-2 text-content">
+            {{ reserva.payment_data.approval_date[:19].replace('T', ' ') if reserva.payment_data.approval_date else '—' }}
+          </p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {# ── Ações ── #}
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700
+                     text-white text-sm font-semibold rounded-lg transition-colors">
+        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Nova Versão
+      </button>
+      <a href="{{ url_for('reservas.detalhe', reserva_id=reserva.id) }}"
+         class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-content-muted
+                bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+
+  {# ── Geração Manual de PIX (fora do form principal, só para PENDING sem pagamento) ── #}
+  {% if reserva.status.value == 'PENDING' %}
+  <div class="mt-5 bg-surface rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm p-6" id="pix-manual-section">
+    <h2 class="text-sm font-bold text-content mb-1 inline-flex items-center gap-2"><svg class="r-icon r-icon-pix" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9Z"/></svg> Gerar PIX Manual</h2>
+    <p class="text-xs text-content-muted mb-4">
+      Gera um QR Code Mercado Pago para esta reserva. Use quando o cliente está no balcão
+      e prefere pagar via PIX sem passar pelo fluxo online.
+    </p>
+
+    <div class="mb-4">
+      <label class="r-label" for="pix-payer-email">
+        E-mail do Pagador <span class="text-content-muted font-normal">(opcional)</span>
+      </label>
+      <input type="email"
+             id="pix-payer-email"
+             class="r-input"
+             placeholder="cliente@email.com" />
+    </div>
+
+    <button id="btn-gerar-pix"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700
+                   text-white text-sm font-semibold rounded-lg transition-colors">
+      Gerar QR Code PIX
+    </button>
+
+    <div id="pix-resultado" class="mt-5 hidden">
+      <div class="flex flex-col sm:flex-row gap-5 items-start">
+        <div class="shrink-0">
+          <img id="pix-qr-img" src="" alt="QR Code PIX"
+               class="w-40 h-40 border border-line rounded-lg" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-semibold text-content-muted mb-1">Código Copia e Cola</p>
+          <textarea id="pix-qr-code" readonly rows="4"
+                    class="r-input font-mono text-xs resize-none select-all"></textarea>
+          <button id="btn-copiar-pix" type="button"
+                  class="mt-2 text-xs text-blue-600 hover:underline font-semibold">
+            Copiar código
+          </button>
+          <p id="pix-payment-id" class="text-xs text-content-muted mt-2"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="pix-erro" class="mt-3 hidden px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg
+                              text-sm text-red-700 dark:text-red-300"></div>
+  </div>
+  {% endif %}
+
+  {# ── Geração de Link de Pagamento por Cartão ── #}
+  {% if reserva.status.value == 'PENDING' %}
+  <div class="mt-5 bg-surface rounded-xl border border-purple-200 shadow-sm p-6" id="cartao-link-section">
+    <h2 class="text-sm font-bold text-content mb-1 inline-flex items-center gap-2"><svg class="r-icon r-icon-payment" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Gerar Link de Pagamento por Cartão</h2>
+    <p class="text-xs text-content-muted mb-4">
+      Gera um link de checkout do Mercado Pago para pagamento com cartão de crédito.
+      Envie o link ao cliente; quando ele pagar, a reserva é atualizada automaticamente.
+    </p>
+
+    <div class="mb-4">
+      <label class="r-label" for="cartao-payer-email">
+        E-mail do Pagador <span class="text-content-muted font-normal">(opcional)</span>
+      </label>
+      <input type="email"
+             id="cartao-payer-email"
+             class="r-input"
+             placeholder="cliente@email.com" />
+    </div>
+
+    <button id="btn-gerar-cartao"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-700
+                   text-white text-sm font-semibold rounded-lg transition-colors">
+      Gerar Link de Pagamento
+    </button>
+
+    <div id="cartao-resultado" class="mt-5 hidden">
+      <div class="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 rounded-lg p-4">
+        <p class="text-xs font-semibold text-content-muted mb-2">Link de Pagamento por Cartão</p>
+        <div class="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+          <input id="cartao-checkout-url" type="text" readonly
+                 class="r-input font-mono text-xs flex-1 select-all bg-surface" />
+          <div class="flex gap-2 shrink-0">
+            <button id="btn-copiar-cartao" type="button"
+                    class="px-3 py-2 text-xs font-semibold text-purple-700 dark:text-purple-300 border border-purple-300
+                           rounded-lg hover:bg-purple-100 transition-colors whitespace-nowrap">
+              Copiar
+            </button>
+            <a id="btn-abrir-cartao" href="#" target="_blank" rel="noopener noreferrer"
+               class="px-3 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700
+                      rounded-lg transition-colors whitespace-nowrap">
+              Abrir no MP
+            </a>
+          </div>
+        </div>
+        <p id="cartao-info" class="text-xs text-content-muted mt-2"></p>
+      </div>
+    </div>
+
+    <div id="cartao-erro" class="mt-3 hidden px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg
+                                 text-sm text-red-700 dark:text-red-300"></div>
+  </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  "use strict";
+
+  // ── Quantity steppers ──────────────────────────────────────────────────
+  document.querySelectorAll('.qty-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const targetId = btn.dataset.target;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      let val = parseInt(input.value, 10) || 0;
+      if (btn.dataset.action === 'inc') {
+        val = Math.min(val + 1, parseInt(input.max, 10) || 999);
+      } else {
+        val = Math.max(val - 1, parseInt(input.min, 10) || 0);
+      }
+      input.value = val;
+      updatePricePreview();
+    });
+  });
+
+  document.querySelectorAll('.qty-input').forEach(function (input) {
+    input.addEventListener('input', updatePricePreview);
+  });
+
+  // ── Previsão de preço via API simulate ───────────────────────────────────
+  const SIMULATE_SOURCE_ID       = {{ reserva.source_id or 'null' }};
+  const SIMULATE_CATEGORY_ID     = {{ reserva.category_id or 'null' }};
+
+  function currentManualDiscountPct() {
+    var input = document.getElementById('manual_discount_percent');
+    if (!input || !input.value.trim()) return 0;
+    var val = parseFloat(input.value.replace(',', '.'));
+    return isNaN(val) ? 0 : val;
+  }
+
+  document.getElementById('manual_discount_percent')?.addEventListener('input', updatePricePreview);
+
+  const itemData = [
+    {% for item in itens_disponiveis %}
+    { id: {{ item.id }} }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  var previewTimer = null;
+
+  function fmtBRL(val) {
+    return 'R$\u00a0' + Number(val).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+
+  function collectItems() {
+    var items = [];
+    itemData.forEach(function (item) {
+      var input = document.getElementById('qty_' + item.id);
+      if (!input) return;
+      var qty = parseInt(input.value, 10) || 0;
+      if (qty > 0) items.push({ item_id: item.id, quantity: qty });
+    });
+    return items;
+  }
+
+  function showPreviewResult(data) {
+    var preview      = document.getElementById('price-preview');
+    var totalEl      = document.getElementById('price-preview-total');
+    var subRow       = document.getElementById('price-preview-subtotal-row');
+    var subEl        = document.getElementById('price-preview-subtotal');
+    var discRow      = document.getElementById('price-preview-discount-row');
+    var discLabelEl  = document.getElementById('price-preview-discount-label');
+    var discEl       = document.getElementById('price-preview-discount');
+    if (!preview || !totalEl) return;
+
+    var discountAmt = data.discount_amount || 0;
+    if (discountAmt > 0) {
+      // Mostrar subtotal antes do desconto
+      subEl.textContent = fmtBRL(data.subtotal);
+      subRow.classList.remove('hidden');
+
+      // Escolhe label: manual tem prioridade; fallback para antecipado
+      var label = 'Desconto';
+      var details = data.discount_details || {};
+      var md = details.manual_discount;
+      var ab = details.advance_booking;
+      if (md && md.percent) {
+        label = 'Desconto manual (' + md.percent + '%)';
+      } else if (ab && ab.percent) {
+        label = 'Desconto antecipado (' + ab.percent + '%)';
+      }
+      discLabelEl.textContent = label;
+      discEl.textContent = '− ' + fmtBRL(discountAmt);
+      discRow.classList.remove('hidden');
+    } else {
+      subRow.classList.add('hidden');
+      discRow.classList.add('hidden');
+    }
+
+    totalEl.textContent = fmtBRL(data.total);
+    preview.classList.remove('hidden');
+  }
+
+  function hidePreview() {
+    var preview = document.getElementById('price-preview');
+    if (preview) preview.classList.add('hidden');
+  }
+
+  function triggerSimulatePreview(delay) {
+    clearTimeout(previewTimer);
+    var ciVal = document.getElementById('check_in_date')?.value;
+    var coVal = document.getElementById('check_out_date')?.value;
+    var items = collectItems();
+    if (!ciVal || !SIMULATE_SOURCE_ID || items.length === 0) { hidePreview(); return; }
+
+    previewTimer = setTimeout(function () {
+      var payload = {
+        source_id:               SIMULATE_SOURCE_ID,
+        category_id:             SIMULATE_CATEGORY_ID,
+        check_in_date:           ciVal,
+        check_out_date:          coVal || ciVal,
+        items:                   items,
+        manual_discount_percent: currentManualDiscountPct() || undefined,
+      };
+      fetch('/reservas/api/public/simular', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      })
+      .then(function (resp) { return resp.json(); })
+      .then(function (data) { if (data.total != null) showPreviewResult(data); })
+      .catch(function () { /* silencioso — operador verá o valor final ao salvar */ });
+    }, delay || 500);
+  }
+
+  function updatePricePreview() { triggerSimulatePreview(400); }
+
+  document.getElementById('check_in_date')?.addEventListener('change', onDatesChange);
+  document.getElementById('check_out_date')?.addEventListener('change', onDatesChange);
+
+  function onDatesChange() {
+    triggerSimulatePreview(300);
+    loadResourceAvailability();
+  }
+
+  // ── Accordion chevron rotation ─────────────────────────────────────────
+  document.querySelectorAll('details').forEach(function (el) {
+    el.addEventListener('toggle', function () {
+      const chevron = el.querySelector('.details-chevron');
+      if (chevron) chevron.style.transform = el.open ? 'rotate(90deg)' : '';
+    });
+  });
+
+  // ── Highlight selected resource option ────────────────────────────────
+  document.querySelectorAll('.resource-accordion').forEach(function (accordion) {
+    accordion.querySelectorAll('input[type="radio"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        const itemId = accordion.dataset.itemId;
+        // Reset all options in this accordion
+        accordion.querySelectorAll('.resource-option').forEach(function (opt) {
+          opt.classList.remove('border-teal-300', 'bg-teal-50', 'dark:bg-teal-900/30');
+          opt.classList.add('border-transparent');
+        });
+        // Highlight selected
+        const label = radio.closest('.resource-option');
+        if (label) {
+          label.classList.remove('border-transparent');
+          label.classList.add('border-teal-300', 'bg-teal-50', 'dark:bg-teal-900/30');
+        }
+        // Update summary label
+        updateResourceSummaryLabel(itemId, radio.value);
+      });
+    });
+  });
+
+  function updateResourceSummaryLabel(itemId, resourceId) {
+    const details = document.querySelector('.resource-item-details[data-item-id="' + itemId + '"]');
+    if (!details) return;
+    const label = details.querySelector('.resource-summary-label');
+    if (!label) return;
+    if (!resourceId) {
+      label.textContent = 'Selecionar recurso físico (opcional)';
+    } else {
+      // Try to get the resource name from its label element
+      const radio = details.querySelector('input[value="' + resourceId + '"]');
+      const namEl = radio ? radio.closest('.resource-option')?.querySelector('.text-sm.font-semibold') : null;
+      label.textContent = namEl ? 'Recurso: ' + namEl.textContent.trim() : 'Recurso selecionado — ID ' + resourceId;
+    }
+  }
+
+  // ── AJAX: carregar disponibilidade de recursos por datas ───────────────
+  const SOURCE_ID = {{ reserva.source_id or 'null' }};
+  let availabilityMap = {}; // resource_id → {available, is_available}
+  let loadTimer = null;
+
+  function loadResourceAvailability() {
+    const ciVal = document.getElementById('check_in_date')?.value;
+    const coVal = document.getElementById('check_out_date')?.value;
+    if (!ciVal || !SOURCE_ID) return;
+
+    // Debounce 300ms
+    clearTimeout(loadTimer);
+    loadTimer = setTimeout(function () {
+      const params = new URLSearchParams({
+        source_id: SOURCE_ID,
+        check_in: ciVal.split('T')[0],
+        check_out: (coVal || ciVal).split('T')[0],
+      });
+
+      // Set all badges to loading
+      document.querySelectorAll('.availability-badge').forEach(function (badge) {
+        badge.textContent = '...';
+        badge.className = 'availability-badge text-xs font-medium px-1.5 py-0.5 rounded-full bg-surface-2 text-content-muted';
+      });
+
+      fetch('/reservas/api/recursos/disponibilidade?' + params.toString(), {
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(function (resp) { return resp.ok ? resp.json() : null; })
+      .then(function (data) {
+        if (!data || !data.recursos) return;
+        availabilityMap = {};
+        data.recursos.forEach(function (r) {
+          availabilityMap[r.resource_id] = r;
+        });
+        updateAvailabilityBadges();
+      })
+      .catch(function () {
+        document.querySelectorAll('.availability-badge').forEach(function (badge) {
+          badge.textContent = '?';
+        });
+      });
+    }, 300);
+  }
+
+  function updateAvailabilityBadges() {
+    document.querySelectorAll('.availability-badge').forEach(function (badge) {
+      const rid = parseInt(badge.dataset.resourceId, 10);
+      const info = availabilityMap[rid];
+      if (!info) return;
+      if (info.is_available) {
+        badge.textContent = info.stock_quantity !== null
+          ? 'Disponível (' + info.available + ')'
+          : 'Disponível';
+        badge.className = 'availability-badge text-xs font-medium px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 dark:text-green-300';
+      } else {
+        badge.textContent = 'Indisponível';
+        badge.className = 'availability-badge text-xs font-medium px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-800/40 text-red-600 dark:text-red-400';
+      }
+    });
+  }
+
+  // Inicializa ao carregar
+  updatePricePreview();
+  loadResourceAvailability();
+})();
+</script>
+
+{% if reserva.status.value == 'PENDING' and not reserva.payment_id %}
+<script>
+(function () {
+  "use strict";
+
+  const btnGerar = document.getElementById('btn-gerar-pix');
+  const resultadoEl = document.getElementById('pix-resultado');
+  const erroEl = document.getElementById('pix-erro');
+  const qrImgEl = document.getElementById('pix-qr-img');
+  const qrCodeEl = document.getElementById('pix-qr-code');
+  const paymentIdEl = document.getElementById('pix-payment-id');
+  const btnCopiar = document.getElementById('btn-copiar-pix');
+
+  if (!btnGerar) return;
+
+  btnGerar.addEventListener('click', function () {
+    const email = document.getElementById('pix-payer-email')?.value.trim() || '';
+    btnGerar.disabled = true;
+    btnGerar.textContent = 'Aguarde…';
+    erroEl.classList.add('hidden');
+    resultadoEl.classList.add('hidden');
+
+    const body = {};
+    if (email) body.payer_email = email;
+
+    fetch('{{ url_for("reservas.admin_gerar_pix_manual", reserva_id=reserva.id) }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    .then(function (resp) { return resp.json().then(function (d) { return { ok: resp.ok, data: d }; }); })
+    .then(function (result) {
+      if (!result.ok || !result.data.success) {
+        erroEl.textContent = result.data.erro || 'Erro desconhecido ao gerar PIX.';
+        erroEl.classList.remove('hidden');
+      } else {
+        const d = result.data;
+        qrImgEl.src = 'data:image/png;base64,' + d.qr_code_base64;
+        qrCodeEl.value = d.qr_code;
+        paymentIdEl.textContent = 'ID do pagamento: ' + d.payment_id;
+        resultadoEl.classList.remove('hidden');
+      }
+    })
+    .catch(function () {
+      erroEl.textContent = 'Erro de rede ao gerar PIX.';
+      erroEl.classList.remove('hidden');
+    })
+    .finally(function () {
+      btnGerar.disabled = false;
+      btnGerar.textContent = 'Gerar QR Code PIX';
+    });
+  });
+
+  if (btnCopiar) {
+    btnCopiar.addEventListener('click', function () {
+      if (qrCodeEl.value) {
+        navigator.clipboard.writeText(qrCodeEl.value).then(function () {
+          btnCopiar.textContent = 'Copiado!';
+          setTimeout(function () { btnCopiar.textContent = 'Copiar código'; }, 2000);
+        });
+      }
+    });
+  }
+})();
+</script>
+{% endif %}
+
+{% if reserva.status.value == 'PENDING' %}
+<script>
+(function () {
+  "use strict";
+
+  const btnGerar = document.getElementById('btn-gerar-cartao');
+  const resultadoEl = document.getElementById('cartao-resultado');
+  const erroEl = document.getElementById('cartao-erro');
+  const urlInput = document.getElementById('cartao-checkout-url');
+  const btnCopiar = document.getElementById('btn-copiar-cartao');
+  const btnAbrir = document.getElementById('btn-abrir-cartao');
+  const infoEl = document.getElementById('cartao-info');
+
+  if (!btnGerar) return;
+
+  btnGerar.addEventListener('click', function () {
+    const email = document.getElementById('cartao-payer-email')?.value.trim() || '';
+    btnGerar.disabled = true;
+    btnGerar.textContent = 'Aguarde…';
+    erroEl.classList.add('hidden');
+    resultadoEl.classList.add('hidden');
+
+    const body = {};
+    if (email) body.payer_email = email;
+
+    fetch('{{ url_for("reservas.admin_gerar_link_cartao", reserva_id=reserva.id) }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    .then(function (resp) { return resp.json().then(function (d) { return { ok: resp.ok, data: d }; }); })
+    .then(function (result) {
+      if (!result.ok || !result.data.success) {
+        erroEl.textContent = result.data.erro || 'Erro desconhecido ao gerar link.';
+        erroEl.classList.remove('hidden');
+      } else {
+        const d = result.data;
+        urlInput.value = d.checkout_url;
+        btnAbrir.href = d.checkout_url;
+        const expira = d.expires_at ? new Date(d.expires_at).toLocaleString('pt-BR') : '';
+        infoEl.textContent = 'Valor: R$ ' + Number(d.amount).toLocaleString('pt-BR', {minimumFractionDigits: 2}) +
+          (expira ? '  ·  Expira: ' + expira : '') +
+          '  ·  ID: ' + d.transaction_id.slice(0, 8) + '…';
+        resultadoEl.classList.remove('hidden');
+      }
+    })
+    .catch(function () {
+      erroEl.textContent = 'Erro de rede ao gerar link de pagamento.';
+      erroEl.classList.remove('hidden');
+    })
+    .finally(function () {
+      btnGerar.disabled = false;
+      btnGerar.textContent = 'Gerar Link de Pagamento';
+    });
+  });
+
+  if (btnCopiar) {
+    btnCopiar.addEventListener('click', function () {
+      if (urlInput.value) {
+        navigator.clipboard.writeText(urlInput.value).then(function () {
+          btnCopiar.textContent = 'Copiado!';
+          setTimeout(function () { btnCopiar.textContent = 'Copiar'; }, 2000);
+        });
+      }
+    });
+  }
+})();
+</script>
+{% endif %}
+
+{% endblock %}

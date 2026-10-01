@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Ponto Eletrônico — Portal do Colaborador
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Ponto Eletrônico</title>
+
+  {% include '_design_system.html' %}
+
+  <style>
+    /* Bridge — aliases legados → tokens semânticos (dark-ready, marca teal) */
+    :root {
+      --teal-50:  var(--c-primary-light);
+      --teal-100: var(--c-primary-light);
+      --teal-500: var(--c-primary);
+      --teal-600: var(--c-primary);
+      --teal-700: var(--c-primary-dark);
+      --teal-800: var(--c-primary-dark);
+      --slate-50:  var(--c-surface-2);
+      --slate-100: var(--c-border);
+      --slate-200: var(--c-border);
+      --slate-300: var(--c-text-muted);
+      --slate-400: var(--c-text-muted);
+      --slate-500: var(--c-text-muted);
+      --slate-600: var(--c-text-muted);
+      --slate-700: var(--c-text);
+      --slate-800: var(--c-text);
+      --slate-900: var(--c-text);
+      --green-50:  var(--c-success-bg);
+      --green-500: var(--c-success-fg);
+      --green-600: var(--c-success-fg);
+      --amber-50:  var(--c-warning-bg);
+      --amber-500: var(--c-warning-fg);
+      --amber-600: var(--c-warning-fg);
+      --red-50:    var(--c-danger-bg);
+      --red-400:   var(--c-danger-fg);
+      --red-500:   var(--c-danger-fg);
+      --red-600:   var(--c-danger-fg);
+      /* Layout / sizing (inalterados) */
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -1px rgba(0,0,0,.04);
+      --shadow-lg: 0 10px 25px -5px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04);
+      --shadow-xl: 0 20px 40px -10px rgba(0,0,0,.1);
+      --radius-sm:   8px;
+      --radius-md:   14px;
+      --radius-lg:   20px;
+      --radius-xl:   28px;
+      --radius-full: 9999px;
+      --font:      'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'DM Mono', 'Fira Code', monospace;
+    }
+
+    /* =============================================
+       RESET & BASE
+    ============================================= */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--c-bg);
+      min-height: 100vh;
+      color: var(--c-text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* =============================================
+       LAYOUT
+    ============================================= */
+    .page-shell {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    .content-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 1.25rem 3rem;
+      width: 100%;
+    }
+
+    /* =============================================
+       TOP BAR
+    ============================================= */
+    .top-bar {
+      background: color-mix(in srgb, var(--c-surface) 88%, transparent);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--c-border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .top-bar__inner {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+      height: 3.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .top-bar__left {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--slate-500);
+      text-decoration: none;
+      padding: .35rem .65rem;
+      border-radius: var(--radius-sm);
+      transition: all .15s;
+      min-height: 44px;
+    }
+
+    .back-link:hover {
+      background: var(--teal-100);
+      color: var(--teal-700);
+    }
+
+    .top-bar__sep {
+      color: var(--slate-200);
+      font-size: .75rem;
+    }
+
+    .top-bar__title {
+      font-size: .9rem;
+      font-weight: 700;
+      color: var(--slate-700);
+    }
+
+    .top-bar__user {
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--slate-500);
+    }
+
+    /* =============================================
+       FLASH MESSAGES
+    ============================================= */
+    .flash-area {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: .75rem 1.25rem 0;
+    }
+
+    .flash {
+      display: flex;
+      align-items: flex-start;
+      gap: .6rem;
+      padding: .8rem 1rem;
+      border-radius: var(--radius-md);
+      font-size: .85rem;
+      font-weight: 500;
+      border: 1px solid transparent;
+      animation: slideIn .25s ease-out;
+    }
+
+    .flash--sucesso {
+      background: var(--green-50);
+      border-color: var(--c-success-bd);
+      color: var(--green-600);
+    }
+
+    .flash--erro {
+      background: var(--red-50);
+      border-color: var(--c-danger-bd);
+      color: var(--red-600);
+    }
+
+    .flash--aviso {
+      background: var(--amber-50);
+      border-color: var(--c-warning-bd);
+      color: var(--amber-600);
+    }
+
+    /* =============================================
+       HERO CLOCK CARD
+    ============================================= */
+    .clock-card {
+      background: linear-gradient(135deg, var(--teal-700) 0%, #0c4a6e 100%);
+      border-radius: var(--radius-xl);
+      padding: 2.5rem 2rem 2rem;
+      color: white;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 50px -12px rgba(13, 148, 136, .45);
+      margin-top: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .clock-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 80% 50%, rgba(255, 255, 255, .08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .clock-card__meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.75rem;
+    }
+
+    .clock-card__date {
+      font-size: .9rem;
+      opacity: .8;
+      font-weight: 500;
+      letter-spacing: .01em;
+    }
+
+    .clock-card__name-badge {
+      font-size: .78rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, .15);
+      padding: .3rem .75rem;
+      border-radius: var(--radius-full);
+      letter-spacing: .02em;
+      backdrop-filter: blur(8px);
+    }
+
+    .clock-card__time {
+      font-family: var(--font-mono);
+      font-size: clamp(3.5rem, 10vw, 5.5rem);
+      font-weight: 500;
+      letter-spacing: -4px;
+      line-height: 1;
+      color: white;
+      text-align: center;
+      margin-bottom: 2rem;
+      text-shadow: 0 4px 20px rgba(0, 0, 0, .2);
+    }
+
+    /* Punch button */
+    .punch-btn {
+      width: 100%;
+      border: none;
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: all .2s cubic-bezier(.4, 0, .2, 1);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .5rem;
+      position: relative;
+      overflow: hidden;
+      min-height: 44px;
+    }
+
+    .punch-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0);
+      transition: background .2s;
+    }
+
+    .punch-btn:hover::after  { background: rgba(255, 255, 255, .08); }
+    .punch-btn:active::after { background: rgba(0, 0, 0, .08); }
+
+    .punch-btn--clock_in    { background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 8px 25px -4px rgba(16,185,129,.5); }
+    .punch-btn--lunch_start { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 8px 25px -4px rgba(245,158,11,.5); }
+    .punch-btn--lunch_end   { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 8px 25px -4px rgba(245,158,11,.5); }
+    .punch-btn--clock_out   { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 8px 25px -4px rgba(239,68,68,.5); }
+    .punch-btn--extra       { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); box-shadow: 0 8px 25px -4px rgba(139,92,246,.5); }
+    .punch-btn--loading     { background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%) !important; box-shadow: none !important; cursor: wait; }
+    .punch-btn--success     { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; }
+
+    .punch-btn:hover   { transform: translateY(-3px); }
+    .punch-btn:active  { transform: translateY(-1px); }
+    .punch-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    .punch-btn__icon {
+      font-size: 2rem;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    .punch-btn__label {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -.02em;
+    }
+
+    .punch-btn__badge {
+      font-size: .78rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, .9);
+      background: rgba(255, 255, 255, .2);
+      padding: .25rem .7rem;
+      border-radius: var(--radius-full);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    /* =============================================
+       SUMMARY CARDS
+    ============================================= */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-card {
+      background: var(--c-surface);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--c-border);
+      transition: transform .15s, box-shadow .15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .summary-card::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .summary-card--today::before { background: var(--teal-500); }
+    .summary-card--week::before  { background: var(--green-500); }
+    .summary-card--month::before { background: var(--amber-500); }
+    .summary-card--bank::before  { background: var(--slate-600); }
+
+    .summary-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .summary-card__icon {
+      width: 2.25rem;
+      height: 2.25rem;
+      background: var(--c-surface-2);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: .75rem;
+      font-size: 1.1rem;
+    }
+
+    .summary-card__label {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+      margin-bottom: .3rem;
+    }
+
+    .summary-card__value {
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 500;
+      color: var(--slate-800);
+      line-height: 1;
+      margin-bottom: .3rem;
+    }
+
+    .summary-card__sub {
+      font-size: .78rem;
+      font-weight: 600;
+      padding: .2rem .5rem;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+    }
+
+    .summary-card__sub--pos  { color: var(--green-600); background: var(--green-50); }
+    .summary-card__sub--neg  { color: var(--red-600);   background: var(--red-50); }
+    .summary-card__sub--zero { color: var(--slate-400); background: var(--c-surface-2); }
+
+    /* =============================================
+       TODAY ENTRIES
+    ============================================= */
+    .section-card {
+      background: var(--c-surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--c-border);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-card__header {
+      padding: 1.25rem 1.5rem .9rem;
+      border-bottom: 1px solid var(--c-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-card__title {
+      font-size: .85rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--slate-500);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .section-card__body {
+      padding: .5rem 1rem 1rem;
+    }
+
+    /* Today entry row */
+    .entry-row {
+      display: flex;
+      align-items: center;
+      gap: .85rem;
+      padding: .8rem .5rem;
+      border-radius: var(--radius-md);
+      transition: background .15s;
+      border-left: 3px solid transparent;
+    }
+
+    .entry-row:hover          { background: var(--slate-50); }
+    .entry-row--clock_in      { border-color: var(--green-500); }
+    .entry-row--lunch_start   { border-color: var(--amber-500); }
+    .entry-row--lunch_end     { border-color: var(--amber-500); }
+    .entry-row--clock_out     { border-color: var(--red-400); }
+    .entry-row--extra         { border-color: #8b5cf6; }
+
+    .entry-row__dot {
+      width: 2.2rem;
+      height: 2.2rem;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .entry-row--clock_in    .entry-row__dot { background: var(--green-50); color: var(--green-600); }
+    .entry-row--lunch_start .entry-row__dot { background: var(--amber-50); color: var(--amber-600); }
+    .entry-row--lunch_end   .entry-row__dot { background: var(--amber-50); color: var(--amber-600); }
+    .entry-row--clock_out   .entry-row__dot { background: var(--red-50);   color: var(--red-600); }
+    .entry-row--extra       .entry-row__dot { background: #ede9fe;          color: #7c3aed; }
+
+    .dark .entry-row--extra .entry-row__dot { background: rgba(139,92,246,.15); color: #a78bfa; }
+
+    .entry-row__label  { flex: 1; font-size: .9rem; font-weight: 600; color: var(--slate-700); }
+    .entry-row__source { font-size: .72rem; color: var(--slate-400); }
+    .entry-row__time   { font-family: var(--font-mono); font-size: 1rem; font-weight: 500; color: var(--slate-800); }
+
+    /* ── Extrato do banco de horas ── */
+    .extrato__intro {
+      font-size: .82rem;
+      line-height: 1.5;
+      color: var(--slate-500);
+      padding: .25rem .5rem .75rem;
+      margin: 0;
+    }
+
+    .extrato { list-style: none; display: flex; flex-direction: column; gap: .6rem; }
+
+    .extrato__item {
+      border: 1px solid var(--c-border);
+      border-left: 3px solid var(--slate-400);
+      border-radius: var(--radius-md, 10px);
+      padding: .75rem .9rem;
+      background: var(--c-surface);
+      display: flex;
+      flex-direction: column;
+      gap: .35rem;
+    }
+    .extrato__item--estorno { border-left-color: var(--amber-500); background: var(--c-surface-2); }
+
+    .extrato__linha {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .extrato__data {
+      font-family: var(--font-mono, monospace);
+      font-size: .8rem;
+      color: var(--slate-500);
+    }
+
+    .extrato__tag {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: .18rem .5rem;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+    }
+    .extrato__tag--pag     { background: var(--c-success-bg); color: var(--c-success-fg); }
+    .extrato__tag--folga   { background: var(--c-primary-light); color: var(--c-primary-dark); }
+    .extrato__tag--estorno { background: var(--c-warning-bg); color: var(--c-warning-fg); }
+
+    .extrato__horas {
+      margin-left: auto;
+      font-family: var(--font-mono, monospace);
+      font-size: .95rem;
+      font-weight: 700;
+    }
+    .extrato__horas--pos { color: var(--c-success-fg); }
+    .extrato__horas--neg { color: var(--c-danger-fg); }
+
+    .extrato__valor { font-size: .85rem; color: var(--slate-600); }
+    .extrato__valor strong { color: var(--slate-800); font-family: var(--font-mono, monospace); }
+
+    .extrato__obs {
+      font-size: .85rem;
+      line-height: 1.5;
+      color: var(--slate-700);
+      margin: 0;
+      word-break: break-word;
+    }
+
+    .extrato__autor { font-size: .75rem; color: var(--slate-400); }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1rem;
+      color: var(--slate-300);
+      gap: .6rem;
+      text-align: center;
+    }
+
+    .empty-state__icon { font-size: 2.5rem; opacity: .5; color: var(--slate-400); }
+    .empty-state__text { font-size: .9rem; font-weight: 500; color: var(--slate-400); }
+
+    /* =============================================
+       HISTORY TABLE
+    ============================================= */
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .month-nav__label {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--slate-600);
+      min-width: 6rem;
+      text-align: center;
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .35rem .65rem;
+      border-radius: var(--radius-sm);
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--slate-500);
+      background: var(--c-surface-2);
+      text-decoration: none;
+      transition: all .15s;
+      border: 1px solid transparent;
+      min-height: 36px;
+    }
+
+    .btn-ghost:hover {
+      background: var(--c-surface);
+      border-color: var(--c-border);
+      color: var(--teal-700);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .history-table-wrap { overflow-x: auto; }
+
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+      min-width: 540px;
+    }
+
+    .history-table thead th {
+      padding: .75rem 1rem;
+      text-align: left;
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--slate-400);
+      background: var(--c-surface-2);
+      border-bottom: 1px solid var(--c-border);
+      white-space: nowrap;
+    }
+
+    .history-table tbody tr { transition: background .12s; }
+    .history-table tbody tr:hover { background: var(--slate-50); }
+
+    .history-table tbody tr.needs-review       { background: var(--amber-50); }
+    .history-table tbody tr.needs-review:hover { background: var(--c-warning-bg); }
+    .history-table tbody tr.is-today           { background: var(--teal-50) !important; }
+
+    .history-table td {
+      padding: .85rem 1rem;
+      border-bottom: 1px solid var(--slate-50);
+      color: var(--slate-700);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .date-cell__day { font-weight: 700; color: var(--slate-800); }
+    .date-cell__dow { font-size: .75rem; color: var(--slate-400); margin-left: .3rem; }
+
+    .punches-cell { display: flex; flex-wrap: wrap; gap: .3rem; }
+
+    .punch-chip {
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      font-weight: 500;
+      padding: .2rem .5rem;
+      border-radius: var(--radius-sm);
+      background: var(--teal-100);
+      color: var(--teal-800);
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+    }
+
+    .punch-chip__sep { color: var(--slate-300); font-size: .85em; }
+
+    .saldo-cell          { font-family: var(--font-mono); font-weight: 600; }
+    .saldo-cell--pos     { color: var(--green-600); }
+    .saldo-cell--neg     { color: var(--red-500); }
+    .saldo-cell--zero    { color: var(--slate-400); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .2rem .55rem;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+    }
+
+    .badge--ok     { background: var(--c-success-bg); color: var(--green-600); }
+    .badge--review { background: var(--c-warning-bg); color: var(--amber-600); }
+
+    /* progress bar */
+    .progress-bar { height: 4px; background: var(--c-surface-2); border-radius: var(--radius-full); overflow: hidden; margin-top: .4rem; }
+    .progress-bar__fill { height: 100%; border-radius: var(--radius-full); background: linear-gradient(90deg, var(--teal-500), var(--teal-700)); transition: width 1s ease-out; }
+
+    /* =============================================
+       MODAL SOLICITAR AJUSTE
+    ============================================= */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,.6);
+      z-index: 999;
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-box {
+      background: var(--c-surface);
+      width: 100%;
+      max-width: 450px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,.2), 0 10px 10px -5px rgba(0,0,0,.1);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--c-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--c-text);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--c-text-muted);
+      padding: .25rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      min-height: 36px;
+      min-width: 36px;
+    }
+
+    .modal-close:hover { background: var(--c-surface-2); }
+
+    .modal-body {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--c-text-muted);
+      margin-bottom: .4rem;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: .6rem;
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: .95rem;
+      color: var(--c-text);
+      background: var(--c-surface);
+      min-height: 44px;
+    }
+
+    .form-input:focus { outline: 2px solid var(--c-primary); outline-offset: 1px; }
+
+    .modal-tip {
+      background: var(--c-surface-2);
+      padding: .75rem;
+      border-radius: var(--radius-sm);
+      font-size: .8rem;
+      color: var(--c-text-muted);
+      display: flex;
+      gap: .5rem;
+      align-items: flex-start;
+    }
+
+    .modal-tip svg { flex-shrink: 0; margin-top: 1px; color: var(--c-primary); }
+
+    .modal-actions { display: flex; gap: .75rem; }
+
+    .btn-modal-cancel {
+      flex: 1;
+      padding: .65rem;
+      background: var(--c-surface-2);
+      color: var(--c-text-muted);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: .9rem;
+      min-height: 44px;
+    }
+
+    .btn-modal-submit {
+      flex: 1;
+      padding: .65rem;
+      background: var(--c-primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: .9rem;
+      min-height: 44px;
+    }
+
+    .btn-modal-submit:hover { background: var(--c-primary-dark); }
+
+    /* =============================================
+       ANIMATIONS
+    ============================================= */
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0   rgba(16,185,129,.4); }
+      70%  { box-shadow: 0 0 0 12px rgba(16,185,129,0); }
+      100% { box-shadow: 0 0 0 0   rgba(16,185,129,0); }
+    }
+
+    .punch-btn--idle { animation: pulse-ring 2.5s infinite; }
+
+    /* =============================================
+       RESPONSIVE
+    ============================================= */
+    @media (max-width: 640px) {
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .clock-card   { padding: 1.75rem 1.25rem 1.5rem; }
+      .history-header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page-shell">
+
+    <!-- ── TOP BAR ──────────────── -->
+    <header class="top-bar">
+      <div class="top-bar__inner">
+        <div class="top-bar__left">
+          <a href="{{ url_for('portal.dashboard') }}" class="back-link" aria-label="Voltar ao Dashboard">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Dashboard
+          </a>
+          <span class="top-bar__sep">·</span>
+          <span class="top-bar__title">Ponto Eletrônico</span>
+        </div>
+        {% include '_avisos_bell.html' %}
+        <span class="top-bar__user">{{ funcionario.nome.split()[0] | e }}</span>
+      </div>
+    </header>
+
+    <!-- ── FLASH ─────────────────── -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-area">
+      {% for category, message in messages %}
+      <div class="flash flash--{{ category }}">{{ message | e }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <main>
+      <div class="content-wrap">
+
+        {# ── Pre-compute ── #}
+        {% set punch_count = today_entries | length %}
+        {% set punch_labels = {
+          'clock_in':    'Entrada',
+          'lunch_start': 'Início Almoço',
+          'lunch_end':   'Fim Almoço',
+          'clock_out':   'Saída',
+          'extra':       'Extra',
+        } %}
+        {% set next_types = ['clock_in','lunch_start','lunch_end','clock_out'] %}
+        {% if punch_count < 4 %}{% set next_type = next_types[punch_count] %}{% else %}{% set next_type = 'extra' %}{% endif %}
+        {% set next_label = punch_labels[next_type] %}
+        {# ── Today's TimeDay aggregate ── #}
+        {% set today_day = None %}
+        {% for d in days %}{% if d.shift_date == hoje %}{% set today_day = d %}{% endif %}{% endfor %}
+
+        <!-- ── HERO CLOCK CARD ── -->
+        <div class="clock-card">
+          <div class="clock-card__meta">
+            <span class="clock-card__date" id="live-date">—</span>
+            <span class="clock-card__name-badge">{{ funcionario.nome.split()[0] | e }}</span>
+          </div>
+
+          <div class="clock-card__time" id="live-clock">--:--:--</div>
+
+          <form method="POST" action="{{ url_for('ponto.registrar') }}" id="form-ponto">
+            <input type="hidden" name="punch_time" id="punch_time_input" />
+            <input type="hidden" name="lat" id="geo_lat_input" />
+            <input type="hidden" name="lng" id="geo_lng_input" />
+            <button type="submit" id="punch-btn" class="punch-btn punch-btn--{{ next_type }} punch-btn--idle">
+              <span class="punch-btn__icon" id="punch-icon" aria-hidden="true">
+                {% if next_type == 'clock_in' %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                {% elif next_type == 'lunch_start' %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                {% elif next_type == 'lunch_end' %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                {% elif next_type == 'clock_out' %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                {% else %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                {% endif %}
+              </span>
+              <span class="punch-btn__label" id="punch-label">Registrar Ponto</span>
+              <span class="punch-btn__badge" id="punch-badge">{{ next_label }}</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- ── SUMMARY CARDS ── -->
+        <div class="summary-grid">
+
+          <!-- Hoje -->
+          <div class="summary-card summary-card--today">
+            <div class="summary-card__icon" style="color:var(--teal-600)">
+              <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="summary-card__label">Hoje</div>
+            {% if today_day %}
+            {% set h = today_day.minutos_trabalhados // 60 %}
+            {% set m = today_day.minutos_trabalhados % 60 %}
+            <div class="summary-card__value">{{ "%dh%02d" | format(h, m) }}</div>
+            {% set s = today_day.saldo_calculado_minutos %}
+            {% if s > 0 %}
+            <span class="summary-card__sub summary-card__sub--pos">+{{ (s//60) }}h{{ "%02d" | format(s%60) }}</span>
+            {% elif s < 0 %}{% set as = -s %}
+            <span class="summary-card__sub summary-card__sub--neg">-{{ (as//60) }}h{{ "%02d" | format(as%60) }}</span>
+            {% else %}
+            <span class="summary-card__sub summary-card__sub--zero">Em dia</span>
+            {% endif %}
+            {% if not today_day.needs_review %}
+            {% set pct = [(today_day.minutos_trabalhados * 100 // today_day.expected_minutes_snapshot), 100] | min %}
+            <div class="progress-bar" style="margin-top:.6rem;">
+              <div class="progress-bar__fill" style="width:{{ pct }}%"></div>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="summary-card__value">—</div>
+            <span class="summary-card__sub summary-card__sub--zero">Sem batidas</span>
+            {% endif %}
+          </div>
+
+          <!-- Semana -->
+          <div class="summary-card summary-card--week">
+            <div class="summary-card__icon" style="color:var(--green-600)">
+              <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <div class="summary-card__label">Semana</div>
+            {% set week_total = namespace(min=0, saldo=0) %}
+            {% for d in days %}
+            {% if d.shift_date.isocalendar()[1] == hoje.isocalendar()[1] and d.shift_date.year == hoje.year %}
+            {% set week_total.min = week_total.min + d.minutos_trabalhados %}
+            {% set week_total.saldo = week_total.saldo + d.saldo_calculado_minutos %}
+            {% endif %}
+            {% endfor %}
+            <div class="summary-card__value">{{ "%dh%02d" | format(week_total.min // 60, week_total.min % 60) }}</div>
+            {% if week_total.saldo > 0 %}
+            <span class="summary-card__sub summary-card__sub--pos">+{{ (week_total.saldo//60) }}h{{ "%02d" | format(week_total.saldo%60) }}</span>
+            {% elif week_total.saldo < 0 %}{% set as = -week_total.saldo %}
+            <span class="summary-card__sub summary-card__sub--neg">-{{ (as//60) }}h{{ "%02d" | format(as%60) }}</span>
+            {% else %}
+            <span class="summary-card__sub summary-card__sub--zero">Em dia</span>
+            {% endif %}
+          </div>
+
+          <!-- Mês -->
+          <div class="summary-card summary-card--month">
+            <div class="summary-card__icon" style="color:var(--amber-600)">
+              <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+            </div>
+            <div class="summary-card__label">{{ ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][mes-1] }}</div>
+            {% set month_total = namespace(min=0, saldo=0) %}
+            {% for d in days %}
+            {% set month_total.min = month_total.min + d.minutos_trabalhados %}
+            {% set month_total.saldo = month_total.saldo + d.saldo_calculado_minutos %}
+            {% endfor %}
+            <div class="summary-card__value">{{ "%dh%02d" | format(month_total.min // 60, month_total.min % 60) }}</div>
+            {% if month_total.saldo > 0 %}
+            <span class="summary-card__sub summary-card__sub--pos">+{{ (month_total.saldo//60) }}h{{ "%02d" | format(month_total.saldo%60) }}</span>
+            {% elif month_total.saldo < 0 %}{% set as = -month_total.saldo %}
+            <span class="summary-card__sub summary-card__sub--neg">-{{ (as//60) }}h{{ "%02d" | format(as%60) }}</span>
+            {% else %}
+            <span class="summary-card__sub summary-card__sub--zero">Zerado</span>
+            {% endif %}
+          </div>
+
+          <!-- Banco de Horas Global -->
+          <div class="summary-card summary-card--bank">
+            <div class="summary-card__icon" style="color:var(--slate-500)">
+              <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            </div>
+            <div class="summary-card__label">Banco Total</div>
+            <div class="summary-card__value">{{ funcionario.saldo_banco_horas_formatado() }}</div>
+            {% set total_banco = funcionario.saldo_banco_horas() %}
+            {% if total_banco > 0 %}
+            <span class="summary-card__sub summary-card__sub--pos">Saldo Positivo</span>
+            {% elif total_banco < 0 %}
+            <span class="summary-card__sub summary-card__sub--neg">Saldo Negativo</span>
+            {% else %}
+            <span class="summary-card__sub summary-card__sub--zero">Zerado</span>
+            {% endif %}
+          </div>
+
+        </div>
+
+        <!-- ── TODAY'S ENTRIES ── -->
+        <div class="section-card">
+          <div class="section-card__header">
+            <span class="section-card__title">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Registros de Hoje
+            </span>
+            {% if today_day and today_day.needs_review %}
+            <span class="badge badge--review">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Revisar
+            </span>
+            {% elif today_entries %}
+            <span class="badge badge--ok">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+              OK
+            </span>
+            {% endif %}
+          </div>
+          <div class="section-card__body">
+            {% if today_entries %}
+            {% for entry in today_entries %}
+            {% set etype = entry.punch_type.value %}
+            <div class="entry-row entry-row--{{ etype }}">
+              <div class="entry-row__dot" aria-hidden="true">
+                {% if etype == 'clock_in' %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                {% elif etype == 'lunch_start' %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                {% elif etype == 'lunch_end' %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                {% elif etype == 'clock_out' %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                {% else %}
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                {% endif %}
+              </div>
+              <div>
+                <div class="entry-row__label">{{ punch_labels.get(etype, etype) }}</div>
+                {% if entry.source.value == 'admin' %}
+                <div class="entry-row__source">Editado pelo admin</div>
+                {% endif %}
+              </div>
+              <div class="entry-row__time">{{ entry.punch_time|to_brasilia_time }}</div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+              <span class="empty-state__icon">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+              <span class="empty-state__text">Nenhum registro hoje ainda.</span>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- ── MONTHLY HISTORY TABLE ── -->
+        <div class="section-card">
+          <div class="section-card__header history-header">
+            <span class="section-card__title">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              Histórico — {{ ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][mes-1] }} {{ ano }}
+            </span>
+            <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+
+              <button type="button" onclick="abrirModalAjuste()"
+                style="display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;font-weight:700;color:#fff;background:var(--c-primary);padding:.4rem .8rem;border:none;border-radius:var(--radius-full);cursor:pointer;transition:all .15s;min-height:36px;"
+                onmouseover="this.style.background='var(--c-primary-dark)'"
+                onmouseout="this.style.background='var(--c-primary)'">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                Solicitar Ajuste
+              </button>
+
+              <a href="{{ url_for('ponto.analise', mes=mes, ano=ano) }}"
+                style="display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;font-weight:700;color:var(--c-primary-dark);background:var(--c-primary-light);padding:.4rem .8rem;border-radius:var(--radius-full);text-decoration:none;transition:all .15s;min-height:36px;"
+                onmouseover="this.style.background='var(--c-primary)';this.style.color='white'"
+                onmouseout="this.style.background='var(--c-primary-light)';this.style.color='var(--c-primary-dark)'">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
+                Ver Análise Completa ↗
+              </a>
+
+              <div class="month-nav">
+                {% set mes_ant  = mes - 1 if mes > 1  else 12 %}
+                {% set ano_ant  = ano     if mes > 1  else ano - 1 %}
+                {% set mes_prox = mes + 1 if mes < 12 else 1 %}
+                {% set ano_prox = ano     if mes < 12 else ano + 1 %}
+                <a href="{{ url_for('ponto.historico', mes=mes_ant,  ano=ano_ant) }}"  class="btn-ghost">← Anterior</a>
+                <span class="month-nav__label">{{ "%02d/%d" | format(mes, ano) }}</span>
+                <a href="{{ url_for('ponto.historico', mes=mes_prox, ano=ano_prox) }}" class="btn-ghost">Próximo →</a>
+              </div>
+            </div>
+          </div>
+
+          {% if days %}
+          <div class="history-table-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Batidas</th>
+                  <th>Trabalhado</th>
+                  <th>Saldo</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for day in days %}
+                {% set batidas  = entries_by_day.get(day.shift_date, []) %}
+                {% set is_today = day.shift_date == hoje %}
+                <tr class="{{ 'is-today' if is_today else '' }} {{ 'needs-review' if day.needs_review else '' }}">
+
+                  <td>
+                    <span class="date-cell__day">{{ day.shift_date.strftime('%d/%m') }}</span>
+                    <span class="date-cell__dow">{{ ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"][day.shift_date.weekday()] }}</span>
+                  </td>
+
+                  <td>
+                    <div class="punches-cell">
+                      {% if batidas %}
+                      {% for entry in batidas %}
+                      <span class="punch-chip">{{ (entry.punch_time|to_brasilia_time)[:5] }}</span>
+                      {% endfor %}
+                      {% else %}
+                      <span style="color:var(--slate-300)">—</span>
+                      {% endif %}
+                    </div>
+                  </td>
+
+                  <td>
+                    {% set h = day.minutos_trabalhados // 60 %}
+                    {% set m = day.minutos_trabalhados % 60 %}
+                    <span style="font-family:var(--font-mono);font-size:.9rem;">{{ "%dh%02d" | format(h, m) }}</span>
+                  </td>
+
+                  <td>
+                    {% set s = day.saldo_calculado_minutos %}
+                    {% if s > 0 %}
+                    <span class="saldo-cell saldo-cell--pos">+{{ (s//60) }}h{{ "%02d" | format(s%60) }}</span>
+                    {% elif s < 0 %}{% set as = -s %}
+                    <span class="saldo-cell saldo-cell--neg">-{{ (as//60) }}h{{ "%02d" | format(as%60) }}</span>
+                    {% else %}
+                    <span class="saldo-cell saldo-cell--zero">0h00</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    {% if day.needs_review %}
+                    <span class="badge badge--review">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      Revisar
+                    </span>
+                    {% else %}
+                    <span class="badge badge--ok">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                      OK
+                    </span>
+                    {% endif %}
+                  </td>
+
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state" style="padding:3rem 1rem;">
+            <span class="empty-state__icon">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            </span>
+            <span class="empty-state__text">Nenhum registro para este mês.</span>
+          </div>
+          {% endif %}
+        </div>
+
+        {# ── Extrato do banco de horas ──────────────────────────────────── #}
+        {% if abatimentos %}
+        <div class="section-card">
+          <div class="section-card__header">
+            <span class="section-card__title">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+              Extrato do Banco de Horas
+            </span>
+          </div>
+          <div class="section-card__body">
+            <p class="extrato__intro">
+              Lançamentos que alteraram seu saldo neste mês — pagamentos de horas extras,
+              folgas compensatórias e correções.
+            </p>
+            <ul class="extrato">
+              {% for a in abatimentos %}
+              {% set m = a.minutos_abatidos %}
+              <li class="extrato__item{% if a.eh_estorno %} extrato__item--estorno{% endif %}">
+                <div class="extrato__linha">
+                  <span class="extrato__data">{{ a.data_registro.strftime('%d/%m/%Y') }}</span>
+                  {% if a.eh_estorno %}
+                  <span class="extrato__tag extrato__tag--estorno">Estorno</span>
+                  {% elif a.deduction_type.value == 'pagamento' %}
+                  <span class="extrato__tag extrato__tag--pag">Pagamento em dinheiro</span>
+                  {% else %}
+                  <span class="extrato__tag extrato__tag--folga">Folga compensatória</span>
+                  {% endif %}
+                  {% if m < 0 %}
+                  <span class="extrato__horas extrato__horas--pos">+{{ (-m)//60 }}h{{ '%02d'|format((-m)%60) }}</span>
+                  {% else %}
+                  <span class="extrato__horas extrato__horas--neg">-{{ m//60 }}h{{ '%02d'|format(m%60) }}</span>
+                  {% endif %}
+                </div>
+                {% if a.pagamento_valor is not none %}
+                <div class="extrato__valor">
+                  {% if a.pagamento_valor < 0 %}Valor estornado{% else %}Valor pago{% endif %}:
+                  <strong>R$ {{ ('%.2f'|format(a.pagamento_valor|float|abs))|replace('.', ',') }}</strong>
+                </div>
+                {% endif %}
+                {% if a.observacao %}
+                <p class="extrato__obs">{{ a.observacao }}</p>
+                {% endif %}
+                {% if a.criado_por %}
+                <span class="extrato__autor">Lançado por {{ a.criado_por.nome }}</span>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        {% endif %}
+
+      </div><!-- .content-wrap -->
+    </main>
+  </div><!-- .page-shell -->
+
+  <!-- ── MODAL SOLICITAR AJUSTE ── -->
+  <div id="modal-ajuste" class="modal-overlay" onclick="if(event.target===this)fecharModalAjuste()">
+    <div class="modal-box">
+
+      <div class="modal-header">
+        <h3 class="modal-title">Solicitar Ajuste de Ponto</h3>
+        <button type="button" onclick="fecharModalAjuste()" class="modal-close" aria-label="Fechar modal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <form method="POST" action="{{ url_for('ponto.solicitar_ajuste') }}" class="modal-body">
+
+        <div>
+          <label for="data_solicitada" class="form-label">Data da Batida</label>
+          <input type="date" id="data_solicitada" name="data_solicitada" required
+            max="{{ hoje.strftime('%Y-%m-%d') }}" class="form-input" />
+        </div>
+
+        <div>
+          <label for="horario_solicitado" class="form-label">Horário</label>
+          <input type="time" id="horario_solicitado" name="horario_solicitado" required class="form-input" />
+        </div>
+
+        <div>
+          <label for="tipo_ponto" class="form-label">Tipo de Batida</label>
+          <select id="tipo_ponto" name="tipo_ponto" required class="form-input">
+            <option value="clock_in">Entrada</option>
+            <option value="lunch_start">Início Intervalo</option>
+            <option value="lunch_end">Fim Intervalo</option>
+            <option value="clock_out">Saída</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="motivo" class="form-label">Motivo da Solicitação</label>
+          <textarea id="motivo" name="motivo" required rows="3"
+            placeholder="Ex: Esqueci de bater na entrada…"
+            class="form-input" style="resize:vertical;"></textarea>
+        </div>
+
+        <div class="modal-tip">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Sua solicitação será enviada para o seu supervisor. O registro só ficará válido na folha de ponto após a aprovação.</span>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" onclick="fecharModalAjuste()" class="btn-modal-cancel">Cancelar</button>
+          <button type="submit" class="btn-modal-submit">Enviar Solicitação</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <script>
+    /* ── Live clock ── */
+    const DAYS   = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+    const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    const elClock = document.getElementById('live-clock');
+    const elDate  = document.getElementById('live-date');
+
+    function tick() {
+      const now = new Date();
+      const hh  = String(now.getHours()).padStart(2, '0');
+      const mm  = String(now.getMinutes()).padStart(2, '0');
+      const ss  = String(now.getSeconds()).padStart(2, '0');
+      elClock.textContent = `${hh}:${mm}:${ss}`;
+      elDate.textContent  = `${DAYS[now.getDay()]}, ${now.getDate()} de ${MONTHS[now.getMonth()]} de ${now.getFullYear()}`;
+    }
+    tick();
+    setInterval(tick, 1000);
+
+    /* ── Inject client time before submit ── */
+    const formPonto = document.getElementById('form-ponto');
+    const punchBtn  = document.getElementById('punch-btn');
+
+    formPonto.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const iso = new Date().toISOString().slice(0, 19);
+      document.getElementById('punch_time_input').value = iso;
+
+      punchBtn.disabled = true;
+      punchBtn.classList.remove('punch-btn--idle');
+      punchBtn.classList.add('punch-btn--loading');
+      document.getElementById('punch-label').textContent = 'Obtendo localização…';
+
+      function submitForm() {
+        document.getElementById('punch-label').textContent = 'Registrando…';
+        formPonto.submit();
+      }
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            document.getElementById('geo_lat_input').value = pos.coords.latitude;
+            document.getElementById('geo_lng_input').value = pos.coords.longitude;
+            submitForm();
+          },
+          function(err) {
+            punchBtn.disabled = false;
+            punchBtn.classList.remove('punch-btn--loading');
+            punchBtn.classList.add('punch-btn--idle');
+            document.getElementById('punch-label').textContent = 'Registrar Ponto';
+            var msg = 'Localização GPS necessária para registrar o ponto.\n\n';
+            if      (err.code === 1) msg += 'Permissão negada. Permita o acesso à localização nas configurações do navegador e tente novamente.';
+            else if (err.code === 2) msg += 'Localização indisponível. Verifique se o GPS está ativado no dispositivo.';
+            else                     msg += 'Tempo esgotado ao obter localização. Verifique o sinal GPS e tente novamente.';
+            alert(msg);
+          },
+          { timeout: 8000, maximumAge: 60000 }
+        );
+      } else {
+        punchBtn.disabled = false;
+        punchBtn.classList.remove('punch-btn--loading');
+        punchBtn.classList.add('punch-btn--idle');
+        document.getElementById('punch-label').textContent = 'Registrar Ponto';
+        alert('Seu navegador não suporta geolocalização. Use um navegador moderno (Chrome, Firefox, Safari) para registrar o ponto.');
+      }
+    });
+
+    /* ── Modal Ajuste de Ponto ── */
+    function abrirModalAjuste() {
+      const modal = document.getElementById('modal-ajuste');
+      modal.style.display = 'flex';
+      if (!document.getElementById('data_solicitada').value) {
+        const today = new Date();
+        const yyyy  = today.getFullYear();
+        const mm    = String(today.getMonth() + 1).padStart(2, '0');
+        const dd    = String(today.getDate()).padStart(2, '0');
+        document.getElementById('data_solicitada').value = `${yyyy}-${mm}-${dd}`;
+      }
+    }
+
+    function fecharModalAjuste() {
+      document.getElementById('modal-ajuste').style.display = 'none';
+      document.querySelector('#modal-ajuste form').reset();
+    }
+  </script>
+
+
+</body>
+
+</html>

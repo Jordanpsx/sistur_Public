@@ -1,0 +1,86 @@
+{# _tabs.html — Cabeçalho + abas do hub "Organização" (planning 2.9j).
+
+   Unifica Funções | Equipes | Áreas numa navegação única. Cada aba só aparece
+   se o operador tiver a permissão de view correspondente (Áreas reusa o grupo
+   `funcoes`, mesmo padrão das rotas).
+
+   Variáveis esperadas (via {% set %} antes do include):
+     aba_ativa  — 'funcoes' | 'equipes' | 'areas'
+     novo_url   — URL do botão de criação (opcional)
+     novo_label — rótulo do botão, ex.: "Nova Função" (opcional)
+     novo_perm  — grupo de permissão da ação create ('funcoes' | 'equipes')
+#}
+<style>
+  .org-tabs-nav {
+    display: flex;
+    gap: .25rem;
+    background: var(--slate-100);
+    border-radius: var(--radius-lg);
+    padding: .3rem;
+    width: fit-content;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .org-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .6rem 1.25rem;
+    min-height: 44px;
+    border-radius: var(--radius-md);
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--slate-500);
+    text-decoration: none;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .org-tab:hover {
+    color: var(--indigo-700);
+    background: color-mix(in srgb, var(--c-surface) 60%, transparent);
+  }
+  .org-tab--active {
+    background: var(--c-surface);
+    color: var(--indigo-700);
+    box-shadow: var(--shadow-sm);
+  }
+</style>
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+  <div>
+    <a href="{{ url_for('rh.dashboard') }}" class="text-sm text-content-muted hover:text-primary">&larr; RH</a>
+    <h1 class="text-xl font-bold text-content mt-1">Organização</h1>
+  </div>
+  {% if novo_url and has_permission(session.get('funcionario_id'), novo_perm, 'create') %}
+  <a href="{{ novo_url }}"
+     class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white"
+     style="background:var(--primary);min-height:44px">
+    + {{ novo_label }}
+  </a>
+  {% endif %}
+</div>
+
+<nav class="org-tabs-nav mb-5" aria-label="Seções de Organização">
+  {% if has_permission(session.get('funcionario_id'), 'funcoes', 'view') %}
+  <a href="{{ url_for('organizacao.listar_funcoes') }}"
+     class="org-tab {{ 'org-tab--active' if aba_ativa == 'funcoes' else '' }}">
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    Funções
+  </a>
+  {% endif %}
+  {% if has_permission(session.get('funcionario_id'), 'equipes', 'view') %}
+  <a href="{{ url_for('organizacao.listar_equipes') }}"
+     class="org-tab {{ 'org-tab--active' if aba_ativa == 'equipes' else '' }}">
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Equipes
+  </a>
+  {% endif %}
+  {% if has_permission(session.get('funcionario_id'), 'funcoes', 'view') %}
+  <a href="{{ url_for('organizacao.listar_areas') }}"
+     class="org-tab {{ 'org-tab--active' if aba_ativa == 'areas' else '' }}">
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Áreas
+  </a>
+  {% endif %}
+</nav>

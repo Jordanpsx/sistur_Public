@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Relatórios — Funcionários Ativos do Dia (WeasyPrint + preview)
+  NÃO usar fontes externas, JS ou recursos de rede — apenas CSS inline.
+-->
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Funcionários Ativos — {{ dados.data.strftime('%d/%m/%Y') }}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 1.5cm 2cm;
+        }
+
+        body {
+            font-family: 'DejaVu Sans', Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+            color: #1e293b;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .company-header {
+            border-bottom: 2pt solid #4f46e5;
+            padding-bottom: 6pt;
+            margin-bottom: 10pt;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .company-name {
+            font-size: 13pt;
+            font-weight: bold;
+            color: #312e81;
+        }
+
+        .company-meta {
+            font-size: 7pt;
+            color: #64748b;
+            margin-top: 2pt;
+        }
+
+        .doc-label {
+            text-align: right;
+            font-size: 9pt;
+            font-weight: bold;
+            color: #4f46e5;
+            text-transform: uppercase;
+            letter-spacing: .5pt;
+        }
+
+        .doc-period {
+            font-size: 7.5pt;
+            color: #64748b;
+            text-align: right;
+        }
+
+        .summary-row {
+            display: flex;
+            gap: 10pt;
+            margin-bottom: 10pt;
+        }
+
+        .sbox {
+            flex: 1;
+            border: .5pt solid #e2e8f0;
+            border-radius: 4pt;
+            padding: 5pt 8pt;
+            background: #f8fafc;
+        }
+
+        .sbox__label {
+            font-size: 7pt;
+            text-transform: uppercase;
+            letter-spacing: .3pt;
+            color: #64748b;
+        }
+
+        .sbox__val {
+            font-size: 10.5pt;
+            font-weight: bold;
+            color: #0f172a;
+        }
+
+        table.rel {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10pt;
+        }
+
+        table.rel thead th {
+            background: #4f46e5;
+            color: #fff;
+            font-size: 7pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: .3pt;
+            padding: 4pt 6pt;
+            text-align: left;
+        }
+
+        table.rel tbody tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        table.rel td {
+            padding: 4pt 6pt;
+            border-bottom: .5pt solid #e2e8f0;
+            vertical-align: middle;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 1pt 6pt;
+            border-radius: 8pt;
+            font-size: 7pt;
+            font-weight: bold;
+        }
+
+        .badge-folga {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-escalado {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-sem-escala {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+
+
+
+
+        .footer {
+            border-top: .5pt solid #e2e8f0;
+            padding-top: 5pt;
+            font-size: 6.5pt;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10pt;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="company-header">
+        <div>
+            <div class="company-name">{{ empresa_razao_social or empresa_nome or 'Empresa' }}</div>
+            <div class="company-meta">
+                {% if empresa_cnpj %}CNPJ: {{ empresa_cnpj }}{% endif %}
+                {% if empresa_cnpj and empresa_endereco %} · {% endif %}
+                {% if empresa_endereco %}{{ empresa_endereco }}{% endif %}
+            </div>
+        </div>
+        <div>
+            <div class="doc-label">Funcionários Ativos</div>
+            <div class="doc-period">{{ dados.data.strftime('%d/%m/%Y') }}</div>
+        </div>
+    </div>
+
+    <div class="summary-row">
+        <div class="sbox">
+            <div class="sbox__label">Total de Ativos</div>
+            <div class="sbox__val">{{ dados.total_ativos }}</div>
+        </div>
+        <div class="sbox">
+            <div class="sbox__label">De Folga</div>
+            <div class="sbox__val">{{ dados.linhas | selectattr('situacao', 'equalto', 'Folga') | list | length }}</div>
+        </div>
+        <div class="sbox">
+            <div class="sbox__label">Escalados</div>
+            <div class="sbox__val">{{ dados.linhas | selectattr('situacao', 'equalto', 'Escalado') | list | length }}</div>
+        </div>
+    </div>
+
+    <table class="rel">
+        <thead>
+            <tr>
+                <th>Funcionário</th>
+                <th>Situação</th>
+                <th>Detalhe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for linha in dados.linhas %}
+            <tr>
+                <td>{{ linha.funcionario.nome }}</td>
+                <td>
+                    {% if linha.situacao == 'Folga' %}
+                    <span class="badge badge-folga">Folga</span>
+                    {% elif linha.situacao == 'Escalado' %}
+                    <span class="badge badge-escalado">Escalado</span>
+                    {% else %}
+                    <span class="badge badge-sem-escala">Sem escala</span>
+                    {% endif %}
+                </td>
+                <td>{{ linha.detalhe or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+
+    <div class="footer">
+        <span>Documento gerado em {{ (gerado_em.strftime('%d/%m/%Y %H:%M') ~ ' UTC') if gerado_em else 'pré-visualização' }} · SISTUR RH</span>
+        <span>{{ empresa_nome or '' }}</span>
+    </div>
+
+</body>
+
+</html>

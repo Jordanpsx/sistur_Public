@@ -1,0 +1,149 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}Todos os Itens{% endblock %}
+
+{% block page_title %}Todos os Itens{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">Ativos e excluídos — gerencie, restaure ou remova permanentemente</p>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_listar_itens') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-surface-2 hover:bg-surface-2
+          text-content text-sm font-semibold rounded-lg transition-colors border border-line">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+  </svg>
+  Voltar
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+{% if not all_items %}
+<div class="bg-surface rounded-xl border border-line shadow-sm py-16 text-center">
+  <div class="text-5xl mb-4"><svg class="r-icon r-icon-payment" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+  <p class="text-content font-semibold">Nenhum item encontrado</p>
+  <p class="text-content-muted text-sm mt-1">Nenhum item foi cadastrado ainda.</p>
+</div>
+
+{% else %}
+
+{% set ativos = all_items | selectattr('deleted_at', 'none') | list %}
+{% set excluidos = all_items | rejectattr('deleted_at', 'none') | list %}
+
+{% if excluidos %}
+<div class="mb-4 flex items-start gap-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-800">
+  <svg class="w-5 h-5 shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+  </svg>
+  <span>
+    <strong>{{ excluidos|length }} item{{ 's' if excluidos|length > 1 else '' }} excluído{{ 's' if excluidos|length > 1 else '' }}</strong>
+    {{ 'estão bloqueando' if excluidos|length > 1 else 'está bloqueando' }} seus nomes dentro da categoria para novos cadastros.
+    Restaure ou exclua permanentemente para liberar.
+  </span>
+</div>
+{% endif %}
+
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
+  <table class="r-table">
+    <thead>
+      <tr>
+        <th>Nome do Item</th>
+        <th class="hidden sm:table-cell">Categoria</th>
+        <th class="hidden md:table-cell">Tipo</th>
+        <th class="hidden md:table-cell">Preço</th>
+        <th>Status</th>
+        <th style="width: 150px;">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in all_items %}
+      <tr class="{{ 'opacity-50' if item.deleted_at else '' }}">
+        <td>
+          <div class="flex items-center gap-2">
+            <span class="shrink-0">
+              {% if item.deleted_at %}
+              <svg class="r-icon r-icon-danger" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              {% else %}
+              <svg class="r-icon r-icon-payment" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              {% endif %}
+            </span>
+            <span class="font-semibold text-content">{{ item.name }}</span>
+          </div>
+        </td>
+        <td class="hidden sm:table-cell text-content-muted text-sm">
+          {{ item.category.name if item.category else '—' }}
+        </td>
+        <td class="hidden md:table-cell text-content-muted text-sm">
+          {% if item.billing_type %}
+            {% set billing_labels = {'FIXED': 'Fixo', 'PER_DAY': 'Por dia', 'PER_HOUR': 'Por hora', 'DAILY_PRORATED_HOURLY': 'Diária + hora'} %}
+            {{ billing_labels.get(item.billing_type.value, item.billing_type.value) }}
+          {% else %}—{% endif %}
+        </td>
+        <td class="hidden md:table-cell text-content text-sm font-semibold">
+          R$ {{ "%.2f"|format(item.price) if item.price is not none else '—' }}
+        </td>
+        <td>
+          {% if item.deleted_at %}
+          <span class="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-2 py-1 rounded-full">
+            Excluído
+          </span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 px-2 py-1 rounded-full">
+            Ativo
+          </span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            {% if not item.deleted_at %}
+              <a href="{{ url_for('reservas.admin_editar_item', item_id=item.id) }}"
+                 class="inline-flex items-center px-2 py-1.5 rounded-lg text-content-muted bg-surface-2 hover:bg-surface-2 transition-colors"
+                 title="Editar"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></a>
+              <form method="POST"
+                    action="{{ url_for('reservas.admin_deletar_item', item_id=item.id) }}"
+                    class="inline"
+                    onsubmit="return confirm('Excluir o item \'{{ item.name }}\'?')">
+                <button type="submit"
+                        class="inline-flex items-center px-2 py-1.5 rounded-lg text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors"
+                        title="Excluir"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+              </form>
+            {% else %}
+              <form method="POST"
+                    action="{{ url_for('reservas.admin_restaurar_item', item_id=item.id) }}"
+                    class="inline">
+                <button type="submit"
+                        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-800/40 border border-teal-200 dark:border-teal-800 text-xs font-semibold transition-colors"
+                        title="Restaurar item">
+                  <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-1"/></svg> Restaurar
+                </button>
+              </form>
+              <form method="POST"
+                    action="{{ url_for('reservas.admin_excluir_definitivo_item', item_id=item.id) }}"
+                    class="inline"
+                    onsubmit="return confirm('Excluir PERMANENTEMENTE \'{{ item.name }}\'? Esta ação não pode ser desfeita e o nome ficará disponível para reutilização.')">
+                <button type="submit"
+                        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 border border-red-200 dark:border-red-800 text-xs font-semibold transition-colors"
+                        title="Excluir permanentemente">
+                  <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Definitivo
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-xs text-content-muted mt-3 px-1">
+  Total: {{ ativos|length }} ativo{{ 's' if ativos|length != 1 else '' }}
+  {% if excluidos %} · {{ excluidos|length }} excluído{{ 's' if excluidos|length != 1 else '' }}{% endif %}
+</p>
+
+{% endif %}
+
+{% endblock %}

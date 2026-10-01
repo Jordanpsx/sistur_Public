@@ -1,0 +1,191 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}{% if group %}Editar Grupo{% else %}Novo Grupo{% endif %}{% endblock %}
+
+{% block page_title %}
+  {% if group %}Editar Grupo{% else %}Novo Grupo de Itens{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+<a href="{% if next == 'recursos' %}{{ url_for('reservas.admin_listar_recursos') }}{% elif next == 'itens' %}{{ url_for('reservas.admin_listar_itens') }}{% else %}{{ url_for('reservas.admin_listar_grupos') }}{% endif %}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Voltar
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+{% set inherited_group = group if (group and group.parent_id) else ((parent_groups | selectattr('id', 'equalto', selected_parent_id) | first) if (not group and selected_parent_id) else None) %}
+{% set inherited_names = (inherited_group.effective_sources | map(attribute='name') | list | join(', ')) if inherited_group else '' %}
+
+<div class="max-w-lg">
+
+  {% if error %}
+  <div class="flex items-start gap-3 px-4 py-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-red-500 text-base shrink-0 mt-0.5"><svg class="r-icon r-icon-danger" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+    <span class="text-red-800 font-medium">{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <!-- Contextual help -->
+  <div class="flex items-start gap-3 px-4 py-3 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800
+              rounded-lg mb-5 text-sm">
+    <span class="text-teal-600 dark:text-teal-300 shrink-0 mt-0.5" aria-hidden="true"><svg class="r-icon r-icon-primary" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5A4.8 4.8 0 0 0 18 8 6 6 0 0 0 6 8c0 1.2.4 2.5 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg></span>
+    <span class="text-teal-800">
+      Grupos organizam itens visualmente no painel admin, exibindo-os como
+      <strong>[Grupo] - Nome do Item</strong> ou <strong>[Grupo &rsaquo; Sub] - Nome</strong>.
+      Não afetam o preço, disponibilidade ou a API pública.
+    </span>
+  </div>
+
+  <div class="bg-surface rounded-xl border border-line shadow-sm p-6">
+    <form method="POST"
+          action="{% if group %}{{ url_for('reservas.admin_editar_grupo', group_id=group.id) }}{% else %}{{ url_for('reservas.admin_criar_grupo') }}{% endif %}">
+
+      {% if not group and next %}
+      <input type="hidden" name="next" value="{{ next }}" />
+      {% endif %}
+
+      <!-- Name -->
+      <div class="mb-5">
+        <label class="r-label r-label-req" for="name">Nome do Grupo</label>
+        <input type="text"
+               id="name"
+               name="name"
+               class="r-input"
+               value="{{ group.name if group else '' }}"
+               placeholder="Ex: Entradas, Churrasqueiras, Day Use..."
+               required />
+        <p class="r-hint">Nome de exibição para agrupamento visual no admin.</p>
+      </div>
+
+      <!-- Parent group (sub-group) -->
+      <div class="mb-5">
+        <label class="r-label" for="parent_id">
+          Grupo Pai <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <select id="parent_id" name="parent_id" class="r-select">
+          <option value="" data-source-names="">Nenhum — este é um grupo raiz</option>
+          {% for pg in parent_groups %}
+          <option value="{{ pg.id }}"
+                  data-source-names="{{ pg.effective_sources | map(attribute='name') | list | join(', ') }}"
+                  {% if group and group.parent_id == pg.id %}selected
+                  {% elif not group and selected_parent_id and selected_parent_id == pg.id %}selected{% endif %}>
+            {{ pg.display_path }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">
+          Selecione um grupo pai para criar um sub-grupo
+          (ex: "Pequenas" dentro de "Churrasqueiras").
+        </p>
+      </div>
+
+      <!-- Sources (root groups only — sub-groups always inherit the parent's) -->
+      <div class="mb-5" id="sources-fieldset" style="{% if inherited_group %}display:none;{% endif %}">
+        <label class="r-label r-label-req">Locais</label>
+        <div class="flex flex-col gap-2 mt-1">
+          {% for source in sources %}
+          <label class="r-check-wrap" for="source_id_{{ source.id }}">
+            <input type="checkbox"
+                   id="source_id_{{ source.id }}"
+                   name="source_ids"
+                   value="{{ source.id }}"
+                   {% if group and source in group.sources %}checked{% endif %} />
+            <span>{{ source.name }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="r-hint">
+          Selecione ao menos um local. Um grupo pode pertencer a vários locais
+          (ex: um grupo compartilhado entre "Cachoeira" e "Vinhedo").
+        </p>
+      </div>
+
+      <!-- Inherited sources (sub-groups only) -->
+      <div class="mb-5" id="inherited-sources-note" style="{% if not inherited_group %}display:none;{% endif %}">
+        <label class="r-label">Locais</label>
+        <p class="r-input" style="background: var(--c-surface-2); cursor: default;">
+          Herdado do grupo pai: <strong id="inherited-sources-text">{{ inherited_names or '—' }}</strong>
+        </p>
+        <p class="r-hint">
+          Sub-grupos sempre acompanham o(s) local(is) do grupo pai — não é
+          possível definir um local diferente aqui.
+        </p>
+      </div>
+
+      <!-- Description -->
+      <div class="mb-5">
+        <label class="r-label" for="description">
+          Descrição <span class="text-content-muted font-normal">(opcional)</span>
+        </label>
+        <textarea id="description"
+                  name="description"
+                  class="r-input"
+                  rows="2"
+                  placeholder="Ex: Ingressos de acesso ao parque — Inteira e Meia-Entrada">{{ group.description if group and group.description else '' }}</textarea>
+        <p class="r-hint">Descrição interna para ajudar operadores a identificar o grupo.</p>
+      </div>
+
+      <!-- Sort order -->
+      <div class="mb-6">
+        <label class="r-label" for="sort_order">Ordem de Exibição</label>
+        <input type="number"
+               id="sort_order"
+               name="sort_order"
+               class="r-input"
+               value="{{ group.sort_order if group else '0' }}"
+               min="0"
+               step="1"
+               placeholder="0" />
+        <p class="r-hint">
+          Número menor aparece primeiro na listagem de itens (0 = padrão).
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700
+                       text-white text-sm font-semibold rounded-lg transition-colors">
+          {% if group %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Alterações{% else %}<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Criar Grupo{% endif %}
+        </button>
+        <a href="{% if next == 'recursos' %}{{ url_for('reservas.admin_listar_recursos') }}{% elif next == 'itens' %}{{ url_for('reservas.admin_listar_itens') }}{% else %}{{ url_for('reservas.admin_listar_grupos') }}{% endif %}"
+           class="inline-flex items-center px-4 py-2.5 text-sm font-semibold text-content-muted
+                  bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+          Cancelar
+        </a>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const parentSelect = document.getElementById('parent_id');
+  const sourcesFieldset = document.getElementById('sources-fieldset');
+  const inheritedNote = document.getElementById('inherited-sources-note');
+  const inheritedNoteText = document.getElementById('inherited-sources-text');
+  if (!parentSelect || !sourcesFieldset || !inheritedNote) return;
+
+  function sync() {
+    const opt = parentSelect.options[parentSelect.selectedIndex];
+    const hasParent = !!parentSelect.value;
+    sourcesFieldset.style.display = hasParent ? 'none' : '';
+    inheritedNote.style.display = hasParent ? '' : 'none';
+    if (hasParent) {
+      inheritedNoteText.textContent = (opt && opt.dataset.sourceNames) || '—';
+    }
+  }
+
+  parentSelect.addEventListener('change', sync);
+  sync();
+})();
+</script>
+{% endblock %}

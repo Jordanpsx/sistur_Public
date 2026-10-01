@@ -1,0 +1,105 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}Categorias: {{ source.name }}{% endblock %}
+
+{% block page_title %}{{ source.name }}{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">
+  <a href="{{ url_for('reservas.admin_listar_sources') }}"
+     class="hover:text-teal-600 dark:hover:text-teal-300 transition-colors">Locais</a>
+  <span class="mx-1">/</span>Categorias
+</p>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.admin_criar_categoria') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-600 hover:bg-teal-700
+          text-white text-sm font-semibold rounded-lg transition-colors">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+  Nova Categoria
+</a>
+<a href="{{ url_for('reservas.admin_listar_sources') }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Voltar
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+{% if not categories %}
+<div class="bg-surface rounded-xl border border-line shadow-sm py-16 text-center">
+  <div class="text-5xl mb-4 text-amber-500" aria-hidden="true"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2H3Z"/><path d="M3 11h18l-2 8H5Z"/></svg></div>
+  <p class="text-content font-semibold">Nenhuma categoria em {{ source.name }}</p>
+  <p class="text-content-muted text-sm mt-1 mb-6">Crie categorias para organizar os itens de reserva.</p>
+  <a href="{{ url_for('reservas.admin_criar_categoria') }}"
+     class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-teal-600 hover:bg-teal-700
+            text-white text-sm font-semibold rounded-lg transition-colors">
+    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Criar Primeira Categoria
+  </a>
+</div>
+
+{% else %}
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
+  <table class="r-table">
+    <thead>
+      <tr>
+        <th>Nome da Categoria</th>
+        <th class="hidden sm:table-cell">Itens / Tarifas</th>
+        <th class="hidden md:table-cell">Criado em</th>
+        <th style="width: 120px;">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for category in categories %}
+      <tr>
+        <td>
+          <span class="font-semibold text-content">{{ category.name }}</span>
+          {% if category.single_day_only %}
+          <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold
+                       bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 align-middle">
+            Dia único
+          </span>
+          {% endif %}
+        </td>
+        <td class="hidden sm:table-cell">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+                       bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+            {{ category.items | selectattr('deleted_at', 'none') | list | length }} item(ns)
+          </span>
+        </td>
+        <td class="hidden md:table-cell text-content-muted text-xs">
+          {{ category.criado_em.strftime('%d/%m/%Y') if category.criado_em else '—' }}
+        </td>
+        <td>
+          <div class="flex items-center gap-1.5">
+            <a href="{{ url_for('reservas.admin_editar_categoria', category_id=category.id) }}"
+               class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                      text-content-muted bg-surface-2 hover:bg-surface-2 transition-colors"
+               title="Editar">
+              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            </a>
+            <form method="POST"
+                  action="{{ url_for('reservas.admin_deletar_categoria', category_id=category.id) }}"
+                  class="inline"
+                  onsubmit="return confirm('Deletar a categoria \'{{ category.name }}\'?')">
+              <button type="submit"
+                      class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                             text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors"
+                      title="Deletar">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% endblock %}

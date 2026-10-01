@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Admin — Integration Error Log Viewer
+-->
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ company_name }} | Logs de Integração</title>
+
+    {% include '_design_system.html' %}
+
+    <style>
+        /* ─── Base ───────────────────────────────────────────────────────────── */
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--c-bg);
+            margin: 0;
+            color: var(--c-text);
+        }
+
+        /* ─── Topbar ─────────────────────────────────────────────────────────── */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: color-mix(in srgb, var(--c-surface) 88%, transparent);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--c-border);
+        }
+
+        .topbar-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .topbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .topbar-logo {
+            height: 30px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .topbar-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--c-text);
+        }
+
+        .topbar-sub {
+            color: var(--c-text-muted);
+            font-weight: 400;
+        }
+
+        .topbar-back {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--c-text-muted);
+            text-decoration: none;
+            padding: 0.375rem 0.875rem;
+            border-radius: 8px;
+            border: 1px solid var(--c-border);
+            transition: all 0.15s;
+        }
+
+        .topbar-back:hover {
+            background: var(--c-surface-2);
+            border-color: var(--c-primary);
+            color: var(--c-primary);
+        }
+
+        /* ─── Page header ────────────────────────────────────────────────────── */
+        .page-header {
+            background: linear-gradient(135deg, #134e4a 0%, #0f766e 100%);
+            padding: 1.75rem 1.5rem;
+        }
+
+        .page-header-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .page-header h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            margin: 0 0 0.2rem;
+            letter-spacing: -0.02em;
+        }
+
+        .page-header p {
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.55);
+            margin: 0;
+        }
+
+        .access-badge {
+            display: inline-block;
+            margin-top: 0.625rem;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.2rem 0.6rem;
+            border-radius: 99px;
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        /* ─── Main layout ────────────────────────────────────────────────────── */
+        .main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 1.5rem 1.5rem 3rem;
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 1.25rem;
+            align-items: start;
+        }
+
+        /* ─── Sidebar + Calendário ───────────────────────────────────────────── */
+        .sidebar {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: 14px;
+            overflow: hidden;
+            position: sticky;
+            top: 76px;
+        }
+
+        .sidebar-header {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid var(--c-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-header-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--c-text-muted);
+        }
+
+        .cal-wrapper {
+            padding: 0.875rem;
+        }
+
+        .cal-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.625rem;
+        }
+
+        .cal-nav-btn {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--c-border);
+            border-radius: 6px;
+            background: var(--c-surface-2);
+            cursor: pointer;
+            font-size: 1.1rem;
+            color: var(--c-text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .cal-nav-btn:hover {
+            background: var(--c-surface);
+            border-color: var(--c-primary);
+            color: var(--c-primary);
+        }
+
+        .cal-month-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--c-text);
+            text-align: center;
+        }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+
+        .cal-dow {
+            text-align: center;
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: var(--c-text-muted);
+            padding: 0.25rem 0;
+            text-transform: uppercase;
+        }
+
+        .cal-day {
+            position: relative;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 5px;
+            color: var(--c-text-muted);
+            transition: background 0.1s, color 0.1s;
+            user-select: none;
+        }
+
+        .cal-day:hover:not(.cal-day-empty) {
+            background: var(--c-surface-2);
+            color: var(--c-primary);
+        }
+
+        .cal-day-empty { cursor: default; }
+
+        .cal-day-today {
+            font-weight: 800;
+            color: var(--c-primary);
+        }
+
+        /* Ponto vermelho embaixo de dias com erros */
+        .cal-day-has-errors::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--c-danger-fg);
+        }
+
+        /* Dias dentro do intervalo selecionado */
+        .cal-day-in-range {
+            background: color-mix(in srgb, var(--c-primary) 15%, var(--c-surface));
+            color: var(--c-primary);
+            border-radius: 0;
+        }
+
+        /* Extremidades do intervalo */
+        .cal-day-sel-start {
+            background: var(--c-primary) !important;
+            color: #fff !important;
+            border-radius: 5px 0 0 5px;
+        }
+
+        .cal-day-sel-end {
+            background: var(--c-primary) !important;
+            color: #fff !important;
+            border-radius: 0 5px 5px 0;
+        }
+
+        /* Seleção de dia único — ambas as classes no mesmo elemento */
+        .cal-day-sel-start.cal-day-sel-end {
+            border-radius: 5px;
+        }
+
+        .cal-day-sel-start::after,
+        .cal-day-sel-end::after {
+            background: rgba(255,255,255,0.7) !important;
+        }
+
+        .cal-footer {
+            margin-top: 0.75rem;
+            padding-top: 0.625rem;
+            border-top: 1px solid var(--c-border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .cal-selection-label {
+            font-size: 0.72rem;
+            color: var(--c-text-muted);
+            text-align: center;
+            min-height: 1.2em;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .cal-apply-btn {
+            width: 100%;
+            height: 36px;
+            background: var(--c-primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .cal-apply-btn:hover {
+            background: color-mix(in srgb, var(--c-primary) 82%, #000);
+        }
+
+        .cal-apply-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .cal-clear-link {
+            text-align: center;
+            font-size: 0.72rem;
+            color: var(--c-text-muted);
+            text-decoration: none;
+            cursor: pointer;
+            display: block;
+        }
+
+        .cal-clear-link:hover { color: var(--c-danger-fg); }
+
+        .cal-legend {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.65rem;
+            color: var(--c-text-muted);
+            justify-content: center;
+            margin-top: 0.375rem;
+        }
+
+        .cal-legend-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--c-danger-fg);
+            flex-shrink: 0;
+        }
+
+        /* ─── Content area ───────────────────────────────────────────────────── */
+        .content {
+            min-width: 0;
+        }
+
+        /* ─── Filter bar ─────────────────────────────────────────────────────── */
+        .filter-bar {
+            background: var(--c-surface);
+            border: 1px solid var(--c-border);
+            border-radius: 14px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            flex: 1 1 180px;
+            min-width: 140px;
+        }
+
+        .filter-group label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--c-text-muted);
+        }
+
+        .filter-select {
+            height: 40px;
+            padding: 0 2.25rem 0 0.875rem;
+            border: 1px solid var(--c-border);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-family: inherit;
+            color: var(--c-text);
+            background-color: var(--c-surface-2);
+            cursor: pointer;
+            transition: border-color 0.15s, background-color 0.15s;
+            -webkit-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--c-primary);
+            background-color: var(--c-surface);
+        }
+
+        .btn-filter {
+            height: 40px;
+            padding: 0 1.25rem;
+            background: var(--c-primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .btn-filter:hover {
+            background: color-mix(in srgb, var(--c-primary) 82%, #000);
+        }
+
+        .btn-clear {
+            height: 40px;
+            padding: 0 1rem;
+            background: transparent;
+            color: var(--c-text-muted);
+            border: 1px solid var(--c-border);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .btn-clear:hover {
+            background: var(--c-danger-bg);
+            color: var(--c-danger-fg);
+            border-color: color-mix(in srgb, var(--c-danger-fg) 35%, transparent);
+        }
+
+        /* ─── Day title bar ──────────────────────────────────────────────────── */
+        .day-title-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .day-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--c-text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .results-count {
+            font-size: 0.78rem;
+            color: var(--c-text-muted);
+            font-weight: 500;
+        }
+
+        /* ─── Table wrapper ──────────────────────────────────────────────────── */
+        .table-card {
+            background: var(--c-surface);
+            border-radius: 14px;
+            border: 1px solid var(--c-border);
+            overflow: hidden;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.83rem;
+            min-width: 680px;
+        }
+
+        thead {
+            background: var(--c-surface-2);
+            border-bottom: 1px solid var(--c-border);
+        }
+
+        thead th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--c-text-muted);
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid color-mix(in srgb, var(--c-border) 60%, transparent);
+            transition: background 0.1s;
+        }
+
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: var(--c-surface-2);
+        }
+
+        tbody td {
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+            color: var(--c-text);
+        }
+
+        .td-timestamp {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--c-text-muted);
+            white-space: nowrap;
+        }
+
+        .td-log-id {
+            font-size: 0.68rem;
+            color: var(--c-border);
+        }
+
+        .td-code {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--c-text-muted);
+        }
+
+        .td-message {
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.8rem;
+            color: var(--c-text);
+        }
+
+        .td-reserva {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--c-text-muted);
+        }
+
+        .td-reserva-link {
+            color: var(--c-primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .td-reserva-link:hover {
+            text-decoration: underline;
+        }
+
+        .td-null {
+            color: var(--c-border);
+        }
+
+        /* ─── Source badges ──────────────────────────────────────────────────── */
+        .badge-source {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 0.2rem 0.55rem;
+            border-radius: 99px;
+            white-space: nowrap;
+        }
+
+        .badge-mp_bricks {
+            background: color-mix(in srgb, #d97706 12%, var(--c-surface));
+            color: color-mix(in srgb, #d97706 90%, var(--c-text));
+        }
+
+        .badge-wp_internal {
+            background: color-mix(in srgb, #0284c7 12%, var(--c-surface));
+            color: color-mix(in srgb, #0284c7 90%, var(--c-text));
+        }
+
+        .badge-sistur_sync {
+            background: color-mix(in srgb, #7c3aed 12%, var(--c-surface));
+            color: color-mix(in srgb, #7c3aed 90%, var(--c-text));
+        }
+
+        .badge-sistur_qr {
+            background: color-mix(in srgb, var(--c-primary) 12%, var(--c-surface));
+            color: var(--c-primary);
+        }
+
+        /* ─── Category badges ────────────────────────────────────────────────── */
+        .badge-cat {
+            display: inline-block;
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 0.18rem 0.5rem;
+            border-radius: 99px;
+            white-space: nowrap;
+        }
+
+        .badge-cat-system {
+            background: color-mix(in srgb, var(--c-danger-fg) 12%, var(--c-surface));
+            color: var(--c-danger-fg);
+        }
+
+        .badge-cat-client_bank {
+            background: color-mix(in srgb, var(--c-warning-fg) 12%, var(--c-surface));
+            color: var(--c-warning-fg);
+        }
+
+        .badge-cat-invalid_data {
+            background: color-mix(in srgb, #0369a1 12%, var(--c-surface));
+            color: color-mix(in srgb, #0369a1 90%, var(--c-text));
+        }
+
+        .badge-cat-unknown {
+            background: var(--c-surface-2);
+            color: var(--c-text-muted);
+        }
+
+        .td-status-detail {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.68rem;
+            color: var(--c-text-muted);
+            white-space: nowrap;
+        }
+
+        /* ─── Payload button ─────────────────────────────────────────────────── */
+        .btn-details {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--c-primary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            transition: background 0.1s;
+            font-family: inherit;
+        }
+
+        .btn-details:hover {
+            background: var(--c-surface-2);
+        }
+
+        /* ─── Empty state ────────────────────────────────────────────────────── */
+        .empty-state {
+            padding: 3.5rem 1.5rem;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: var(--c-surface-2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--c-text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--c-text-muted);
+            margin: 0 0 0.375rem;
+        }
+
+        .empty-state p {
+            font-size: 0.8rem;
+            color: var(--c-text-muted);
+            margin: 0;
+        }
+
+        /* ─── Pagination ─────────────────────────────────────────────────────── */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1.25rem 1rem;
+            border-top: 1px solid var(--c-border);
+            flex-wrap: wrap;
+        }
+
+        .page-info {
+            font-size: 0.78rem;
+            color: var(--c-text-muted);
+            font-weight: 500;
+            padding: 0 0.5rem;
+        }
+
+        .page-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            height: 36px;
+            padding: 0 0.875rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: inherit;
+            text-decoration: none;
+            border: 1px solid var(--c-border);
+            color: var(--c-text-muted);
+            background: var(--c-surface);
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+
+        .page-btn:hover {
+            background: var(--c-surface-2);
+            border-color: var(--c-primary);
+            color: var(--c-primary);
+        }
+
+        .page-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* ─── Modal ──────────────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-overlay.is-open {
+            display: flex;
+        }
+
+        .modal-box {
+            background: var(--c-surface);
+            border-radius: 16px;
+            max-width: 640px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--c-border);
+        }
+
+        .modal-header h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin: 0;
+            color: var(--c-text);
+        }
+
+        .modal-close {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: var(--c-surface-2);
+            cursor: pointer;
+            color: var(--c-text-muted);
+            transition: all 0.1s;
+        }
+
+        .modal-close:hover {
+            background: var(--c-danger-bg);
+            color: var(--c-danger-fg);
+        }
+
+        .modal-body {
+            padding: 1.25rem 1.5rem;
+        }
+
+        .modal-field {
+            margin-bottom: 1rem;
+        }
+
+        .modal-field:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-section-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--c-text-muted);
+            margin: 0 0 0.4rem;
+        }
+
+        .modal-value {
+            font-size: 0.83rem;
+            color: var(--c-text);
+            word-break: break-word;
+        }
+
+        .modal-ua-value {
+            font-size: 0.75rem;
+            color: var(--c-text-muted);
+        }
+
+        .modal-json {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.78rem;
+            background: var(--c-surface-2);
+            border: 1px solid var(--c-border);
+            border-radius: 8px;
+            padding: 0.875rem 1rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--c-text);
+            margin: 0;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+
+        /* ─── Mobile ─────────────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .main {
+                grid-template-columns: 1fr;
+                padding: 1rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .topbar-inner {
+                padding: 0 1rem;
+            }
+
+            .page-header {
+                padding: 1.25rem 1rem;
+            }
+
+            .page-header h1 {
+                font-size: 1.15rem;
+            }
+
+            .filter-group {
+                flex: 1 1 100%;
+            }
+
+            .btn-filter,
+            .btn-clear {
+                flex: 1 1 auto;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Topbar ──────────────────────────────────────────────────────────── -->
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="topbar-brand">
+                {% if company_logo %}
+                <img src="{{ company_logo | e }}" alt="{{ company_name | e }}" class="topbar-logo" />
+                {% endif %}
+                <span class="topbar-title">
+                    {{ company_name | e }}
+                    <span class="topbar-sub">| Logs de Integração</span>
+                </span>
+            </div>
+            <a href="{{ url_for('portal.dashboard') }}" class="topbar-back">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M19 12H5M12 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                Dashboard
+            </a>
+        </div>
+    </header>
+
+    <!-- ── Page header ─────────────────────────────────────────────────────── -->
+    <div class="page-header">
+        <div class="page-header-inner">
+            <h1>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    style="vertical-align:-3px;margin-right:6px;">
+                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <line x1="9" y1="13" x2="15" y2="13" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" />
+                    <line x1="9" y1="17" x2="12" y2="17" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" />
+                </svg>
+                Logs de Integração
+            </h1>
+            <p>Erros de pagamento recebidos do WordPress, MP Bricks e sincronizações externas.</p>
+            <span class="access-badge">🔒 Acesso restrito — super admin / gerente</span>
+        </div>
+    </div>
+
+    <!-- ── Main (sidebar + content) ───────────────────────────────────────── -->
+    <main class="main">
+
+        <!-- ── Sidebar: calendário picker ──────────────────────────────────── -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span class="sidebar-header-label">Período</span>
+            </div>
+            <div class="cal-wrapper">
+                <div class="cal-nav">
+                    <button type="button" class="cal-nav-btn" id="cal-prev" onclick="calPrev()">&#8249;</button>
+                    <span id="cal-month-label" class="cal-month-label"></span>
+                    <button type="button" class="cal-nav-btn" id="cal-next" onclick="calNext()">&#8250;</button>
+                </div>
+                <div class="cal-grid" id="cal-grid"></div>
+                <div class="cal-footer">
+                    <div id="cal-selection-label" class="cal-selection-label"></div>
+                    <button type="button" class="cal-apply-btn" id="cal-apply" onclick="calApply()">Aplicar</button>
+                    <a href="{{ url_for('admin.integration_logs', source=filtro_source or '', category=filtro_category or '') }}"
+                        class="cal-clear-link">Limpar — voltar para hoje</a>
+                </div>
+                <div class="cal-legend">
+                    <span class="cal-legend-dot"></span>
+                    dias com erros registrados
+                </div>
+            </div>
+        </aside>
+
+        <!-- ── Conteúdo: filtros + tabela ───────────────────────────────────── -->
+        <div class="content">
+
+            <!-- ── Filtro de fonte ──────────────────────────────────────────── -->
+            <form class="filter-bar" method="GET" action="{{ url_for('admin.integration_logs') }}" id="logs-filter-form">
+                <input type="hidden" name="data"     id="f-data-inicio" value="{{ data_inicio.isoformat() }}" />
+                <input type="hidden" name="data_fim" id="f-data-fim"    value="{{ data_fim.isoformat() }}" />
+
+                <div class="filter-group">
+                    <label for="f-source">Fonte</label>
+                    <select id="f-source" name="source" class="filter-select">
+                        <option value="">Todas as fontes</option>
+                        <option value="MP_BRICKS"   {% if filtro_source == 'MP_BRICKS'   %}selected{% endif %}>MP Bricks</option>
+                        <option value="WP_INTERNAL" {% if filtro_source == 'WP_INTERNAL' %}selected{% endif %}>WP Internal</option>
+                        <option value="SISTUR_QR"   {% if filtro_source == 'SISTUR_QR'   %}selected{% endif %}>Sistur QR / Cartão</option>
+                        <option value="SISTUR_SYNC" {% if filtro_source == 'SISTUR_SYNC' %}selected{% endif %}>Sistur Sync</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="f-category">Categoria</label>
+                    <select id="f-category" name="category" class="filter-select">
+                        <option value="">Todas as categorias</option>
+                        <option value="system"       {% if filtro_category == 'system'       %}selected{% endif %}>🔴 Sistema / Infra</option>
+                        <option value="client_bank"  {% if filtro_category == 'client_bank'  %}selected{% endif %}>🟡 Banco / MP</option>
+                        <option value="invalid_data" {% if filtro_category == 'invalid_data' %}selected{% endif %}>🔵 Dados inválidos</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-filter">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" />
+                        <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Filtrar
+                </button>
+
+                {% if filtro_source or filtro_category %}
+                <a href="{{ url_for('admin.integration_logs', data=data_inicio.isoformat(), data_fim=data_fim.isoformat()) }}"
+                    class="btn-clear">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" />
+                    </svg>
+                    Limpar
+                </a>
+                {% endif %}
+            </form>
+
+            <!-- ── Título do dia + contador ─────────────────────────────────── -->
+            <div class="day-title-bar">
+                <span class="day-title">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" />
+                        <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" />
+                        <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" />
+                    </svg>
+                    {% if data_inicio == data_fim %}
+                    {{ data_inicio.strftime('%d de %B de %Y') }}
+                    {% else %}
+                    {{ data_inicio.strftime('%d/%m/%Y') }} → {{ data_fim.strftime('%d/%m/%Y') }}
+                    {% endif %}
+                </span>
+                <span class="results-count">
+                    {{ pagination.total }} erro{{ 's' if pagination.total != 1 else '' }}
+                    — página {{ pagination.page }} de {{ pagination.pages or 1 }}
+                </span>
+            </div>
+
+            <!-- ── Tabela ────────────────────────────────────────────────────── -->
+            <div class="table-card">
+                {% if logs %}
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Fonte</th>
+                                <th>Categoria</th>
+                                <th>Código / Status MP</th>
+                                <th>Mensagem</th>
+                                <th>Reserva</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <!-- Hora -->
+                                <td class="td-timestamp">
+                                    {{ log.created_at.strftime('%H:%M:%S') }}<br>
+                                    <span class="td-log-id">#{{ log.id }}</span>
+                                </td>
+
+                                <!-- Fonte (badge) -->
+                                <td>
+                                    <span class="badge-source badge-{{ log.error_source | lower }}">
+                                        {{ log.error_source }}
+                                    </span>
+                                </td>
+
+                                <!-- Categoria -->
+                                <td>
+                                    {% if log.error_category %}
+                                    {% set cat_labels = {'system': 'Sistema', 'client_bank': 'Banco/MP', 'invalid_data': 'Dados'} %}
+                                    <span class="badge-cat badge-cat-{{ log.error_category }}">
+                                        {{ cat_labels.get(log.error_category, log.error_category) }}
+                                    </span>
+                                    {% else %}
+                                    <span class="badge-cat badge-cat-unknown">—</span>
+                                    {% endif %}
+                                </td>
+
+                                <!-- Código + Status MP -->
+                                <td class="td-code">
+                                    {{ log.error_code or '—' }}
+                                    {% if log.mp_status_detail %}
+                                    <br><span class="td-status-detail" title="{{ log.mp_status_detail | e }}">{{ log.mp_status_detail }}</span>
+                                    {% endif %}
+                                </td>
+
+                                <!-- Mensagem (truncada) -->
+                                <td class="td-message" title="{{ log.error_message | e }}">
+                                    {{ log.error_message or '—' }}
+                                </td>
+
+                                <!-- Reserva ID -->
+                                <td class="td-reserva">
+                                    {% if log.reserva_id %}
+                                    <a href="{{ url_for('reservas.detalhe', reserva_id=log.reserva_id) }}"
+                                       class="td-reserva-link"
+                                       target="_blank">#{{ log.reserva_id }}</a>
+                                    {% else %}
+                                    <span class="td-null">—</span>
+                                    {% endif %}
+                                </td>
+
+                                <!-- Payload -->
+                                <td>
+                                    {% if log.raw_payload %}
+                                    <button type="button" class="btn-details"
+                                        onclick="openModal({{ log.id }}, {{ log.raw_payload | tojson }}, {{ log.error_message | tojson }}, {{ log.user_agent | tojson if log.user_agent else 'null' }})">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                                            <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" />
+                                            <path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" />
+                                        </svg>
+                                        Ver
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ── Paginação ────────────────────────────────────────────── -->
+                {% if pagination.pages > 1 %}
+                <div class="pagination">
+                    {% set base_args = {'data': data_inicio.isoformat(), 'data_fim': data_fim.isoformat()} %}
+                    {% if filtro_source %}{% set base_args = dict(base_args, source=filtro_source) %}{% endif %}
+                    {% if filtro_category %}{% set base_args = dict(base_args, category=filtro_category) %}{% endif %}
+
+                    <a href="{{ url_for('admin.integration_logs', page=pagination.prev_num, **base_args) if pagination.has_prev else '#' }}"
+                        class="page-btn {% if not pagination.has_prev %}disabled{% endif %}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                        </svg>
+                        Anterior
+                    </a>
+
+                    <span class="page-info">Página {{ pagination.page }} de {{ pagination.pages }}</span>
+
+                    <a href="{{ url_for('admin.integration_logs', page=pagination.next_num, **base_args) if pagination.has_next else '#' }}"
+                        class="page-btn {% if not pagination.has_next %}disabled{% endif %}">
+                        Próxima
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                        </svg>
+                    </a>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <!-- ── Estado vazio ───────────────────────────────────────────── -->
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <polyline points="13 2 13 9 20 9" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h3>Nenhum erro registrado</h3>
+                    {% if data_inicio == data_fim %}
+                    <p>Nenhum erro de integração foi recebido em {{ data_inicio.strftime('%d/%m/%Y') }}.</p>
+                    {% else %}
+                    <p>Nenhum erro de integração foi recebido entre {{ data_inicio.strftime('%d/%m/%Y') }} e {{ data_fim.strftime('%d/%m/%Y') }}.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+        </div><!-- /content -->
+    </main>
+
+    <!-- ── Modal de payload ────────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="details-modal" onclick="if(event.target===this)closeModal()">
+        <div class="modal-box" role="dialog" aria-modal="true" aria-label="Detalhes do log">
+            <div class="modal-header">
+                <h3 id="modal-title">Detalhes do erro</h3>
+                <button class="modal-close" onclick="closeModal()" aria-label="Fechar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-field" id="modal-message-section">
+                    <p class="modal-section-label">Mensagem de erro</p>
+                    <p class="modal-value" id="modal-message">—</p>
+                </div>
+                <div class="modal-field" id="modal-ua-section">
+                    <p class="modal-section-label">User-Agent</p>
+                    <p class="modal-value modal-ua-value" id="modal-ua"></p>
+                </div>
+                <div class="modal-field">
+                    <p class="modal-section-label">Raw Payload</p>
+                    <pre class="modal-json" id="modal-json">—</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ── Calendário interativo ─────────────────────────────────────────────
+        var ERROR_DAYS = {{ dias_com_erros_map | tojson }};
+        var MONTHS_PT  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                          'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        var DOWS       = ['D','S','T','Q','Q','S','S'];
+
+        var selStart   = '{{ data_inicio.isoformat() }}';
+        var selEnd     = '{{ data_fim.isoformat() }}';
+        var clickPhase = 0; // 0=aguardando início, 1=aguardando fim
+
+        var today       = new Date();
+        var todayISO    = today.toISOString().slice(0, 10);
+        var viewYear    = parseInt(selStart.slice(0, 4));
+        var viewMonth   = parseInt(selStart.slice(5, 7)) - 1; // 0-based
+
+        function isoFromParts(y, m, d) {
+            return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        }
+
+        function fmtDate(iso) {
+            if (!iso) return '';
+            var p = iso.split('-');
+            return p[2] + '/' + p[1] + '/' + p[0];
+        }
+
+        function renderCalendar() {
+            document.getElementById('cal-month-label').textContent =
+                MONTHS_PT[viewMonth] + ' ' + viewYear;
+
+            var grid = document.getElementById('cal-grid');
+            grid.innerHTML = '';
+
+            // Cabeçalho dos dias da semana
+            DOWS.forEach(function(d) {
+                var el = document.createElement('div');
+                el.className = 'cal-dow';
+                el.textContent = d;
+                grid.appendChild(el);
+            });
+
+            var firstDow    = new Date(viewYear, viewMonth, 1).getDay();
+            var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+            // Células vazias antes do dia 1
+            for (var i = 0; i < firstDow; i++) {
+                var blank = document.createElement('div');
+                blank.className = 'cal-day cal-day-empty';
+                grid.appendChild(blank);
+            }
+
+            // Células dos dias
+            for (var d = 1; d <= daysInMonth; d++) {
+                var iso = isoFromParts(viewYear, viewMonth, d);
+                var el  = document.createElement('div');
+                el.className  = 'cal-day';
+                el.textContent = d;
+                el.dataset.iso = iso;
+
+                if (iso === todayISO) el.classList.add('cal-day-today');
+
+                if (ERROR_DAYS[iso]) {
+                    el.classList.add('cal-day-has-errors');
+                    el.title = ERROR_DAYS[iso] + ' erro' + (ERROR_DAYS[iso] !== 1 ? 's' : '');
+                }
+
+                // Destaque de intervalo
+                var isStart  = (iso === selStart);
+                var isEnd    = (iso === selEnd);
+                var inRange  = selStart && selEnd && iso > selStart && iso < selEnd;
+
+                if (isStart)  el.classList.add('cal-day-sel-start');
+                if (isEnd)    el.classList.add('cal-day-sel-end');
+                if (inRange)  el.classList.add('cal-day-in-range');
+                // Extremidades também recebem fundo de range se for intervalo
+                if (selStart !== selEnd) {
+                    if (isStart || isEnd) el.classList.add('cal-day-in-range');
+                }
+
+                el.addEventListener('click', (function(i) {
+                    return function() { onDayClick(i); };
+                })(iso));
+
+                grid.appendChild(el);
+            }
+
+            updateSelectionLabel();
+        }
+
+        function onDayClick(iso) {
+            if (clickPhase === 0) {
+                selStart   = iso;
+                selEnd     = iso;
+                clickPhase = 1;
+            } else {
+                if (iso < selStart) {
+                    selEnd   = selStart;
+                    selStart = iso;
+                } else {
+                    selEnd = iso;
+                }
+                clickPhase = 0;
+            }
+            renderCalendar();
+        }
+
+        function updateSelectionLabel() {
+            var el = document.getElementById('cal-selection-label');
+            var btn = document.getElementById('cal-apply');
+
+            if (clickPhase === 1) {
+                el.textContent   = 'Clique no dia final…';
+                btn.disabled     = true;
+                return;
+            }
+            btn.disabled = false;
+            if (!selStart) {
+                el.textContent = 'Clique para selecionar';
+            } else if (selStart === selEnd) {
+                el.textContent = fmtDate(selStart);
+            } else {
+                el.textContent = fmtDate(selStart) + ' → ' + fmtDate(selEnd);
+            }
+        }
+
+        function calApply() {
+            if (clickPhase === 1) return;
+            document.getElementById('f-data-inicio').value = selStart || todayISO;
+            document.getElementById('f-data-fim').value    = selEnd   || selStart || todayISO;
+            document.getElementById('logs-filter-form').submit();
+        }
+
+        function calPrev() {
+            viewMonth--;
+            if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+            renderCalendar();
+        }
+
+        function calNext() {
+            viewMonth++;
+            if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+            renderCalendar();
+        }
+
+        renderCalendar();
+        // ─────────────────────────────────────────────────────────────────────
+
+        function openModal(id, payload, message, userAgent) {
+            document.getElementById('modal-title').textContent = 'Log #' + id;
+            document.getElementById('modal-message').textContent = message || '—';
+            var uaSection = document.getElementById('modal-ua-section');
+            if (userAgent) {
+                document.getElementById('modal-ua').textContent = userAgent;
+                uaSection.style.display = '';
+            } else {
+                uaSection.style.display = 'none';
+            }
+            document.getElementById('modal-json').textContent =
+                payload ? JSON.stringify(payload, null, 2) : '—';
+            document.getElementById('details-modal').classList.add('is-open');
+        }
+
+        function closeModal() {
+            document.getElementById('details-modal').classList.remove('is-open');
+        }
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,69 @@
+{#
+  _theme_toggle.html — Botão de alternância claro/escuro para a topbar.
+
+  Normalmente NÃO precisa ser incluído manualmente: já vem embutido em
+  _avisos_bell.html (ao lado do sino), então aparece em todos os módulos.
+  Inclua avulso apenas se quiser o toggle sem o sino.
+
+  Depende de _design_system.html (que aplica o tema salvo antes do paint).
+  Persiste a escolha em localStorage 'sistur-theme'. Touch >= 44px, aria-label.
+  Seguro para múltiplas instâncias na mesma página (usa classe, não id).
+#}
+<button type="button"
+        class="ds-theme-toggle"
+        onclick="dsToggleTheme()"
+        aria-label="Alternar tema claro/escuro"
+        title="Alternar tema"
+        style="display:inline-flex;align-items:center;justify-content:center;
+               width:44px;height:44px;border-radius:8px;border:none;
+               background:transparent;color:var(--c-text-muted, #64748b);cursor:pointer;
+               transition:background .15s,color .15s;
+               -webkit-tap-highlight-color:transparent;">
+  {# Ícone sol (visível no tema escuro = "clique para clarear") #}
+  <svg class="ds-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true" style="display:none;">
+    <circle cx="12" cy="12" r="4"/>
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+  </svg>
+  {# Ícone lua (visível no tema claro = "clique para escurecer") #}
+  <svg class="ds-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+</button>
+
+{# Script definido apenas uma vez por página, mesmo com vários toggles #}
+{% if not _ds_theme_toggle_script_loaded %}
+{% set _ds_theme_toggle_script_loaded = true %}
+<script>
+  // Sincroniza o ícone de TODOS os toggles conforme o tema atual.
+  window.dsSyncThemeIcon = function () {
+    var isDark = document.documentElement.classList.contains('dark');
+    document.querySelectorAll('.ds-theme-toggle').forEach(function (btn) {
+      var sun  = btn.querySelector('.ds-icon-sun');
+      var moon = btn.querySelector('.ds-icon-moon');
+      if (sun)  sun.style.display  = isDark ? 'block' : 'none';
+      if (moon) moon.style.display = isDark ? 'none'  : 'block';
+    });
+  };
+  window.dsToggleTheme = function () {
+    var isDark = document.documentElement.classList.toggle('dark');
+    var val = isDark ? 'dark' : 'light';
+    window.dsSyncThemeIcon();
+    // Default do dispositivo (usado antes do login, quando não há conta).
+    try { localStorage.setItem('sistur-theme', val); } catch (e) {}
+    // Preferência POR CONTA no servidor (vence quando logado; 401 se anônimo).
+    try {
+      fetch("{{ url_for('portal.definir_tema') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ tema: val })
+      }).catch(function () { /* anônimo/offline: localStorage já guardou */ });
+    } catch (e) {}
+  };
+  window.dsSyncThemeIcon();
+</script>
+{% endif %}

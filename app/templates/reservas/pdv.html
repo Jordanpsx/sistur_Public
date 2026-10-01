@@ -1,0 +1,1829 @@
+{% extends "reservas/reservas_base.html" %}
+{#
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+
+  PDV (Caixa) — SPA de venda rápida de balcão. Fase 2 do PDV_PROJECT_PLAN.md.
+
+  Layout premium POS: 65/35 (catálogo | carrinho), busca grande sticky com
+  pills de categoria, itens em cards, carrinho com rodapé fixo (subtotal,
+  métodos rápidos e botão COBRAR).
+
+  TEMA: todo o styling usa os tokens semânticos do _design_system.html
+  (--c-surface, --c-text, --c-border, ...) que trocam sob .dark — NUNCA
+  utilitários dark: do Tailwind nem hex cru. Motivo: grande parte do markup
+  é injetado via JS (innerHTML) e classes geradas dinamicamente não são
+  estilizadas de forma confiável pelo Tailwind Play CDN; tokens em CSS
+  próprio funcionam nos dois temas sem depender do JIT.
+
+  Zero recargas: turno, catálogo (IndexedDB + índice em memória), carrinho
+  (localStorage anti-F5), venda suspensa, pagamento com troco instantâneo e
+  comanda vivem em client-side state consumindo /api/v1/pdv.
+
+  Contrato de foco: a busca (#pdv-search) recupera o foco após toda ação.
+  Atalhos: Enter adiciona · ↑↓ navega · +/- qtd · Del remove · F4 segurar ·
+  F6 retomar · F7 comanda · F8 pagamento · 1-5 método · Esc volta.
+#}
+
+{% block html_title %}PDV (Caixa){% endblock %}
+{% block page_title %}PDV (Caixa){% endblock %}
+{% block page_subtitle %}
+  <p class="text-sm mt-0.5" style="color:var(--c-text-muted)">Venda rápida de balcão — operação por teclado</p>
+{% endblock %}
+
+{% block main_class %}flex-1 p-0 flex flex-col min-h-0{% endblock %}
+
+{% block reservas_content %}
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     PDV — componentes 100% via tokens semânticos (claro + escuro).
+     ════════════════════════════════════════════════════════════════ */
+
+  /* ── Micro-feedback (<100ms) ── */
+  @keyframes pdv-pulse { 0% { background-color: var(--c-primary-light); } 100% { background-color: var(--c-surface); } }
+  .pdv-line-flash { animation: pdv-pulse .5s ease-out; }
+  @keyframes pdv-pop { 0% { transform: scale(.97); } 100% { transform: scale(1); } }
+  .pdv-card:active { animation: pdv-pop .12s ease-out; }
+
+  #pdv-app kbd {
+    font-size: 10px; padding: 1px 5px; border-radius: 4px;
+    border: 1px solid var(--c-border); background: var(--c-surface-2);
+    color: var(--c-text-muted);
+  }
+  .pdv-checkout kbd { border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.15); color: #fff; }
+
+  /* ── Painéis ── */
+  .pdv-panel { background: var(--c-surface); border: 1px solid var(--c-border); }
+  .pdv-cart-panel { background: var(--c-surface-2); border: 1px solid var(--c-border); }
+  .pdv-footer { background: var(--c-surface); border-top: 1px solid var(--c-border); }
+  .pdv-divide { border-color: var(--c-border) !important; }
+
+  /* ── Tipografia semântica ── */
+  .pdv-title { color: var(--c-text); }
+  .pdv-muted { color: var(--c-text-muted); }
+
+  /* ── Inputs / select ── */
+  .pdv-input {
+    width: 100%; border-radius: 12px; font-size: 14px;
+    background: var(--c-surface); color: var(--c-text);
+    border: 1.5px solid var(--c-border);
+  }
+  .pdv-input:focus { border-color: var(--c-primary); outline: none; box-shadow: none; }
+  .pdv-input::placeholder { color: var(--c-text-muted); }
+
+  /* ── Busca grande ── */
+  #pdv-search {
+    min-height: 60px; padding-left: 48px; padding-right: 16px;
+    border-radius: 16px; font-size: 18px; font-weight: 500;
+    border-width: 2px;
+  }
+
+  /* ── Pills de categoria ── */
+  .pdv-pill {
+    min-height: 38px; padding: 0 16px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+    border: 1.5px solid var(--c-border); color: var(--c-text-muted);
+    background: transparent; transition: all .12s;
+  }
+  .pdv-pill:hover { border-color: var(--c-primary); color: var(--c-primary); }
+  .pdv-pill.sel { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+
+  /* ── Cards de item (catálogo) ── */
+  .pdv-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    min-height: 68px; padding: 12px 16px; border-radius: 10px; cursor: pointer;
+    border: 1px solid color-mix(in srgb, var(--c-border) 78%, transparent);
+    background: color-mix(in srgb, var(--c-surface-2) 88%, var(--c-text) 6%);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 70%, transparent);
+    transition: border-color .12s, box-shadow .12s, background .12s, transform .12s;
+  }
+  .pdv-card:hover {
+    border-color: var(--c-primary);
+    background: color-mix(in srgb, var(--c-surface-2) 76%, var(--c-primary) 8%);
+    box-shadow: var(--shadow-sm);
+  }
+  .pdv-card.active {
+    border-color: var(--c-primary);
+    background: color-mix(in srgb, var(--c-surface-2) 70%, var(--c-primary) 14%);
+    box-shadow: 0 0 0 2px var(--c-primary);
+  }
+  .pdv-card.blocked { opacity: .45; cursor: not-allowed; }
+  .pdv-card .nm {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 15px; font-weight: 750; color: var(--c-text); line-height: 1.25;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pdv-card .stock-dot {
+    width: 8px; height: 8px; border-radius: 999px; flex: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-surface) 78%, transparent);
+  }
+  .pdv-card .stock-dot.free { background: var(--c-success-fg); }
+  .pdv-card .stock-dot.limited { background: var(--c-warning-fg); }
+  .pdv-card .item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .pdv-card .meta { font-size: 11.5px; color: var(--c-text-muted); opacity: .92; margin-top: 3px;
+                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pdv-card .pr { font-size: 15px; font-weight: 800; color: var(--c-text); white-space: nowrap; }
+
+  /* ── Linhas do carrinho ── */
+  .pdv-cartline {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; border-radius: 12px; margin-bottom: 6px;
+    background: var(--c-surface); border: 1px solid var(--c-border);
+  }
+  .pdv-cartline .nm { font-size: 13.5px; font-weight: 700; color: var(--c-text);
+                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pdv-cartline .un { font-size: 11px; color: var(--c-text-muted); }
+  .pdv-cartline .tt { width: 80px; text-align: right; font-size: 13.5px; font-weight: 800; color: var(--c-text); }
+  .pdv-qty { width: 32px; text-align: center; font-size: 15px; font-weight: 800; color: var(--c-text); }
+  .pdv-qty-btn {
+    width: 40px; height: 40px; border-radius: 12px; flex: none;
+    border: 1.5px solid var(--c-border); color: var(--c-text);
+    font-size: 18px; font-weight: 700; line-height: 1; transition: all .12s;
+  }
+  .pdv-qty-btn:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
+  /* ── Botões auxiliares / métodos ── */
+  .pdv-btn-sec {
+    min-height: 44px; border-radius: 12px; font-size: 12.5px; font-weight: 600;
+    border: 1.5px solid var(--c-border); color: var(--c-text-muted);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: all .12s; background: var(--c-surface);
+  }
+  .pdv-btn-sec:hover { border-color: var(--c-primary); color: var(--c-primary); }
+  .pdv-sync-btn {
+    min-height: 32px; border-radius: 10px; padding: 0 10px;
+    border: 1px solid color-mix(in srgb, var(--c-warning-bd) 80%, var(--c-border) 20%);
+    background: var(--c-warning-bg); color: var(--c-warning-fg);
+    font-size: 11px; font-weight: 800; transition: all .12s;
+  }
+  .pdv-sync-btn:hover:not(:disabled) { border-color: var(--c-primary); color: var(--c-primary); }
+  .pdv-sync-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  .pdv-fastpay {
+    min-height: 52px; border-radius: 12px; font-size: 13px; font-weight: 700;
+    border: 1.5px solid color-mix(in srgb, var(--c-border) 70%, var(--c-text) 12%);
+    color: var(--c-text);
+    background: color-mix(in srgb, var(--c-surface-2) 76%, var(--c-text) 10%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    transition: all .12s;
+  }
+  .pdv-fastpay:hover:not(:disabled),
+  .pdv-fastpay.sel {
+    border-color: var(--c-primary);
+    color: var(--c-primary);
+    background: color-mix(in srgb, var(--c-primary-light) 78%, var(--c-surface) 22%);
+    box-shadow: 0 0 0 1px var(--c-primary);
+  }
+  .pdv-fastpay:disabled { opacity: .35; cursor: not-allowed; }
+  .pdv-pay-icon {
+    width: 18px; height: 18px; flex: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .pdv-method-btn {
+    min-height: 54px; border-radius: 12px; font-size: 14px; font-weight: 700;
+    border: 2px solid color-mix(in srgb, var(--c-border) 70%, var(--c-text) 12%);
+    text-align: left; padding: 0 16px;
+    display: flex; align-items: center; gap: 10px; color: var(--c-text);
+    background: color-mix(in srgb, var(--c-surface-2) 76%, var(--c-text) 10%);
+    transition: all .12s;
+  }
+  .pdv-method-btn:hover:not(:disabled) {
+    border-color: var(--c-primary);
+    color: var(--c-primary);
+  }
+  .pdv-method-btn.sel {
+    border-color: var(--c-primary);
+    color: var(--c-primary);
+    background: color-mix(in srgb, var(--c-primary-light) 82%, var(--c-surface) 18%);
+    box-shadow: 0 0 0 1px var(--c-primary);
+  }
+  .pdv-method-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .pdv-method-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pdv-empty-cart {
+    padding: 32px; text-align: center; font-size: 14px;
+    color: color-mix(in srgb, var(--c-text-muted) 70%, var(--c-text) 30%);
+  }
+
+  .pdv-quick-btn {
+    min-height: 46px; border-radius: 12px; font-size: 13px; font-weight: 700;
+    border: 1.5px solid var(--c-border); color: var(--c-text); background: var(--c-surface);
+    transition: all .12s;
+  }
+  .pdv-quick-btn:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
+  /* ── Botão COBRAR ── */
+  .pdv-checkout {
+    width: 100%; min-height: 60px; border-radius: 16px;
+    font-size: 17px; font-weight: 800; letter-spacing: .01em; color: #fff;
+    background: linear-gradient(135deg, var(--c-primary), var(--c-primary-dark));
+    box-shadow: var(--shadow-md);
+    transition: transform .1s, box-shadow .12s, opacity .12s;
+  }
+  .pdv-checkout:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+  .pdv-checkout:active:not(:disabled) { transform: translateY(0); }
+  .pdv-checkout:disabled { opacity: .35; box-shadow: none; cursor: not-allowed; }
+
+  /* ── Estados / avisos ── */
+  .pdv-err  { background: var(--c-danger-bg);  color: var(--c-danger-fg);  border: 1px solid var(--c-danger-bd);  border-radius: 12px; font-size: 12px; padding: 12px; }
+  .pdv-warn { background: var(--c-warning-bg); color: var(--c-warning-fg); border: 1px solid var(--c-warning-bd); border-radius: 12px; font-size: 12px; padding: 12px; }
+  .pdv-troco { background: var(--c-primary-light); border-radius: 12px; }
+  .pdv-troco * { color: var(--c-primary-dark); }
+  .dark .pdv-troco * { color: var(--c-primary); }
+
+  /* ── Modal ── */
+  .pdv-modal { background: var(--c-surface); border: 1px solid var(--c-border); }
+  .pdv-modal-row { border-radius: 12px; transition: background .12s; }
+  .pdv-modal-row:hover { background: var(--c-surface-2); }
+
+  /* ── Barra de status (fixa escura como a sidebar, nos dois temas) ── */
+  #status-bar { background: #0f172a; color: #cbd5e1; }
+  .pdv-offline-tint { background: #b45309 !important; color: #fff !important; }
+</style>
+
+<div id="pdv-app" class="flex flex-col flex-1 min-h-0" style="min-height: calc(100vh - 140px);">
+
+  <!-- ══════════════ VIEW: LOADING ══════════════ -->
+  <div id="view-loading" class="flex-1 flex items-center justify-center text-sm p-10 pdv-muted">
+    Carregando PDV…
+  </div>
+
+  <!-- ══════════════ VIEW: ABRIR TURNO ══════════════ -->
+  <div id="view-shift" class="hidden flex-1 items-start justify-center p-6">
+    <div class="pdv-panel w-full max-w-md rounded-2xl p-6 mt-8" style="box-shadow:var(--shadow-sm)">
+      <h2 class="text-lg font-bold pdv-title mb-1">Abrir turno de caixa</h2>
+      <p class="text-sm pdv-muted mb-5">Informe o venue e os fundos de troco do turno.</p>
+
+      <div id="shift-report" class="hidden mb-5 rounded-xl p-4 text-sm pdv-title" style="border:1px solid var(--c-border)"></div>
+
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide mb-1.5">Local (venue)</label>
+      <select id="shift-source" class="pdv-input mb-4" style="min-height:44px"></select>
+
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide mb-1.5">Fundo de troco na gaveta (R$)</label>
+      <input id="shift-float" type="number" min="0" step="0.01" value="0" class="pdv-input mb-4" style="min-height:44px" />
+
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide mb-1.5">Fundo PIX para troco (R$)</label>
+      <input id="shift-float-pix" type="number" min="0" step="0.01" value="0" class="pdv-input mb-5" style="min-height:44px" />
+
+      <div id="shift-error" class="hidden pdv-err mb-4"></div>
+
+      <button id="btn-open-shift" class="pdv-checkout" style="min-height:52px;font-size:15px">
+        Abrir turno e iniciar vendas
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════ VIEW: POS ══════════════ -->
+  <div id="view-pos" class="hidden flex-1 min-h-0 flex-col">
+    <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[65fr_35fr] gap-4 p-4">
+
+      <!-- ════ PAINEL ESQUERDO: busca + filtros + catálogo (65%) ════ -->
+      <div class="pdv-panel flex flex-col min-h-0 rounded-2xl overflow-hidden">
+
+        <!-- Busca grande, sticky -->
+        <div class="shrink-0 p-4 pb-3 space-y-3 border-b pdv-divide">
+          <div class="relative">
+            <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none" style="color:var(--c-text-muted)"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input id="pdv-search" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="Buscar item por nome, ID ou slug…" class="pdv-input" />
+          </div>
+          <!-- Pills de categoria -->
+          <div id="pdv-filters" class="flex gap-2 overflow-x-auto pb-0.5 -mb-0.5"></div>
+        </div>
+
+        <!-- Grid de cards -->
+        <div id="pdv-results" class="flex-1 overflow-y-auto p-3 grid content-start gap-2 grid-cols-1 xl:grid-cols-2"></div>
+
+        <div class="shrink-0 px-4 py-2 border-t pdv-divide flex flex-wrap gap-x-4 gap-y-1 text-[11px] pdv-muted">
+          <span><kbd>Enter</kbd> adicionar</span><span><kbd>↑↓</kbd> navegar</span>
+          <span><kbd>+</kbd>/<kbd>−</kbd> qtd</span><span><kbd>Del</kbd> remover</span>
+          <span><kbd>F4</kbd> segurar</span><span><kbd>F6</kbd> retomar</span>
+          <span><kbd>F7</kbd> comanda</span><span><kbd>F8</kbd> pagamento</span>
+        </div>
+      </div>
+
+      <!-- ════ PAINEL DIREITO: carrinho / pagamento (35%) ════ -->
+      <div class="pdv-cart-panel flex flex-col min-h-0 rounded-2xl overflow-hidden">
+
+        <!-- ── Painel carrinho ── -->
+        <div id="panel-cart" class="flex flex-col flex-1 min-h-0">
+
+          <!-- Header: vincular cliente + retomar -->
+          <div class="shrink-0 p-3 border-b pdv-divide flex gap-2">
+            <button data-action="comanda" id="btn-link-customer" class="pdv-btn-sec flex-1 px-3" style="justify-content:flex-start">
+              <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span id="cart-customer" class="truncate">Vincular Cliente / Comanda</span>
+              <kbd class="ml-auto">F7</kbd>
+            </button>
+            <button data-action="resume" class="pdv-btn-sec px-3" title="Retomar venda suspensa">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+              </svg>
+              <span id="held-count"></span><kbd>F6</kbd>
+            </button>
+          </div>
+
+          <!-- Linhas do carrinho -->
+          <div id="cart-lines" class="flex-1 overflow-y-auto p-2"></div>
+
+          <div id="cart-error" class="hidden shrink-0 mx-3 mb-2 pdv-err"></div>
+
+          <!-- ── RODAPÉ FIXO ── -->
+          <div class="pdv-footer shrink-0 p-4 space-y-3">
+            <div class="flex items-center justify-between text-sm">
+              <span class="pdv-muted font-medium">Subtotal</span>
+              <span id="ft-subtotal" class="font-bold pdv-title">R$ 0,00</span>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <label class="text-xs pdv-muted">Desconto (%)</label>
+              <input id="cart-discount" type="number" min="0" max="100" step="0.5" value="0"
+                     class="pdv-input" style="width:80px;min-height:38px;text-align:right" />
+            </div>
+
+            <!-- Métodos rápidos -->
+            <div class="grid grid-cols-3 gap-2">
+              <button data-fastpay="CASH" class="pdv-fastpay">
+                <svg class="pdv-pay-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9h1.5M16.5 15H18"/></svg>
+                Dinheiro
+              </button>
+              <button data-fastpay="EXTERNAL_CARD_TERMINAL" class="pdv-fastpay">
+                <svg class="pdv-pay-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+                Cartão
+              </button>
+              <button data-fastpay="EXTERNAL_PIX" class="pdv-fastpay">
+                <svg class="pdv-pay-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 21 12 12 21 3 12 12 3Z"/><path d="M8 12h8M12 8v8"/></svg>
+                Pix
+              </button>
+            </div>
+
+            <!-- COBRAR -->
+            <button data-action="pay" id="btn-pay" class="pdv-checkout" disabled>
+              COBRAR <span id="ft-total">R$ 0,00</span>&nbsp;<kbd>F8</kbd>
+            </button>
+
+            <button data-action="hold" class="pdv-btn-sec w-full" style="min-height:40px">
+              Suspender venda <kbd>F4</kbd>
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Painel pagamento (substitui o carrinho, Esc volta) ── -->
+        <div id="panel-pay" class="hidden flex-col flex-1 min-h-0">
+          <div class="shrink-0 px-4 py-3 border-b pdv-divide flex items-center justify-between">
+            <h3 class="font-bold pdv-title text-sm">Pagamento</h3>
+            <button data-action="back" class="text-xs pdv-muted" style="min-height:44px">← Voltar <kbd>Esc</kbd></button>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div class="text-center">
+              <div class="text-xs font-semibold pdv-muted uppercase tracking-wide">Total a cobrar</div>
+              <div id="pay-total" class="text-4xl font-extrabold pdv-title mt-1">—</div>
+              <div id="pay-quote-note" class="text-[11px] pdv-muted mt-1"></div>
+            </div>
+            <div id="pay-methods" class="grid grid-cols-1 gap-2"></div>
+            <!-- Dinheiro: troco -->
+            <div id="pay-cash" class="hidden space-y-3">
+              <div class="grid grid-cols-4 gap-2" id="pay-quick"></div>
+              <input id="pay-tendered" type="number" min="0" step="0.01" placeholder="Valor recebido (R$)"
+                     class="pdv-input" style="min-height:50px;text-align:right;font-size:18px;font-weight:700" />
+              <div class="pdv-troco flex items-center justify-between px-4 py-3">
+                <span class="text-sm font-bold">TROCO</span>
+                <span id="pay-change" class="text-2xl font-extrabold">—</span>
+              </div>
+            </div>
+            <div id="pay-error" class="hidden pdv-err"></div>
+          </div>
+          <div class="pdv-footer shrink-0 p-4">
+            <button id="btn-confirm" disabled class="pdv-checkout">
+              Confirmar venda&nbsp;<kbd>Enter</kbd>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Barra de status ── -->
+    <div id="status-bar" class="shrink-0 mx-4 mb-4 rounded-xl text-xs px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1">
+      <span class="flex items-center gap-1.5"><span id="st-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span><span id="st-conn">online</span></span>
+      <span id="st-shift">—</span>
+      <span id="st-queue" class="hidden text-amber-300 font-semibold"></span>
+      <span id="st-queue-meta" class="hidden pdv-muted"></span>
+      <button id="btn-sync-now" class="hidden pdv-sync-btn" type="button">Sincronizar agora</button>
+      <span class="flex-1"></span>
+      <button id="btn-movimentacao-caixa" class="underline underline-offset-2" style="min-height:32px;color:inherit">Movimentar caixa</button>
+      <button id="btn-close-shift" class="underline underline-offset-2" style="min-height:32px;color:inherit">Fechar turno</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ MODAIS ══════════════ -->
+  <div id="modal-overlay" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+    <div id="modal-box" class="pdv-modal w-full max-w-md rounded-2xl max-h-[80vh] flex flex-col overflow-hidden" style="box-shadow:var(--shadow-lg)"></div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl text-white text-sm font-semibold" style="box-shadow:var(--shadow-lg)"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════════
+   PDV SPA — estado, cache de catálogo, carrinho anti-F5, pagamento.
+   Dinheiro em CENTAVOS (int) em todo o client-side.
+   Markup injetado usa APENAS classes próprias (.pdv-*) + utilitários
+   layout já presentes no HTML estático — nada de cores Tailwind em JS.
+   ════════════════════════════════════════════════════════════════════ */
+(function () {
+
+const API = "/api/v1/pdv";
+const LS_CART  = "pdv_cart_v1";
+const LS_HELD  = "pdv_held_v1";
+const LS_QUEUE = "pdv_queue_v1";
+const LS_QUEUE_META = "pdv_queue_meta_v1";
+const LS_DEV   = "pdv_device_id";
+const LS_SHIFT = "pdv_shift_v1";   // turno aberto cacheado p/ boot offline (F5 sem rede)
+const IDB_NAME = "pdv";
+const IDB_VERSION = 2;
+// Posse do cache do shell é EXCLUSIVA do service worker (pdv-sw.js).
+// A página nunca grava em caches diretamente — apenas pede via postMessage
+// (PDV_CACHE_SHELL). Motivo: página e SW com constantes de versão próprias
+// disputavam o cache (página gravava pdv-shell-v1, SW novo purgava v1),
+// deixando shells obsoletos vivos indefinidamente.
+const CART_TTL_MS = 4 * 60 * 60 * 1000;   // 4h — um turno
+const LIMITE_AUTORIZACAO = 500;   // R$ — espelha MovimentacaoCaixaService.LIMITE_EXIGE_AUTORIZACAO
+
+/* ── Estado global ─────────────────────────────────────────────── */
+const S = {
+  shift: null,          // {shift_id, source_id, source_name, ...}
+  index: [],            // catálogo achatado p/ busca
+  categories: [],       // nomes de categoria p/ pills
+  filterCat: null,      // pill ativa (null = Todos)
+  results: [],          // resultados filtrados atuais
+  hi: 0,                // índice destacado nos resultados
+  cart: newCart(),
+  held: loadJSON(LS_HELD, []),
+  queue: [],
+  queueMeta: loadJSON(LS_QUEUE_META, { lastAttemptAt: null, lastStatus: null, lastError: null }),
+  preferences: { default_source_id: null, pdv_default_status: null, pdv_favorite_item_ids: [] },
+  paying: false,
+  payMethod: null,
+  quote: null,          // resposta autoritativa de /quote
+  quoteSeq: 0,
+  quoteAbort: null,
+  lastSnapshot: null,   // carrinho p/ restauração em erro pós-otimismo
+};
+
+function newCart() { return { lines: [], discount: 0, customer: null, createdAt: Date.now() }; }
+function loadJSON(k, fb) { try { return JSON.parse(localStorage.getItem(k)) ?? fb; } catch { return fb; } }
+function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+function setQueueMeta(status, error = null) {
+  S.queueMeta = { lastAttemptAt: Date.now(), lastStatus: status, lastError: error };
+  saveJSON(LS_QUEUE_META, S.queueMeta);
+  updateStatusBar();
+}
+function deviceId() {
+  let d = localStorage.getItem(LS_DEV);
+  if (!d) { d = "term-" + crypto.randomUUID().slice(0, 8); localStorage.setItem(LS_DEV, d); }
+  return d;
+}
+
+/* ── Utilidades ────────────────────────────────────────────────── */
+const $ = (id) => document.getElementById(id);
+const fmt = (c) => (c / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtTime = (ts) => ts ? new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+const norm = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m]));
+const online = () => navigator.onLine;
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+    ...opts,
+  });
+  let body = null;
+  if (res.status !== 304) { try { body = await res.json(); } catch {} }
+  return { ok: res.ok, status: res.status, body, headers: res.headers };
+}
+
+function toast(msg, bad = false) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.style.background = bad ? "var(--c-danger-fg)" : "var(--c-primary)";
+  t.classList.remove("hidden");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.add("hidden"), 2600);
+}
+
+function focusSearch() { const el = $("pdv-search"); if (el && !el.disabled) { el.focus(); el.select(); } }
+
+/* ── IndexedDB — cache do catálogo ─────────────────────────────── */
+function idb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("catalog")) db.createObjectStore("catalog");
+      if (!db.objectStoreNames.contains("sync_queue")) db.createObjectStore("sync_queue", { keyPath: "id" });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error("IndexedDB upgrade blocked"));
+  });
+}
+async function idbGet(key) {
+  try {
+    const db = await idb();
+    return await new Promise((res) => {
+      const r = db.transaction("catalog").objectStore("catalog").get(key);
+      r.onsuccess = () => res(r.result || null);
+      r.onerror = () => res(null);
+    });
+  } catch { return null; }
+}
+async function idbSet(key, val) {
+  try {
+    const db = await idb();
+    db.transaction("catalog", "readwrite").objectStore("catalog").put(val, key);
+  } catch {}
+}
+
+/* ── IndexedDB — fila offline recuperável ──────────────────────── */
+async function queueAll() {
+  try {
+    const db = await idb();
+    return await new Promise((resolve) => {
+      const r = db.transaction("sync_queue").objectStore("sync_queue").getAll();
+      r.onsuccess = () => resolve((r.result || []).sort((a, b) => (a.enqueued_at || 0) - (b.enqueued_at || 0)));
+      r.onerror = () => resolve([]);
+    });
+  } catch {
+    return loadJSON(LS_QUEUE, [])
+      .map((job, idx) => ({ ...job, id: job.id || job.payload?.client_sale_uuid || `legacy-${idx}` }))
+      .sort((a, b) => (a.enqueued_at || 0) - (b.enqueued_at || 0));
+  }
+}
+
+async function queuePut(job) {
+  try {
+    const db = await idb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("sync_queue", "readwrite");
+      tx.objectStore("sync_queue").put(job);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    await queueRefresh();
+    return true;
+  } catch { return false; }
+}
+
+async function queueDelete(id) {
+  try {
+    const db = await idb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("sync_queue", "readwrite");
+      tx.objectStore("sync_queue").delete(id);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    const legacy = loadJSON(LS_QUEUE, []).filter((job) => job.id !== id && job.payload?.client_sale_uuid !== id);
+    saveJSON(LS_QUEUE, legacy);
+  }
+  await queueRefresh();
+}
+
+async function queueRefresh() {
+  S.queue = await queueAll();
+  updateStatusBar();
+}
+
+async function queueAdd(path, payload) {
+  const job = {
+    id: payload.client_sale_uuid || crypto.randomUUID(),
+    path,
+    payload,
+    enqueued_at: Date.now(),
+    attempts: 0,
+    last_error: null,
+  };
+  const ok = await queuePut(job);
+  if (!ok) {
+    S.queue.push(job);
+    saveJSON(LS_QUEUE, S.queue);
+    updateStatusBar();
+  }
+  setQueueMeta("pending", null);
+  await registerPdvSync();
+  return job;
+}
+
+async function migrateLegacyQueue() {
+  const legacy = loadJSON(LS_QUEUE, []);
+  if (!legacy.length) {
+    await queueRefresh();
+    return;
+  }
+  let migrated = true;
+  for (const [idx, job] of legacy.entries()) {
+    const ok = await queuePut({
+      id: job.payload?.client_sale_uuid || `legacy-${Date.now()}-${idx}`,
+      path: job.path,
+      payload: job.payload,
+      enqueued_at: job.enqueued_at || Date.now() + idx,
+      attempts: job.attempts || 0,
+      last_error: job.last_error || null,
+    });
+    migrated = migrated && ok;
+  }
+  if (migrated) localStorage.removeItem(LS_QUEUE);
+  await queueRefresh();
+}
+
+async function registerPdvSync() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(() => resolve(null), 1000)),
+    ]);
+    if (!reg) return;
+    if ("sync" in reg) await reg.sync.register("pdv-sale-sync");
+    else reg.active?.postMessage({ type: "PDV_QUEUE_DRAIN" });
+  } catch {}
+}
+
+async function registerPdvServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    // updateViaCache "none": o navegador nunca usa HTTP cache p/ o pdv-sw.js —
+    // atualizações do SW chegam no primeiro load online após um deploy.
+    const reg = await navigator.serviceWorker.register("/reservas/pdv-sw.js", {
+      scope: "/reservas/",
+      updateViaCache: "none",
+    });
+    reg.update().catch(() => {});
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data?.type === "PDV_QUEUE_CHANGED") queueRefresh();
+      if (event.data?.type === "PDV_QUEUE_DRAIN") drainQueue();
+    });
+    // Quando um SW novo assume (controllerchange), pede o warm do shell de
+    // novo — garante que a versão nova de cache (pdv-shell-vN) seja povoada
+    // já no PRIMEIRO load online após o deploy, sem exigir segundo reload.
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      navigator.serviceWorker.controller?.postMessage({ type: "PDV_CACHE_SHELL" });
+    });
+    warmPdvShellCache();
+    if (reg.active) reg.active.postMessage({ type: "PDV_QUEUE_DRAIN" });
+  } catch {}
+}
+
+async function loadPreferences() {
+  try {
+    const res = await api("/preferences");
+    if (res.ok && res.body) S.preferences = res.body;
+  } catch {}
+}
+
+async function warmPdvShellCache() {
+  // Delega ao SW (dono único do cache); ready resolve quando há SW ativo.
+  if (!online()) return;
+  try {
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
+    ]);
+    reg?.active?.postMessage({ type: "PDV_CACHE_SHELL" });
+  } catch {}
+}
+
+/* ── Catálogo: sync + índice em memória ────────────────────────── */
+async function loadCatalog(sourceId) {
+  const cached = await idbGet(sourceId);
+  let payload = cached ? cached.payload : null;
+  try {
+    const headers = cached && cached.etag ? { "If-None-Match": cached.etag } : {};
+    const res = await api(`/catalog?source_id=${sourceId}`, { headers });
+    if (res.status === 200 && res.body) {
+      payload = res.body;
+      idbSet(sourceId, { etag: res.headers.get("ETag"), payload });
+    }
+    // 304 → cache atual já é válido
+  } catch { /* offline — usa cache se houver */ }
+  if (!payload) throw new Error("Catálogo indisponível (sem rede e sem cache local).");
+
+  S.index = [];
+  S.categories = [];
+  for (const cat of payload.source.categories || []) {
+    if ((cat.items || []).length) S.categories.push(cat.name);
+    for (const it of cat.items || []) {
+      S.index.push({
+        id: it.id,
+        name: it.name,
+        slug: it.internal_slug || "",
+        price_c: Math.round((it.price || 0) * 100),
+        category: cat.name,
+        favorite: !!it.pdv_is_favorite,
+        favorite_rank: it.pdv_favorite_rank || null,
+        requires_resource: !!it.requires_resource,
+        resources: it.pdv_resources || [],
+        offline_ok: it.pdv_offline_allowed !== false,
+        norm: norm(`${it.name} ${it.internal_slug || ""} ${it.id}`),
+      });
+    }
+  }
+  S.index.sort((a, b) => {
+    const favA = a.favorite_rank || 999999;
+    const favB = b.favorite_rank || 999999;
+    if (favA !== favB) return favA - favB;
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+  renderFilters();
+}
+
+/* ── Pills de categoria ────────────────────────────────────────── */
+function renderFilters() {
+  const pills = [{ label: "Todos", val: null }, ...S.categories.map((c) => ({ label: c, val: c }))];
+  $("pdv-filters").innerHTML = pills.map((p) => `
+    <button data-filter="${esc(p.val ?? "")}" class="pdv-pill ${S.filterCat === p.val ? "sel" : ""}">${esc(p.label)}</button>
+  `).join("");
+}
+
+/* ── Busca 0ms (índice em memória) ─────────────────────────────── */
+function runSearch() {
+  const q = norm($("pdv-search").value.trim());
+  let base = S.filterCat ? S.index.filter((it) => it.category === S.filterCat) : S.index;
+  S.results = !q ? base.slice(0, 60) : base.filter((it) => it.norm.includes(q)).slice(0, 60);
+  S.hi = 0;
+  renderResults();
+}
+
+function renderResults() {
+  const off = !online();
+  $("pdv-results").innerHTML = S.results.map((it, i) => {
+    const blocked = off && !it.offline_ok && !S.cart.offlineOverride;
+    const stockClass = it.offline_ok ? "free" : "limited";
+    const stockTitle = it.offline_ok ? "Sem limite físico" : "Estoque limitado";
+    const fav = it.favorite ? `<span class="text-[10px] font-bold" title="Favorito do PDV">★</span>` : "";
+    return `
+    <div data-ridx="${i}" class="pdv-card ${i === S.hi ? "active" : ""} ${blocked ? "blocked" : ""}">
+      <div style="min-width:0">
+        <div class="nm"><span class="stock-dot ${stockClass}" title="${stockTitle}"></span>${fav}<span class="item-name">${esc(it.name)}</span>${blocked ? " 🔒" : ""}</div>
+        <div class="meta">${esc(it.category)} · Cód: ${it.id}</div>
+      </div>
+      <div class="pr">${fmt(it.price_c)}</div>
+    </div>`;
+  }).join("") || `<div class="pdv-muted" style="grid-column:1/-1;padding:32px;text-align:center;font-size:14px">Nenhum item encontrado.</div>`;
+}
+
+/* ── Carrinho ──────────────────────────────────────────────────── */
+let persistT = null;
+function persistCart() {
+  clearTimeout(persistT);
+  persistT = setTimeout(() => saveJSON(LS_CART, S.cart), 150);
+}
+
+function lineKey(itemId, resourceId = null) {
+  return `${itemId}:${resourceId || ""}`;
+}
+
+function saleItemsPayload(lines = S.cart.lines) {
+  return lines.map((l) => ({
+    item_id: l.item_id,
+    quantity: l.qty,
+    ...(l.resource_id ? { resource_id: l.resource_id } : {}),
+  }));
+}
+
+function addItemWithResource(it, resource = null) {
+  const key = lineKey(it.id, resource?.resource_id || null);
+  const line = S.cart.lines.find((l) => l.key === key);
+  if (line) line.qty += 1;
+  else S.cart.lines.push({
+    key,
+    item_id: it.id,
+    resource_id: resource?.resource_id || null,
+    resource_name: resource?.name || null,
+    resource_available: resource?.available ?? null,
+    name: it.name,
+    qty: 1,
+    price_c: it.price_c,
+    category: it.category,
+    offline_ok: it.offline_ok,
+    requires_resource: it.requires_resource,
+  });
+  S.cart.lastTouched = key;
+  persistCart(); renderCart();
+  $("pdv-search").value = ""; runSearch(); focusSearch();
+}
+
+function addItem(it) {
+  if (!it) return;
+  if (!online() && !it.offline_ok && !S.cart.offlineOverride) {
+    openOfflineOverrideModal(it);
+    return;
+  }
+  if (it.requires_resource) {
+    openResourcePicker(it);
+    return;
+  }
+  addItemWithResource(it);
+}
+
+function changeQty(key, delta) {
+  const line = S.cart.lines.find((l) => l.key === key || (!l.key && String(l.item_id) === String(key)));
+  if (!line) return;
+  if (
+    delta > 0
+    && line.requires_resource
+    && line.resource_available !== null
+    && line.resource_available !== undefined
+    && line.qty + delta > line.resource_available
+  ) {
+    toast("Quantidade acima da disponibilidade conhecida do recurso.", true);
+    return;
+  }
+  line.qty += delta;
+  if (line.qty <= 0) S.cart.lines = S.cart.lines.filter((l) => l !== line);
+  S.cart.lastTouched = line.key || lineKey(line.item_id, line.resource_id);
+  persistCart(); renderCart();
+}
+
+function subtotalC() { return S.cart.lines.reduce((a, l) => a + l.qty * l.price_c, 0); }
+function localTotalC() {
+  const d = Math.min(100, Math.max(0, Number($("cart-discount")?.value || S.cart.discount || 0)));
+  return Math.round(subtotalC() * (1 - d / 100));
+}
+
+function renderCart() {
+  const box = $("cart-lines");
+  const overrideStrip = S.cart.offlineOverride
+    ? `<div class="pdv-warn" style="margin:4px 4px 8px">Autorização gerencial offline ativa (${esc(S.cart.offlineOverride.cpf)}). O servidor ainda pode rejeitar por estoque no sync.</div>`
+    : "";
+  box.innerHTML = overrideStrip + S.cart.lines.map((l) => `
+    <div data-line="${esc(l.key || lineKey(l.item_id, l.resource_id))}" class="pdv-cartline ${S.cart.lastTouched === (l.key || lineKey(l.item_id, l.resource_id)) ? "pdv-line-flash" : ""}">
+      <div style="flex:1;min-width:0">
+        <div class="nm">${esc(l.name)}</div>
+        <div class="un">${fmt(l.price_c)} un.${l.resource_name ? " · " + esc(l.resource_name) : ""}</div>
+      </div>
+      <button data-qty="-1" data-line-key="${esc(l.key || lineKey(l.item_id, l.resource_id))}" class="pdv-qty-btn">−</button>
+      <span class="pdv-qty">${l.qty}</span>
+      <button data-qty="1" data-line-key="${esc(l.key || lineKey(l.item_id, l.resource_id))}" class="pdv-qty-btn">+</button>
+      <div class="tt">${fmt(l.qty * l.price_c)}</div>
+    </div>`).join("") ||
+    `<div class="pdv-empty-cart">Carrinho vazio.<br/>Busque um item e pressione <kbd>Enter</kbd>.</div>`;
+
+  const total = localTotalC();
+  $("ft-subtotal").textContent = fmt(subtotalC());
+  $("ft-total").textContent = fmt(total);
+  $("btn-pay").disabled = S.cart.lines.length === 0;
+  document.querySelectorAll("[data-fastpay]").forEach((b) => {
+    // Nenhum atalho rápido aponta hoje para um método que o sistema processa
+    // (MP_PIX/MP_CARD) — esses só ficam disponíveis no painel completo, que
+    // já desabilita a opção sozinho via METHODS[].needsNet. A lista aqui
+    // existe só como trava caso um atalho volte a apontar para um deles.
+    const needsNet = ["MP_PIX", "MP_CARD"].includes(b.dataset.fastpay);
+    b.disabled = S.cart.lines.length === 0 || (needsNet && !online());
+  });
+  $("cart-customer").textContent = S.cart.customer
+    ? `${S.cart.customer.name} (#${S.cart.customer.reserva_id})`
+    : "Vincular Cliente / Comanda";
+  $("held-count").textContent = S.held.length ? `(${S.held.length})` : "";
+  delete S.cart.lastTouched;
+}
+
+function showCartError(msg) {
+  const el = $("cart-error");
+  if (!msg) { el.classList.add("hidden"); return; }
+  el.innerHTML = msg;
+  el.classList.remove("hidden");
+}
+
+/* ── Venda suspensa (hold F4 / retomar F6) ─────────────────────── */
+function holdCart() {
+  if (!S.cart.lines.length) return;
+  const label = S.cart.customer?.name || `Cliente ${S.held.length + 1}`;
+  S.held.push({ label, cart: S.cart, heldAt: Date.now() });
+  saveJSON(LS_HELD, S.held);
+  // Espelho servidor best-effort — não bloqueia a fila
+  api("/held-carts", { method: "POST", body: JSON.stringify({ shift_id: S.shift.shift_id, cart_json: S.cart, label }) }).catch(() => {});
+  S.cart = newCart(); saveJSON(LS_CART, S.cart);
+  renderCart(); toast(`Carrinho suspenso: ${label}`); focusSearch();
+}
+
+function openHeldModal() {
+  if (!S.held.length) { toast("Nenhum carrinho suspenso."); return; }
+  openModal(`
+    <div class="px-5 py-4 border-b pdv-divide font-bold pdv-title text-sm">Retomar carrinho suspenso</div>
+    <div class="overflow-y-auto p-2">
+      ${S.held.map((h, i) => `
+        <button data-held="${i}" class="pdv-modal-row w-full flex items-center justify-between gap-3 px-4 py-3 text-left" style="min-height:56px">
+          <div><div class="text-sm font-bold pdv-title">${esc(h.label)}</div>
+          <div class="text-[11px] pdv-muted">${h.cart.lines.length} itens · ${new Date(h.heldAt).toLocaleTimeString("pt-BR")}</div></div>
+          <div class="text-sm font-extrabold pdv-title">${fmt(h.cart.lines.reduce((a, l) => a + l.qty * l.price_c, 0))}</div>
+        </button>`).join("")}
+    </div>`);
+}
+
+function restoreHeld(i) {
+  const h = S.held.splice(i, 1)[0];
+  saveJSON(LS_HELD, S.held);
+  if (S.cart.lines.length) { S.held.push({ label: `Cliente ${S.held.length + 1}`, cart: S.cart, heldAt: Date.now() }); saveJSON(LS_HELD, S.held); }
+  S.cart = h.cart; persistCart();
+  closeModal(); renderCart(); toast(`Carrinho retomado: ${h.label}`); focusSearch();
+}
+
+/* ── Comanda (F7): vincular hóspede ────────────────────────────── */
+function openOfflineOverrideModal(item) {
+  openModal(`
+    <div class="px-5 py-4 border-b pdv-divide font-bold pdv-title text-sm">Autorização gerencial — item de estoque limitado</div>
+    <div class="p-4 space-y-3">
+      <div class="pdv-warn">
+        <b>${esc(item.name)}</b> tem estoque limitado e você está <b>offline</b>.
+        A venda ficará na fila e o servidor <b>ainda pode rejeitar por falta de estoque</b>
+        no sync — o gerente responde por esta autorização.
+      </div>
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">CPF do gerente</label>
+      <input id="oo-cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00"
+             class="pdv-input" style="min-height:46px" />
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Motivo (mín. 10 caracteres)</label>
+      <input id="oo-reason" type="text" autocomplete="off" placeholder="Ex.: cliente no balcão, gerente confirmou vaga"
+             class="pdv-input" style="min-height:46px" />
+      <div id="oo-error" class="hidden pdv-err"></div>
+      <button id="oo-confirm" class="pdv-checkout" style="min-height:48px;font-size:15px">Autorizar e adicionar</button>
+    </div>`);
+  $("oo-cpf").focus();
+  $("oo-confirm").addEventListener("click", () => {
+    const cpf = ($("oo-cpf").value || "").replace(/\D/g, "");
+    const reason = ($("oo-reason").value || "").trim();
+    const err = $("oo-error");
+    if (cpf.length !== 11) { err.textContent = "CPF inválido."; err.classList.remove("hidden"); return; }
+    if (reason.length < 10) { err.textContent = "Motivo precisa de pelo menos 10 caracteres."; err.classList.remove("hidden"); return; }
+    S.cart.offlineOverride = { cpf, reason };
+    persistCart(); closeModal();
+    toast("Override autorizado — itens de estoque limitado liberados neste carrinho.");
+    addItem(item);
+  });
+}
+
+function openResourcePicker(item) {
+  const resources = (item.resources || []).filter((r) => r.is_available);
+  if (!resources.length) {
+    showCartError(`<b>${esc(item.name)}</b> não possui recurso físico disponível neste agrupamento agora.`);
+    toast("Sem recurso físico disponível.", true);
+    return;
+  }
+  S.resourcePicking = item;
+  openModal(`
+    <div class="px-5 py-4 border-b pdv-divide font-bold pdv-title text-sm">Selecionar recurso físico</div>
+    <div class="p-4 space-y-2">
+      <div class="text-sm font-bold pdv-title">${esc(item.name)}</div>
+      <div class="text-xs pdv-muted">Escolha um recurso do mesmo agrupamento para validar disponibilidade antes de criar a reserva.</div>
+      <div class="space-y-1.5 max-h-72 overflow-y-auto pt-2">
+        ${resources.map((r) => `
+          <button data-resource-pick='${esc(JSON.stringify(r))}'
+                  class="pdv-modal-row w-full text-left px-3 py-2.5 rounded-lg border"
+                  style="border-color:var(--c-border);min-height:52px">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-sm font-bold pdv-title truncate">${esc(r.name)}</div>
+                <div class="text-[11px] pdv-muted truncate">${esc(r.group_path || "Mesmo agrupamento")}</div>
+              </div>
+              <div class="text-xs font-bold pdv-title">${r.stock_quantity === null ? "Livre" : `${r.available} disp.`}</div>
+            </div>
+          </button>
+        `).join("")}
+      </div>
+    </div>`);
+}
+
+function openComandaModal() {
+  openModal(`
+    <div class="px-5 py-4 border-b pdv-divide font-bold pdv-title text-sm">Vincular à comanda do hóspede</div>
+    <div class="p-4">
+      <input id="cm-q" type="text" placeholder="CPF ou nome (mín. 3 caracteres)…" autocomplete="off"
+             class="pdv-input" style="min-height:48px" />
+      <div id="cm-results" class="mt-2 max-h-64 overflow-y-auto"></div>
+      ${S.cart.customer ? `<button id="cm-unlink" class="pdv-btn-sec mt-3 w-full" style="color:var(--c-danger-fg);border-color:var(--c-danger-bd)">Desvincular ${esc(S.cart.customer.name)}</button>` : ""}
+    </div>`);
+  const q = $("cm-q");
+  q.focus();
+  let t = null;
+  q.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      if (q.value.trim().length < 3) { $("cm-results").innerHTML = ""; return; }
+      const res = await api(`/customer-lookup?q=${encodeURIComponent(q.value.trim())}&source_id=${S.shift.source_id}`);
+      const list = res.ok ? res.body.results : [];
+      $("cm-results").innerHTML = list.map((r) => `
+        <button data-cust='${esc(JSON.stringify({ reserva_id: r.reserva_id, name: r.customer_name }))}'
+                class="pdv-modal-row w-full text-left px-3 py-2.5" style="min-height:50px">
+          <div class="text-sm font-bold pdv-title">${esc(r.customer_name)}</div>
+          <div class="text-[11px] pdv-muted">#${r.reserva_id} · ${esc(r.status)} · ${esc(r.customer_document || "sem doc.")}</div>
+        </button>`).join("") || `<div class="pdv-muted" style="padding:16px;text-align:center;font-size:12px">Nada encontrado.</div>`;
+    }, 300);
+  });
+  const unlink = $("cm-unlink");
+  if (unlink) unlink.addEventListener("click", () => { S.cart.customer = null; persistCart(); closeModal(); renderCart(); focusSearch(); });
+}
+
+/* ── Pagamento (F8) ────────────────────────────────────────────── */
+function payIcon(key) {
+  const attrs = 'class="pdv-pay-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"';
+  if (key === "CASH") {
+    return `<svg ${attrs}><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9h1.5M16.5 15H18"/></svg>`;
+  }
+  if (key === "EXTERNAL_CARD_TERMINAL" || key === "MP_CARD") {
+    return `<svg ${attrs}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>`;
+  }
+  if (key === "MP_PIX" || key === "EXTERNAL_PIX") {
+    return `<svg ${attrs}><path d="M12 3 21 12 12 21 3 12 12 3Z"/><path d="M8 12h8M12 8v8"/></svg>`;
+  }
+  return `<svg ${attrs}><path d="M5 7h14v10H5z"/><path d="M8 10h8M8 14h5"/></svg>`;
+}
+
+// Ordem deliberada: primeiro os três métodos "já recebido pelo operador"
+// (não esperam nada, funcionam offline), depois os dois que o SISTEMA
+// processa (geram cobrança e esperam confirmação — exigem rede), por
+// último comanda. Pix e Cartão aparecem duas vezes de propósito — recebido
+// direto no balcão e gerado pelo sistema são fluxos diferentes, não o
+// mesmo método com um rótulo mais bonito.
+const METHODS = [
+  { key: "CASH", label: "Dinheiro", num: 1, needsNet: false },
+  { key: "EXTERNAL_CARD_TERMINAL", label: "Cartão (maquininha própria)", num: 2, needsNet: false },
+  { key: "EXTERNAL_PIX", label: "Pix (recebido direto)", num: 3, needsNet: false },
+  { key: "MP_PIX", label: "Pix — gerar cobrança (Mercado Pago)", num: 4, needsNet: true },
+  { key: "MP_CARD", label: "Cartão — gerar link (Mercado Pago)", num: 5, needsNet: true },
+  { key: "COMANDA", label: "Comanda do hóspede", num: 6, needsNet: true, needsCustomer: true },
+];
+
+function enterPayment(preselect = null) {
+  if (!S.cart.lines.length) return;
+  S.paying = true; S.payMethod = null; S.quote = null;
+  $("panel-cart").classList.add("hidden");
+  $("panel-pay").classList.remove("hidden"); $("panel-pay").classList.add("flex");
+  $("pay-cash").classList.add("hidden");
+  $("pay-error").classList.add("hidden");
+  $("btn-confirm").disabled = true;
+  $("pay-total").textContent = fmt(localTotalC());
+  $("pay-quote-note").textContent = online() ? "consultando total oficial…" : "OFFLINE — total local (sem taxas/descontos automáticos)";
+  renderMethods();
+  fetchQuote();
+  if (preselect) selectMethod(preselect);
+}
+
+function exitPayment() {
+  S.paying = false;
+  if (S.quoteAbort) S.quoteAbort.abort();
+  $("panel-pay").classList.add("hidden"); $("panel-pay").classList.remove("flex");
+  $("panel-cart").classList.remove("hidden");
+  renderCart(); focusSearch();
+}
+
+function renderMethods() {
+  $("pay-methods").innerHTML = METHODS.map((m) => {
+    const disabled = (m.needsNet && !online()) || (m.needsCustomer && !S.cart.customer);
+    return `<button data-method="${m.key}" ${disabled ? "disabled" : ""}
+              class="pdv-method-btn ${S.payMethod === m.key ? "sel" : ""}">
+              <kbd>${m.num}</kbd>
+              ${payIcon(m.key)}
+              <span class="pdv-method-label">${m.label}${m.needsCustomer && !S.cart.customer ? " (vincule via F7)" : ""}
+              ${m.needsNet && !online() ? " — requer internet" : ""}</span>
+            </button>`;
+  }).join("");
+}
+
+async function fetchQuote() {
+  if (!online()) return;
+  const seq = ++S.quoteSeq;
+  if (S.quoteAbort) S.quoteAbort.abort();
+  S.quoteAbort = new AbortController();
+  try {
+    const res = await fetch(API + "/quote", {
+      method: "POST", credentials: "same-origin", signal: S.quoteAbort.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_id: S.shift.source_id,
+        items: saleItemsPayload(),
+        manual_discount_percent: Number($("cart-discount").value || 0),
+      }),
+    });
+    const body = await res.json();
+    if (seq !== S.quoteSeq || !S.paying) return;   // resposta obsoleta — descarta
+    if (res.ok) {
+      S.quote = body;
+      $("pay-total").textContent = fmt(Math.round(body.total * 100));
+      $("pay-quote-note").textContent = "total oficial do servidor";
+      if (S.payMethod === "CASH") renderCash();
+    } else {
+      $("pay-quote-note").textContent = "falha na cotação — usando total local";
+    }
+  } catch (e) {
+    if (e.name !== "AbortError" && seq === S.quoteSeq) $("pay-quote-note").textContent = "sem rede — total local";
+  }
+}
+
+function payTotalC() { return S.quote ? Math.round(S.quote.total * 100) : localTotalC(); }
+
+function selectMethod(key) {
+  const m = METHODS.find((x) => x.key === key);
+  if (!m) return;
+  if ((m.needsNet && !online()) || (m.needsCustomer && !S.cart.customer)) return;
+  S.payMethod = key;
+  renderMethods();
+  if (key === "CASH") { $("pay-cash").classList.remove("hidden"); renderCash(); $("pay-tendered").focus(); }
+  else { $("pay-cash").classList.add("hidden"); $("btn-confirm").disabled = false; $("btn-confirm").focus(); }
+}
+
+function renderCash() {
+  const total = payTotalC();
+  const notas = [2000, 5000, 10000, 20000].filter((n) => n >= total);
+  $("pay-quick").innerHTML =
+    `<button class="pdv-quick-btn" data-quick="${total}">Exato</button>` +
+    notas.slice(0, 3).map((n) => `<button class="pdv-quick-btn" data-quick="${n}">${fmt(n).replace(",00", "")}</button>`).join("");
+  updateChange();
+}
+
+function updateChange() {
+  const total = payTotalC();
+  const tendered = Math.round(Number($("pay-tendered").value || 0) * 100);
+  const ok = tendered >= total && total > 0;
+  $("pay-change").textContent = ok ? fmt(tendered - total) : "—";
+  $("btn-confirm").disabled = !(S.payMethod === "CASH" ? ok : !!S.payMethod);
+}
+
+/* ── Confirmação — otimista + idempotente ──────────────────────── */
+async function confirmSale() {
+  if (!S.payMethod || $("btn-confirm").disabled) return;
+  const method = S.payMethod;
+  const cartSnap = JSON.parse(JSON.stringify(S.cart));
+  const uuid = crypto.randomUUID();
+  const discount = Number($("cart-discount").value || 0);
+  const tenderedC = method === "CASH" ? Math.round(Number($("pay-tendered").value || 0) * 100) : null;
+  const totalC = payTotalC();
+
+  const payload = method === "COMANDA"
+    ? { client_sale_uuid: uuid, shift_id: S.shift.shift_id, reserva_id: S.cart.customer.reserva_id,
+        items: saleItemsPayload() }
+    : { client_sale_uuid: uuid, shift_id: S.shift.shift_id,
+        source_name: S.shift.source_name, category_name: S.cart.lines[0].category,
+        items: saleItemsPayload(),
+        payment_method: method,
+        customer_name: S.cart.customer?.name || null,
+        amount_tendered: tenderedC != null ? tenderedC / 100 : null,
+        manual_discount_percent: discount,
+        pdv_default_status: S.preferences?.pdv_default_status || null };
+  const path = method === "COMANDA" ? "/sale/comanda-append" : "/sale";
+
+  // Otimismo: caixa livre imediatamente; erro real restaura o carrinho.
+  S.lastSnapshot = cartSnap;
+  S.cart = newCart(); saveJSON(LS_CART, S.cart);
+  $("cart-discount").value = 0;
+  exitPayment(); showCartError(null);
+  const trocoMsg = tenderedC != null && tenderedC >= totalC ? ` · Troco ${fmt(tenderedC - totalC)}` : "";
+  toast("Registrando venda…");
+
+  try {
+    const res = await api(path, { method: "POST", body: JSON.stringify(payload) });
+    if (res.ok) {
+      const rid = res.body.reserva_id;
+      if (method === "MP_PIX" || method === "MP_CARD") {
+        toast(`Reserva #${rid} criada (PENDING) — gere a cobrança MP na tela da reserva.`);
+      } else {
+        toast(`Venda registrada — Reserva #${rid}${method === "CASH" ? trocoMsg : ""}`);
+      }
+      S.lastSnapshot = null;
+    } else if (res.status === 409) {
+      restoreSnapshot();
+      const c = res.body?.conflito;
+      showCartError(`<b>Conflito de estoque${c ? " — " + esc(c.resource_name) : ""}.</b> ${esc(res.body?.erro || "")}<br/>Ajuste a quantidade ou o recurso e tente novamente.`);
+      toast("Venda rejeitada: estoque insuficiente.", true);
+    } else {
+      restoreSnapshot();
+      showCartError(esc(res.body?.erro || `Erro ${res.status} ao registrar a venda.`));
+      toast("Venda não registrada.", true);
+    }
+  } catch {
+    // Falha de rede — enfileira (idempotente por client_sale_uuid).
+    // EXTERNAL_PIX entra aqui junto de CASH/EXTERNAL_CARD_TERMINAL: o
+    // dinheiro já está com o operador, só o REGISTRO depende de rede — não
+    // há motivo pra bloquear o mesmo jeito que MP_PIX/MP_CARD bloqueiam.
+    if (["CASH", "EXTERNAL_CARD_TERMINAL", "EXTERNAL_PIX"].includes(method)) {
+      const blocked = cartSnap.lines.some((l) => !l.offline_ok);
+      if (blocked && !cartSnap.offlineOverride) {
+        restoreSnapshot();
+        showCartError("Sem rede e o carrinho contém itens de estoque limitado — venda não enfileirada. Use a autorização gerencial (adicionar o item pede CPF + motivo).");
+        toast("Sem rede — venda bloqueada (item de estoque limitado).", true);
+      } else {
+        const extra = { synced_offline: true, device_id: deviceId() };
+        // Item 🔴 autorizado offline: a nota viaja com a venda para auditoria,
+        // mas NÃO seta force_overbooking — o estoque vivo decide no sync.
+        if (blocked && cartSnap.offlineOverride) extra.offline_override_note = cartSnap.offlineOverride;
+        await queueAdd(path, { ...payload, ...extra });
+        toast("Sem rede — venda salva na fila e será sincronizada.");
+        S.lastSnapshot = null;
+      }
+    } else {
+      restoreSnapshot();
+      showCartError("Sem rede — PIX/cartão MP e comanda exigem conexão.");
+      toast("Sem rede — método indisponível.", true);
+    }
+  }
+  focusSearch();
+}
+
+function restoreSnapshot() {
+  if (!S.lastSnapshot) return;
+  S.cart = S.lastSnapshot; S.lastSnapshot = null;
+  persistCart(); renderCart();
+}
+
+/* ── Fila offline: drenagem FIFO ───────────────────────────────── */
+let draining = false;
+async function drainQueue(manual = false) {
+  await queueRefresh();
+  if (draining) return;
+  if (!S.queue.length) {
+    if (manual) toast("Fila offline vazia.");
+    return;
+  }
+  if (!online()) {
+    setQueueMeta("offline", "sem conexão");
+    if (manual) toast("Sem internet — fila mantida.", true);
+    return;
+  }
+  draining = true;
+  setQueueMeta("running", null);
+  try {
+    while (S.queue.length) {
+      const job = S.queue[0];
+      let res;
+      try { res = await api(job.path, { method: "POST", body: JSON.stringify(job.payload) }); }
+      catch {
+        setQueueMeta("offline", "falha de rede");
+        break;
+      }
+      if (!res.ok && ![400, 409].includes(res.status)) {
+        setQueueMeta("error", `HTTP ${res.status}`);
+        toast(`Fila offline mantida — sync recebeu HTTP ${res.status}.`, true);
+        break;
+      }
+      // ok, duplicata (200) ou rejeição definitiva (400/409): remove da fila.
+      // Rejeições definitivas ficam auditadas no servidor p/ reconciliação.
+      await queueDelete(job.id);
+      if (res.ok) {
+        setQueueMeta("synced", null);
+        toast(`Venda offline sincronizada — Reserva #${res.body.reserva_id}`);
+      } else {
+        setQueueMeta("rejected", `HTTP ${res.status}`);
+        toast(`Venda offline rejeitada (${res.status}) — ver log de sincronização.`, true);
+      }
+    }
+  } finally {
+    draining = false; await queueRefresh();
+  }
+}
+setInterval(drainQueue, 30000);
+window.addEventListener("online",  () => { updateStatusBar(); renderResults(); renderCart(); if (S.paying) { renderMethods(); fetchQuote(); } drainQueue(); });
+window.addEventListener("offline", () => { updateStatusBar(); renderResults(); renderCart(); if (S.paying) renderMethods(); });
+
+/* ── Barra de status ───────────────────────────────────────────── */
+function updateStatusBar() {
+  const on = online();
+  $("st-dot").className = `w-2 h-2 rounded-full ${on ? "bg-emerald-400" : "bg-amber-400"}`;
+  $("st-conn").textContent = on ? "online" : "OFFLINE — modo restrito";
+  $("status-bar").classList.toggle("pdv-offline-tint", !on);
+  if (S.shift) $("st-shift").textContent = `turno #${S.shift.shift_id} · ${S.shift.source_name} · gaveta ${fmt(Math.round(S.shift.opening_float_amount * 100))} · PIX ${fmt(Math.round((S.shift.opening_float_pix || 0) * 100))}`;
+  const q = $("st-queue");
+  const qm = $("st-queue-meta");
+  const syncBtn = $("btn-sync-now");
+  if (S.queue.length) { q.textContent = `⏳ ${S.queue.length} venda(s) pendente(s)`; q.classList.remove("hidden"); }
+  else q.classList.add("hidden");
+  if (S.queueMeta?.lastAttemptAt) {
+    const statusLabel = {
+      pending: "pendente",
+      running: "sincronizando",
+      synced: "sincronizado",
+      rejected: "rejeição registrada",
+      offline: "sem rede",
+      error: "erro",
+    }[S.queueMeta.lastStatus] || S.queueMeta.lastStatus;
+    qm.textContent = `última tentativa ${fmtTime(S.queueMeta.lastAttemptAt)} · ${statusLabel}${S.queueMeta.lastError ? " · " + S.queueMeta.lastError : ""}`;
+    qm.classList.remove("hidden");
+  } else {
+    qm.classList.add("hidden");
+  }
+  syncBtn.classList.toggle("hidden", S.queue.length === 0);
+  syncBtn.disabled = !S.queue.length || !on || draining;
+  syncBtn.textContent = draining ? "Sincronizando..." : "Sincronizar agora";
+}
+
+/* ── Fechar turno ──────────────────────────────────────────────── */
+function openCloseShiftModal() {
+  const hasQueue = S.queue.length > 0;
+  const queueMeta = S.queueMeta?.lastAttemptAt
+    ? `<div class="text-[11px] pdv-muted">Última tentativa: ${fmtTime(S.queueMeta.lastAttemptAt)}${S.queueMeta.lastError ? " · " + esc(S.queueMeta.lastError) : ""}</div>`
+    : "";
+  openModal(`
+    <div class="px-5 py-4 border-b pdv-divide font-bold pdv-title text-sm">Fechar turno #${S.shift.shift_id}</div>
+    <div class="p-4 space-y-3 overflow-y-auto" style="max-height:calc(80vh - 56px)">
+      ${S.queue.length ? `<div class="pdv-warn"><b>${S.queue.length} venda(s) na fila offline.</b> Sincronize antes de fechar — a conferência de gaveta ficará incorreta.${queueMeta}<button id="cs-sync-now" class="pdv-sync-btn mt-3" type="button">Sincronizar agora</button></div>` : ""}
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Dinheiro contado na gaveta (R$)</label>
+      <input id="cs-counted" type="number" min="0" step="0.01" class="pdv-input" style="min-height:48px;text-align:right;font-size:18px;font-weight:700" />
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Saldo PIX para troco (R$)</label>
+      <input id="cs-counted-pix" type="number" min="0" step="0.01" class="pdv-input" style="min-height:44px;text-align:right;font-size:16px;font-weight:700" value="0" />
+      <div id="cs-discrepancy" class="hidden pdv-warn"></div>
+      <div id="cs-reason-wrap" class="hidden space-y-2">
+        <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Motivo da quebra de caixa</label>
+        <textarea id="cs-reason" class="pdv-input" rows="3" minlength="10" placeholder="Informe o motivo para enviar à aprovação" style="resize:vertical;min-height:82px;padding:12px"></textarea>
+      </div>
+      <div id="cs-error" class="hidden pdv-err"></div>
+      <button id="cs-confirm" class="pdv-checkout" ${hasQueue ? "disabled" : ""} style="min-height:50px;font-size:15px">${hasQueue ? "Sincronize a fila para fechar" : "Verificar fechamento"}</button>
+    </div>`);
+  $("cs-counted").focus();
+  const modalSync = $("cs-sync-now");
+  if (modalSync) modalSync.addEventListener("click", async () => {
+    await drainQueue(true);
+    closeModal();
+    openCloseShiftModal();
+  });
+  let approvalMode = false;
+  function setCloseError(msg) {
+    $("cs-error").textContent = msg;
+    $("cs-error").classList.remove("hidden");
+  }
+  function clearCloseError() {
+    $("cs-error").classList.add("hidden");
+    $("cs-error").textContent = "";
+  }
+  function enterApprovalMode(message) {
+    approvalMode = true;
+    $("cs-discrepancy").innerHTML = `
+      <b>Valor incoerente com o esperado.</b>
+      <div class="mt-2 text-xs leading-5">
+        O fechamento precisa ser enviado para aprovação de supervisor.
+        Informe o motivo da divergência para registrar a solicitação.
+      </div>`;
+    $("cs-discrepancy").classList.remove("hidden");
+    $("cs-reason-wrap").classList.remove("hidden");
+    setCloseError(message || "Informe o motivo da quebra de caixa para enviar à aprovação.");
+    $("cs-confirm").textContent = "Enviar para aprovação";
+    $("cs-reason").focus();
+  }
+  ["cs-counted", "cs-counted-pix", "cs-reason"].forEach((id) => {
+    const el = $(id);
+    if (el) el.addEventListener("input", clearCloseError);
+  });
+  $("cs-confirm").addEventListener("click", async () => {
+    if (hasQueue) return;
+    const countedRaw = $("cs-counted").value.trim();
+    const countedPixRaw = $("cs-counted-pix").value.trim();
+    if (!countedRaw) { setCloseError("Informe o valor contado na gaveta."); return; }
+    if (!countedPixRaw) { setCloseError("Informe o saldo PIX contado."); return; }
+    const counted = Number(countedRaw);
+    const countedPix = Number(countedPixRaw);
+    if (!Number.isFinite(counted) || counted < 0) { setCloseError("Valor contado na gaveta inválido."); return; }
+    if (!Number.isFinite(countedPix) || countedPix < 0) { setCloseError("Saldo PIX contado inválido."); return; }
+    const reasonEl = $("cs-reason");
+    const reason = reasonEl ? reasonEl.value.trim() : "";
+    if (approvalMode && reason.length < 10) {
+      setCloseError("Informe o motivo da quebra de caixa com pelo menos 10 caracteres.");
+      return;
+    }
+    const body = { closing_counted_amount: counted, closing_counted_pix: countedPix };
+    if (reason) body.discrepancy_reason = reason;
+    const btn = $("cs-confirm");
+    btn.disabled = true;
+    btn.textContent = approvalMode ? "Enviando para aprovação..." : "Verificando...";
+    let res;
+    try {
+      res = await api(`/shifts/${S.shift.shift_id}/close`, { method: "POST", body: JSON.stringify(body) });
+    } catch {
+      btn.disabled = false;
+      btn.textContent = approvalMode ? "Enviar para aprovação" : "Verificar fechamento";
+      setCloseError("Sem conexão — não foi possível fechar o turno.");
+      return;
+    }
+    if (!res.ok) {
+      btn.disabled = false;
+      if (res.status === 409) {
+        enterApprovalMode(res.body?.erro);
+        return;
+      }
+      btn.textContent = approvalMode ? "Enviar para aprovação" : "Verificar fechamento";
+      setCloseError(res.body?.erro || "Erro ao fechar.");
+      return;
+    }
+    closeModal();
+    const r = res.body;
+    const pending = r.status === "PENDING_APPROVAL";
+    $("shift-report").innerHTML = `
+      <div class="font-bold pdv-title mb-2">Turno #${r.shift_id} ${pending ? "aguardando aprovação" : "fechado"}</div>
+      ${pending ? `<div class="pdv-warn mt-3">Fechamento enviado para aprovação de supervisor.</div>` : `<div class="pdv-muted">Turno fechado com sucesso.</div>`}`;
+    $("shift-report").classList.remove("hidden");
+    S.shift = null;
+    localStorage.removeItem(LS_SHIFT);   // turno fechado — não restaurar em boot offline
+    showView("shift"); loadSources();
+  });
+}
+
+/* ── Movimentação de caixa (sangria/suprimento) ───────────────────
+   Requer conexão — ao contrário da venda, não há fila offline aqui:
+   sangria/suprimento é um evento raro e presencial (gerente ao lado do
+   operador), sem o caso de uso "registrei sem rede e sincronizo depois". */
+let mcAreasCache = null;
+
+async function loadAreasParaMovimentacao() {
+  if (mcAreasCache) return mcAreasCache;
+  const res = await api("/areas");
+  mcAreasCache = res.ok ? (res.body?.areas || []) : [];
+  return mcAreasCache;
+}
+
+function mcTipoLabel(tipo) {
+  return {
+    RECOLHIMENTO_COFRE: "Recolhimento ao cofre",
+    PAGAMENTO_DESPESA: "Pagamento de despesa",
+    TRANSFERENCIA_INTERNA: "Transferência interna",
+    SUPRIMENTO: "Suprimento",
+  }[tipo] || tipo;
+}
+
+function openMovimentacaoCaixaModal() {
+  openModal(`
+    <div class="px-5 py-4 border-b pdv-divide font-bold pdv-title text-sm">Movimentar caixa — turno #${S.shift.shift_id}</div>
+    <div class="p-4 space-y-3 overflow-y-auto" style="max-height:calc(80vh - 56px)">
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Tipo</label>
+      <select id="mc-tipo" class="pdv-input" style="min-height:44px">
+        <option value="RECOLHIMENTO_COFRE">Sangria — Recolhimento ao cofre</option>
+        <option value="PAGAMENTO_DESPESA">Sangria — Pagamento de despesa</option>
+        <option value="TRANSFERENCIA_INTERNA">Sangria — Transferência para outro caixa</option>
+        <option value="SUPRIMENTO">Suprimento — Reforço de troco</option>
+      </select>
+
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Valor (R$)</label>
+      <input id="mc-valor" type="number" min="0.01" step="0.01" class="pdv-input" style="min-height:48px;text-align:right;font-size:18px;font-weight:700" />
+
+      <div id="mc-extra"></div>
+
+      <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Descrição</label>
+      <textarea id="mc-descricao" class="pdv-input" rows="2" placeholder="Motivo da movimentação" style="resize:vertical;min-height:64px;padding:12px"></textarea>
+
+      <div id="mc-override" class="hidden space-y-2">
+        <div class="pdv-warn">Valor ≥ ${fmt(LIMITE_AUTORIZACAO * 100)} exige autorização gerencial.</div>
+        <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">CPF do gerente</label>
+        <input id="mc-mgr-cpf" type="text" inputmode="numeric" class="pdv-input" style="min-height:44px" placeholder="Somente números" />
+        <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Senha do gerente</label>
+        <input id="mc-mgr-senha" type="password" class="pdv-input" style="min-height:44px" />
+        <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Motivo da autorização</label>
+        <input id="mc-mgr-reason" type="text" class="pdv-input" style="min-height:44px" placeholder="Mín. 10 caracteres" />
+      </div>
+
+      <div id="mc-error" class="hidden pdv-err"></div>
+      <button id="mc-confirm" class="pdv-checkout" style="min-height:50px;font-size:15px">Registrar movimentação</button>
+
+      <div id="mc-list" class="pt-2 border-t pdv-divide"></div>
+    </div>`);
+
+  function setError(msg) { $("mc-error").textContent = msg; $("mc-error").classList.remove("hidden"); }
+  function clearError() { $("mc-error").classList.add("hidden"); $("mc-error").textContent = ""; }
+
+  async function renderExtra() {
+    const tipo = $("mc-tipo").value;
+    const extra = $("mc-extra");
+    if (tipo === "PAGAMENTO_DESPESA") {
+      const areas = await loadAreasParaMovimentacao();
+      extra.innerHTML = `
+        <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Centro de custo</label>
+        <select id="mc-centro-custo" class="pdv-input" style="min-height:44px">
+          <option value="">Selecione...</option>
+          ${areas.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}
+        </select>`;
+    } else if (tipo === "TRANSFERENCIA_INTERNA") {
+      extra.innerHTML = `
+        <label class="block text-xs font-semibold pdv-muted uppercase tracking-wide">Turno de destino (nº)</label>
+        <input id="mc-conta-destino" type="number" min="1" class="pdv-input" style="min-height:44px" placeholder="ID do turno que recebe" />`;
+    } else {
+      extra.innerHTML = "";
+    }
+  }
+
+  function toggleOverride() {
+    const valor = Number($("mc-valor").value || 0);
+    $("mc-override").classList.toggle("hidden", valor < LIMITE_AUTORIZACAO);
+  }
+
+  async function refreshList() {
+    const res = await api(`/movimentacao-caixa?shift_id=${S.shift.shift_id}`);
+    if (!res.ok) return;
+    const movs = res.body?.movimentacoes || [];
+    $("mc-list").innerHTML = movs.length ? `
+      <div class="text-xs font-semibold pdv-muted uppercase tracking-wide mb-2">Movimentações deste turno</div>
+      ${movs.map((m) => `
+        <div class="pdv-modal-row flex items-center justify-between gap-2 px-2 py-1.5 text-xs">
+          <span class="pdv-title">${esc(mcTipoLabel(m.tipo_movimentacao))}${m.centro_de_custo_nome ? " · " + esc(m.centro_de_custo_nome) : ""}</span>
+          <span class="font-bold" style="color:var(--c-text)">${m.tipo_movimentacao === "SUPRIMENTO" ? "+" : "−"} ${fmt(Math.round(m.valor * 100))}</span>
+        </div>`).join("")}
+    ` : `<div class="text-xs pdv-muted text-center py-2">Nenhuma movimentação neste turno ainda.</div>`;
+  }
+
+  $("mc-tipo").addEventListener("change", renderExtra);
+  $("mc-valor").addEventListener("input", () => { toggleOverride(); clearError(); });
+  renderExtra();
+  refreshList();
+
+  $("mc-confirm").addEventListener("click", async () => {
+    clearError();
+    const tipo = $("mc-tipo").value;
+    const valorRaw = $("mc-valor").value.trim();
+    const descricao = $("mc-descricao").value.trim();
+    if (!valorRaw || Number(valorRaw) <= 0) { setError("Informe um valor válido."); return; }
+    if (descricao.length < 3) { setError("Descreva o motivo da movimentação."); return; }
+
+    const valor = Number(valorRaw);
+    const body = { caixa_turno_id: S.shift.shift_id, valor, descricao };
+    if (tipo !== "SUPRIMENTO") body.tipo_movimentacao = tipo;
+
+    if (tipo === "PAGAMENTO_DESPESA") {
+      const centro = $("mc-centro-custo")?.value;
+      if (!centro) { setError("Selecione o centro de custo."); return; }
+      body.centro_de_custo_id = Number(centro);
+    }
+    if (tipo === "TRANSFERENCIA_INTERNA") {
+      const destino = $("mc-conta-destino")?.value;
+      if (!destino) { setError("Informe o turno de destino."); return; }
+      body.conta_destino_id = Number(destino);
+    }
+
+    if (valor >= LIMITE_AUTORIZACAO) {
+      const cpf = $("mc-mgr-cpf").value.trim();
+      const senha = $("mc-mgr-senha").value;
+      const reason = $("mc-mgr-reason").value.trim();
+      if (!cpf || !senha || reason.length < 10) {
+        setError("Valor alto exige CPF, senha do gerente e motivo com pelo menos 10 caracteres.");
+        return;
+      }
+      const authRes = await api("/manager-override/authorize", {
+        method: "POST",
+        body: JSON.stringify({ cpf, senha, reason }),
+      });
+      if (!authRes.ok) { setError(authRes.body?.erro || "Credenciais de gerente inválidas."); return; }
+      body.manager_override = authRes.body.manager_override;
+    }
+
+    const btn = $("mc-confirm");
+    btn.disabled = true;
+    btn.textContent = "Registrando...";
+    const path = tipo === "SUPRIMENTO" ? "/movimentacao-caixa/suprimento" : "/movimentacao-caixa/sangria";
+    let res;
+    try {
+      res = await api(path, { method: "POST", body: JSON.stringify(body) });
+    } catch {
+      btn.disabled = false;
+      btn.textContent = "Registrar movimentação";
+      setError("Sem conexão — não foi possível registrar.");
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = "Registrar movimentação";
+    if (!res.ok) { setError(res.body?.erro || "Erro ao registrar movimentação."); return; }
+
+    toast(`${mcTipoLabel(tipo)} registrada.`);
+    $("mc-valor").value = "";
+    $("mc-descricao").value = "";
+    $("mc-override").classList.add("hidden");
+    refreshList();
+  });
+}
+
+/* ── Modais genéricos ──────────────────────────────────────────── */
+function openModal(html) { $("modal-box").innerHTML = html; $("modal-overlay").classList.remove("hidden"); }
+function closeModal() { $("modal-overlay").classList.add("hidden"); $("modal-box").innerHTML = ""; }
+$("modal-overlay").addEventListener("click", (e) => { if (e.target.id === "modal-overlay") { closeModal(); focusSearch(); } });
+
+/* ── Views ─────────────────────────────────────────────────────── */
+function showView(name) {
+  $("view-loading").classList.add("hidden");
+  $("view-shift").classList.toggle("hidden", name !== "shift");
+  $("view-shift").classList.toggle("flex", name === "shift");
+  $("view-pos").classList.toggle("hidden", name !== "pos");
+  $("view-pos").classList.toggle("flex", name === "pos");
+}
+
+async function loadSources() {
+  try {
+    await loadPreferences();
+    const res = await api("/sources");
+    const sel = $("shift-source");
+    sel.innerHTML = (res.ok ? res.body.sources : []).map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+    if (S.preferences?.default_source_id) sel.value = String(S.preferences.default_source_id);
+  } catch {
+    // Offline sem turno cacheado: abrir turno exige rede (POST) — avisa em vez de quebrar.
+    $("shift-error").textContent = "Sem conexão. Abrir turno exige internet — reconecte e recarregue a página.";
+    $("shift-error").classList.remove("hidden");
+  }
+}
+
+async function openShift() {
+  $("shift-error").classList.add("hidden");
+  let res;
+  try {
+    res = await api("/shifts/open", { method: "POST", body: JSON.stringify({
+      source_id: Number($("shift-source").value),
+      opening_float_amount: Number($("shift-float").value || 0),
+      opening_float_pix: Number($("shift-float-pix").value || 0),
+    })});
+  } catch {
+    $("shift-error").textContent = "Sem conexão — não foi possível abrir o turno.";
+    $("shift-error").classList.remove("hidden");
+    return;
+  }
+  if (!res.ok) { $("shift-error").textContent = res.body?.erro || "Erro ao abrir turno."; $("shift-error").classList.remove("hidden"); return; }
+  await bootPos();   // relê /shifts/current p/ obter source_name
+}
+
+async function bootPos() {
+  // F5 offline: /shifts/current falha com erro de rede — sem o try/catch a
+  // exceção subia sem tratamento e a tela ficava em "Carregando PDV…" para
+  // sempre. Offline, restauramos o turno do cache local (gravado a cada boot
+  // online); o catálogo vem do IndexedDB e a fila continua operante.
+  let shift = null;
+  let offlineBoot = false;
+  try {
+    const cur = await api("/shifts/current");
+    shift = cur.ok ? cur.body.shift : null;
+    if (shift) saveJSON(LS_SHIFT, shift);
+    else localStorage.removeItem(LS_SHIFT);
+  } catch {
+    shift = loadJSON(LS_SHIFT, null);
+    offlineBoot = true;
+  }
+
+  if (!shift) { showView("shift"); loadSources(); return; }
+  S.shift = shift;
+  await loadPreferences();
+  try { await loadCatalog(S.shift.source_id); }
+  catch (e) { toast(e.message, true); }
+  // Anti-F5: restaura carrinho recente
+  const saved = loadJSON(LS_CART, null);
+  if (saved && saved.lines && Date.now() - (saved.createdAt || 0) < CART_TTL_MS) S.cart = saved;
+  showView("pos");
+  runSearch(); renderCart(); updateStatusBar(); drainQueue(); focusSearch();
+  if (offlineBoot) toast("Sem rede — turno e catálogo restaurados do cache local.");
+}
+
+/* ── Eventos ───────────────────────────────────────────────────── */
+$("pdv-search").addEventListener("input", runSearch);
+
+document.addEventListener("click", (e) => {
+  const pill = e.target.closest("[data-filter]");
+  if (pill) {
+    S.filterCat = pill.dataset.filter || null;
+    renderFilters(); runSearch(); focusSearch();
+    return;
+  }
+  const r = e.target.closest("[data-ridx]");
+  if (r) { addItem(S.results[Number(r.dataset.ridx)]); return; }
+  const qb = e.target.closest("[data-qty]");
+  if (qb) { changeQty(qb.dataset.lineKey, Number(qb.dataset.qty)); focusSearch(); return; }
+  const fp = e.target.closest("[data-fastpay]");
+  if (fp && !fp.disabled) { enterPayment(fp.dataset.fastpay); return; }
+  const act = e.target.closest("[data-action]");
+  if (act) {
+    const a = act.dataset.action;
+    if (a === "hold") holdCart();
+    else if (a === "resume") openHeldModal();
+    else if (a === "comanda") openComandaModal();
+    else if (a === "pay") enterPayment();
+    else if (a === "back") exitPayment();
+    return;
+  }
+  const held = e.target.closest("[data-held]");
+  if (held) { restoreHeld(Number(held.dataset.held)); return; }
+  const resourcePick = e.target.closest("[data-resource-pick]");
+  if (resourcePick && S.resourcePicking) {
+    const resource = JSON.parse(resourcePick.dataset.resourcePick);
+    const item = S.resourcePicking;
+    S.resourcePicking = null;
+    closeModal();
+    addItemWithResource(item, resource);
+    toast(`Recurso vinculado: ${resource.name}`);
+    return;
+  }
+  const cust = e.target.closest("[data-cust]");
+  if (cust) {
+    S.cart.customer = JSON.parse(cust.dataset.cust);
+    persistCart(); closeModal(); renderCart(); toast(`Vinculado: ${S.cart.customer.name}`); focusSearch();
+    return;
+  }
+  const meth = e.target.closest("[data-method]");
+  if (meth && !meth.disabled) { selectMethod(meth.dataset.method); return; }
+  const quick = e.target.closest("[data-quick]");
+  if (quick) { $("pay-tendered").value = (Number(quick.dataset.quick) / 100).toFixed(2); updateChange(); $("btn-confirm").focus(); return; }
+});
+
+$("btn-open-shift").addEventListener("click", openShift);
+$("btn-close-shift").addEventListener("click", openCloseShiftModal);
+$("btn-movimentacao-caixa").addEventListener("click", openMovimentacaoCaixaModal);
+$("btn-sync-now").addEventListener("click", () => drainQueue(true));
+$("btn-confirm").addEventListener("click", confirmSale);
+$("pay-tendered").addEventListener("input", updateChange);
+$("cart-discount").addEventListener("input", () => { renderCart(); });
+
+/* Teclado global — contrato de foco + atalhos */
+document.addEventListener("keydown", (e) => {
+  if ($("view-pos").classList.contains("hidden")) return;
+  const modalOpen = !$("modal-overlay").classList.contains("hidden");
+
+  if (e.key === "Escape") {
+    e.preventDefault();
+    if (modalOpen) { closeModal(); focusSearch(); }
+    else if (S.paying) exitPayment();
+    return;
+  }
+  if (modalOpen) return;
+
+  if (S.paying) {
+    if (/^[1-5]$/.test(e.key) && document.activeElement !== $("pay-tendered")) {
+      const m = METHODS.find((x) => x.num === Number(e.key));
+      if (m) { e.preventDefault(); selectMethod(m.key); }
+    } else if (e.key === "Enter" && !$("btn-confirm").disabled && document.activeElement !== $("btn-confirm")) {
+      e.preventDefault(); confirmSale();
+    }
+    return;
+  }
+
+  switch (e.key) {
+    case "F4": e.preventDefault(); holdCart(); return;
+    case "F6": e.preventDefault(); openHeldModal(); return;
+    case "F7": e.preventDefault(); openComandaModal(); return;
+    case "F8": e.preventDefault(); enterPayment(); return;
+  }
+
+  const inSearch = document.activeElement === $("pdv-search");
+  if (inSearch) {
+    if (e.key === "ArrowDown") { e.preventDefault(); S.hi = Math.min(S.hi + 1, S.results.length - 1); renderResults(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); S.hi = Math.max(S.hi - 1, 0); renderResults(); }
+    else if (e.key === "Enter") { e.preventDefault(); if (S.results[S.hi]) addItem(S.results[S.hi]); }
+    else if ((e.key === "+" || e.key === "-") && !$("pdv-search").value && S.cart.lines.length) {
+      e.preventDefault();
+      const last = S.cart.lines[S.cart.lines.length - 1];
+      changeQty(last.key || lineKey(last.item_id, last.resource_id), e.key === "+" ? 1 : -1);
+    }
+    else if (e.key === "Delete" && S.cart.lines.length) {
+      e.preventDefault();
+      const last = S.cart.lines[S.cart.lines.length - 1];
+      changeQty(last.key || lineKey(last.item_id, last.resource_id), -last.qty);
+    }
+  } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey
+             && !["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) {
+    focusSearch();   // qualquer digitação fora de campo volta pra busca
+  }
+});
+
+/* ── Boot ──────────────────────────────────────────────────────── */
+/* Watchdog anti-travamento: se por QUALQUER motivo (bug futuro, rede
+   "zumbi", exceção não prevista) o boot não sair de "Carregando PDV…" em
+   6s, força a recuperação pelo cache local em vez de estrangular o caixa. */
+async function recoveryBoot(motivo) {
+  const shift = loadJSON(LS_SHIFT, null);
+  if (!shift) {
+    showView("shift"); loadSources();
+    $("shift-error").textContent = `Boot demorou demais (${motivo}). Sem turno em cache — verifique a conexão e recarregue.`;
+    $("shift-error").classList.remove("hidden");
+    return;
+  }
+  S.shift = shift;
+  try { await loadCatalog(shift.source_id); } catch (e) { toast(e.message, true); }
+  const saved = loadJSON(LS_CART, null);
+  if (saved && saved.lines && Date.now() - (saved.createdAt || 0) < CART_TTL_MS) S.cart = saved;
+  showView("pos");
+  runSearch(); renderCart(); updateStatusBar(); focusSearch();
+  toast(`Boot de recuperação (${motivo}) — turno e catálogo do cache local.`);
+}
+
+(async function init() {
+  const watchdog = setTimeout(() => {
+    if (!$("view-loading").classList.contains("hidden")) recoveryBoot("watchdog 6s");
+  }, 6000);
+  try {
+    await registerPdvServiceWorker();
+    await migrateLegacyQueue();
+    updateStatusBar();
+    await bootPos();
+  } catch (e) {
+    // Nenhuma exceção de boot pode deixar a tela presa em loading.
+    if (!$("view-loading").classList.contains("hidden")) recoveryBoot(e?.message || "erro no boot");
+  } finally {
+    clearTimeout(watchdog);
+  }
+})();
+
+})();
+</script>
+{% endblock %}

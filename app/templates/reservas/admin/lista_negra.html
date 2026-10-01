@@ -1,0 +1,189 @@
+{% extends 'reservas/reservas_base.html' %}
+
+{% block html_title %}Banimentos{% endblock %}
+{% block page_title %}Banimentos{% endblock %}
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">
+  Bloqueios por cliente aplicados por local
+</p>
+{% endblock %}
+
+{% block reservas_content %}
+
+{% set selected_source_ids = (editing.sources | map(attribute='id') | list) if editing else [] %}
+
+<div class="grid grid-cols-1 xl:grid-cols-[minmax(320px,420px)_1fr] gap-5">
+  <section class="bg-surface rounded-lg border border-line shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-line">
+      <h2 class="font-bold text-content">
+        {{ 'Editar Bloqueio' if editing else 'Novo Bloqueio' }}
+      </h2>
+      <p class="text-xs text-content-muted mt-1">
+        Cada entrada precisa de ao menos um critério ativo e um local vinculado.
+      </p>
+    </div>
+
+    <form method="post"
+          action="{{ url_for('reservas.admin_lista_negra_atualizar', entry_id=editing.id) if editing else url_for('reservas.admin_lista_negra_criar') }}"
+          class="p-5 space-y-4">
+      <div>
+        <label class="r-label r-label-req" for="name">Nome</label>
+        <input class="r-input" id="name" name="name" required
+               value="{{ editing.name if editing else '' }}"
+               placeholder="Nome completo">
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="r-label r-label-req" for="cpf">CPF</label>
+          <input class="r-input" id="cpf" name="cpf" required
+                 value="{{ editing.cpf if editing else '' }}"
+                 placeholder="000.000.000-00">
+        </div>
+        <div>
+          <label class="r-label" for="phone">Telefone</label>
+          <input class="r-input" id="phone" name="phone"
+                 value="{{ editing.phone if editing and editing.phone else '' }}"
+                 placeholder="(00) 00000-0000">
+        </div>
+      </div>
+
+      <div>
+        <label class="r-label" for="email">E-mail</label>
+        <input class="r-input" id="email" name="email" type="email"
+               value="{{ editing.email if editing and editing.email else '' }}"
+               placeholder="cliente@email.com">
+      </div>
+
+      <fieldset>
+        <legend class="r-label r-label-req">Critérios de bloqueio</legend>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <label class="r-check-wrap">
+            <input type="checkbox" name="block_by_name" value="1"
+                   {{ 'checked' if editing and editing.block_by_name else '' }}>
+            <span>Nome</span>
+          </label>
+          <label class="r-check-wrap">
+            <input type="checkbox" name="block_by_cpf" value="1"
+                   {{ 'checked' if (not editing) or editing.block_by_cpf else '' }}>
+            <span>CPF</span>
+          </label>
+          <label class="r-check-wrap">
+            <input type="checkbox" name="block_by_phone" value="1"
+                   {{ 'checked' if editing and editing.block_by_phone else '' }}>
+            <span>Telefone</span>
+          </label>
+          <label class="r-check-wrap">
+            <input type="checkbox" name="block_by_email" value="1"
+                   {{ 'checked' if editing and editing.block_by_email else '' }}>
+            <span>E-mail</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div>
+        <label class="r-label r-label-req" for="source_ids">Locais</label>
+        <select class="r-select min-h-[9rem]" id="source_ids" name="source_ids" multiple required>
+          {% for source in sources %}
+          <option value="{{ source.id }}" {{ 'selected' if source.id in selected_source_ids else '' }}>
+            {{ source.display_name or source.name }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="r-hint">Use Ctrl/Cmd para selecionar mais de um local.</p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2 pt-1">
+        <button type="submit"
+                class="min-h-[44px] px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
+          {{ 'Salvar Alterações' if editing else 'Adicionar Bloqueio' }}
+        </button>
+        {% if editing %}
+        <a href="{{ url_for('reservas.admin_lista_negra') }}"
+           class="min-h-[44px] px-4 py-2 border border-line text-content text-sm font-semibold rounded-lg flex items-center justify-center hover:bg-surface-2">
+          Cancelar
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </section>
+
+  <section class="bg-surface rounded-lg border border-line shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-line">
+      <h2 class="font-bold text-content">Entradas Ativas</h2>
+      <p class="text-xs text-content-muted mt-1">
+        Os marcadores indicam quais dados bloqueiam a reserva.
+      </p>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="r-table min-w-[760px]">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Dados</th>
+            <th>Critérios</th>
+            <th>Locais</th>
+            <th style="width: 150px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in entries %}
+          <tr>
+            <td>
+              <div class="font-semibold text-content">{{ entry.name }}</div>
+              <div class="text-xs text-content-muted">ID #{{ entry.id }}</div>
+            </td>
+            <td class="text-content-muted">
+              <div class="font-mono text-xs">{{ entry.cpf | documento_parcial }}</div>
+              {% if entry.phone %}<div class="font-mono text-xs">{{ entry.phone }}</div>{% endif %}
+              {% if entry.email %}<div class="text-xs">{{ entry.email }}</div>{% endif %}
+            </td>
+            <td>
+              <div class="flex flex-wrap gap-1.5">
+                {% if entry.block_by_name %}<span class="r-badge r-badge-done">Nome</span>{% endif %}
+                {% if entry.block_by_cpf %}<span class="r-badge r-badge-paid">CPF</span>{% endif %}
+                {% if entry.block_by_phone %}<span class="r-badge r-badge-day">Telefone</span>{% endif %}
+                {% if entry.block_by_email %}<span class="r-badge r-badge-pending">E-mail</span>{% endif %}
+              </div>
+            </td>
+            <td>
+              <div class="flex flex-wrap gap-1.5">
+                {% for source in entry.sources %}
+                <span class="px-2 py-1 rounded-md bg-surface-2 text-content text-xs font-semibold">
+                  {{ source.display_name or source.name }}
+                </span>
+                {% endfor %}
+              </div>
+            </td>
+            <td>
+              <div class="flex gap-2">
+                <a href="{{ url_for('reservas.admin_lista_negra_editar', entry_id=entry.id) }}"
+                   class="px-3 py-2 border border-line rounded-lg text-xs font-semibold text-content hover:bg-surface-2">
+                  Editar
+                </a>
+                <form method="post"
+                      action="{{ url_for('reservas.admin_lista_negra_deletar', entry_id=entry.id) }}"
+                      onsubmit="return confirm('Remover este banimento?')">
+                  <button type="submit"
+                          class="px-3 py-2 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 text-red-700 dark:text-red-300 text-xs font-semibold rounded-lg border border-red-200 dark:border-red-800">
+                    Excluir
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="text-center text-content-muted py-8">
+              Nenhum bloqueio ativo cadastrado.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{% endblock %}

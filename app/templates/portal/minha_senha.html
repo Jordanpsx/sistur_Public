@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Portal do Colaborador — Alterar Senha
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alterar Senha | Portal do Colaborador</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-teal-50 via-sky-50 to-slate-100
+             flex items-start justify-center px-4 py-10">
+
+  <div class="w-full max-w-md">
+
+    <!-- Back link -->
+    <a href="{{ url_for('portal.dashboard') }}"
+       class="inline-flex items-center gap-2 text-sm text-slate-500
+              hover:text-teal-700 mb-6 transition-colors">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M19 12H5M12 5l-7 7 7 7"
+              stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Voltar ao painel
+    </a>
+
+    <div class="bg-white rounded-3xl shadow-2xl shadow-teal-100/60
+                border border-white/80 px-8 py-10">
+
+      <!-- Header -->
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center text-teal-600">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="11" width="18" height="11" rx="2"
+                  stroke="currentColor" stroke-width="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"
+                  stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-extrabold text-slate-800 leading-tight">Alterar Senha</h1>
+          <p class="text-xs text-slate-500">{{ funcionario.nome.split()[0] | e }}</p>
+        </div>
+      </div>
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flex items-start gap-3 rounded-xl px-4 py-3 mb-6 text-sm border
+                        {% if category == 'erro' %}
+                          bg-red-50 text-red-600 border-red-100
+                        {% else %}
+                          bg-emerald-50 text-emerald-700 border-emerald-100
+                        {% endif %}">
+              {% if category == 'erro' %}
+                <svg class="flex-shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                  <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              {% else %}
+                <svg class="flex-shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              {% endif %}
+              <span>{{ message | e }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('portal.minha_senha_submit') }}" novalidate>
+
+        {% if funcionario.senha_hash %}
+        <!-- Senha atual — apenas quando já existe hash -->
+        <div class="mb-5">
+          <label for="senha_atual"
+                 class="block text-xs font-semibold uppercase tracking-widest
+                        text-slate-600 mb-2">
+            Senha atual
+          </label>
+          <input id="senha_atual" name="senha_atual" type="password"
+                 autocomplete="current-password" placeholder="Digite sua senha atual"
+                 class="w-full px-4 py-3.5 text-sm rounded-xl border-2 border-slate-200
+                        bg-slate-50 text-slate-700 placeholder-slate-300
+                        focus:outline-none focus:border-teal-500 focus:bg-white
+                        focus:ring-4 focus:ring-teal-100 transition-all" />
+        </div>
+        {% endif %}
+
+        <!-- Nova senha -->
+        <div class="mb-4">
+          <label for="nova_senha"
+                 class="block text-xs font-semibold uppercase tracking-widest
+                        text-slate-600 mb-2">
+            Nova senha
+          </label>
+          <input id="nova_senha" name="nova_senha" type="password"
+                 autocomplete="new-password" placeholder="Mínimo 6 caracteres"
+                 class="w-full px-4 py-3.5 text-sm rounded-xl border-2 border-slate-200
+                        bg-slate-50 text-slate-700 placeholder-slate-300
+                        focus:outline-none focus:border-teal-500 focus:bg-white
+                        focus:ring-4 focus:ring-teal-100 transition-all" />
+        </div>
+
+        <!-- Confirmar nova senha -->
+        <div class="mb-8">
+          <label for="confirmar_senha"
+                 class="block text-xs font-semibold uppercase tracking-widest
+                        text-slate-600 mb-2">
+            Confirmar nova senha
+          </label>
+          <input id="confirmar_senha" name="confirmar_senha" type="password"
+                 autocomplete="new-password" placeholder="Repita a nova senha"
+                 class="w-full px-4 py-3.5 text-sm rounded-xl border-2 border-slate-200
+                        bg-slate-50 text-slate-700 placeholder-slate-300
+                        focus:outline-none focus:border-teal-500 focus:bg-white
+                        focus:ring-4 focus:ring-teal-100 transition-all" />
+          <p id="confirm-hint" class="hidden mt-1.5 text-xs text-red-500 font-medium">
+            As senhas não coincidem.
+          </p>
+        </div>
+
+        <button type="submit"
+                class="w-full py-4 rounded-xl font-bold text-sm text-white
+                       bg-gradient-to-r from-teal-400 to-teal-600
+                       shadow-lg shadow-teal-200
+                       hover:-translate-y-0.5 hover:shadow-xl transition-all duration-200
+                       active:translate-y-0">
+          Salvar nova senha
+        </button>
+
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Client-side match hint — not a replacement for server validation
+    const nova     = document.getElementById('nova_senha');
+    const confirma = document.getElementById('confirmar_senha');
+    const hint     = document.getElementById('confirm-hint');
+
+    function checkMatch() {
+      if (confirma.value && nova.value !== confirma.value) {
+        hint.classList.remove('hidden');
+        confirma.classList.add('border-red-400');
+      } else {
+        hint.classList.add('hidden');
+        confirma.classList.remove('border-red-400');
+      }
+    }
+
+    nova?.addEventListener('input', checkMatch);
+    confirma?.addEventListener('input', checkMatch);
+  </script>
+
+</body>
+</html>

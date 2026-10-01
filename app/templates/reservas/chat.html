@@ -1,0 +1,181 @@
+{% extends "reservas/reservas_base.html" %}
+{#
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Reservas — Chat (Chatwoot iframe embutido)
+#}
+
+{% block html_title %}Chat — Atendimento{% endblock %}
+{% block page_title %}Chat{% endblock %}
+{% block page_subtitle %}
+  <p class="text-xs text-content-muted leading-tight mt-0.5">Atendimento via Chatwoot</p>
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{{ chatwoot_url }}" target="_blank" rel="noopener noreferrer"
+     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line
+            text-xs font-medium text-content-muted hover:bg-surface-2 hover:text-content
+            transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2"
+         viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+    </svg>
+    Abrir em aba
+  </a>
+{% endblock %}
+
+{# Remove padding — iframe must fill the entire content area #}
+{% block main_class %}flex-1 p-0 flex flex-col overflow-hidden{% endblock %}
+
+{% block reservas_content %}
+
+{# ── Banner: contato não encontrado automaticamente ───────────────────────── #}
+{% if contact_not_found and tel_display %}
+<div id="notFoundBanner"
+     class="flex items-center justify-between gap-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/30
+            border-b border-amber-200 dark:border-amber-800 shrink-0">
+  <div class="flex items-center gap-2.5 min-w-0">
+    <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor"
+         stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73
+               0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898
+               0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+    </svg>
+    <span class="text-xs text-amber-800 font-medium leading-snug">
+      Contato não localizado automaticamente para
+      <strong id="bannerTel" class="font-bold select-all">{{ tel_display }}</strong>
+      — pesquise o número manualmente no Chatwoot.
+    </span>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    {# Copy button #}
+    <button type="button"
+            id="copyTelBtn"
+            onclick="copyTel()"
+            title="Copiar número"
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-100
+                   border border-amber-300 text-amber-800 text-xs font-medium
+                   hover:bg-amber-200 transition-colors">
+      <svg id="copyIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+           stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166
+                 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75
+                 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11
+                 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0
+                 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057
+                 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+      </svg>
+      <span id="copyLabel">Copiar</span>
+    </button>
+    {# Dismiss #}
+    <button type="button"
+            onclick="document.getElementById('notFoundBanner').remove(); resizeFrame();"
+            title="Fechar aviso"
+            class="w-6 h-6 flex items-center justify-center rounded text-amber-500
+                   hover:bg-amber-100 transition-colors">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5"
+           viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+</div>
+{% endif %}
+
+{# ── Iframe wrapper ────────────────────────────────────────────────────────── #}
+<div id="chatFrameWrapper" class="relative flex-1 min-h-0">
+
+  <!-- Loading overlay -->
+  <div id="chatLoadingOverlay"
+       class="absolute inset-0 bg-surface-2 flex flex-col items-center justify-center gap-4 z-10
+              transition-opacity duration-300">
+    <div class="w-9 h-9 rounded-full border-[3px] border-line border-t-teal-500
+                animate-spin"></div>
+    <span class="text-sm text-content-muted">Carregando atendimento…</span>
+  </div>
+
+  <!-- Erro de iframe bloqueado -->
+  <div id="chatErrorMsg"
+       class="absolute inset-0 hidden flex-col items-center justify-center gap-3 p-8 text-center z-10">
+    <span class="text-4xl text-content-muted" aria-hidden="true"><svg class="r-icon r-icon-lock" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+    <h3 class="text-base font-semibold text-content">Não foi possível carregar o painel</h3>
+    <p class="text-sm text-content-muted max-w-sm leading-relaxed">
+      O navegador bloqueou o iframe. Abra o Chatwoot diretamente em uma nova aba.
+    </p>
+    <a href="{{ chatwoot_url }}" target="_blank" rel="noopener noreferrer"
+       class="mt-2 inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-teal-600 text-white
+              text-sm font-medium hover:bg-teal-700 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"
+           viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+      </svg>
+      Abrir Chatwoot
+    </a>
+  </div>
+
+  <iframe
+    id="chatwootFrame"
+    src="{{ chatwoot_url }}"
+    allow="microphone; camera; clipboard-write"
+    title="Chatwoot — Painel de Atendimento"
+    class="absolute inset-0 w-full h-full border-0 block">
+  </iframe>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const frame   = document.getElementById('chatwootFrame');
+    const overlay = document.getElementById('chatLoadingOverlay');
+    const errEl   = document.getElementById('chatErrorMsg');
+
+    function hideOverlay() {
+      overlay.style.opacity = '0';
+      overlay.style.pointerEvents = 'none';
+      clearTimeout(timer);
+    }
+
+    frame.addEventListener('load', hideOverlay);
+
+    const timer = setTimeout(() => {
+      if (overlay.style.opacity !== '0') {
+        overlay.classList.add('hidden');
+        errEl.classList.remove('hidden');
+        errEl.classList.add('flex');
+        frame.style.display = 'none';
+      }
+    }, 12000);
+  })();
+
+  {% if contact_not_found and tel_display %}
+  function copyTel() {
+    const tel = document.getElementById('bannerTel').textContent.trim();
+    navigator.clipboard.writeText(tel).then(() => {
+      const lbl  = document.getElementById('copyLabel');
+      const icon = document.getElementById('copyIcon');
+      lbl.textContent = 'Copiado!';
+      icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>';
+      setTimeout(() => {
+        lbl.textContent = 'Copiar';
+        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>';
+      }, 2000);
+    });
+  }
+
+  function resizeFrame() { /* flex handles it — just a hook for future use */ }
+
+  // Auto-copy on page load so the number is already in the clipboard
+  window.addEventListener('DOMContentLoaded', () => {
+    const tel = document.getElementById('bannerTel');
+    if (tel && navigator.clipboard) {
+      navigator.clipboard.writeText(tel.textContent.trim()).catch(() => {});
+    }
+  });
+  {% endif %}
+</script>
+{% endblock %}

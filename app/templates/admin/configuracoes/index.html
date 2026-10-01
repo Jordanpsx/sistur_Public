@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Admin — Configurações Globais (Control Panel)
+-->
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ company_name }} | Configurações do Sistema</title>
+  {% include '_design_system.html' %}
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--c-bg); margin: 0; color: var(--c-text); }
+
+    /* ─── Topbar ─── */
+    .topbar { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--c-surface) 95%, transparent); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--c-border); }
+    .topbar-inner { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .topbar-back { display: flex; align-items: center; gap: .5rem; color: var(--c-primary); font-weight: 600; font-size: .9rem; text-decoration: none; }
+    .topbar-back:hover { color: color-mix(in srgb, var(--c-primary) 80%, var(--c-text)); }
+    .topbar-title { font-size: .95rem; font-weight: 700; color: var(--c-text); display: flex; align-items: center; gap: .5rem; }
+    .badge-super { font-size: .7rem; font-weight: 600; background: color-mix(in srgb, #7c3aed 12%, var(--c-surface)); color: color-mix(in srgb, #7c3aed 90%, var(--c-text)); padding: 2px 8px; border-radius: 999px; }
+
+    /* ─── Hero (brand gradient — kept dark) ─── */
+    .hero { background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 50%, #6d28d9 100%); padding: 2rem 1.5rem 1.75rem; }
+    .hero-inner { max-width: 1100px; margin: 0 auto; }
+    .hero-title { color: #fff; font-size: 1.4rem; font-weight: 800; margin: 0 0 .25rem; letter-spacing: -.02em; }
+    .hero-sub { color: rgba(255,255,255,.7); font-size: .875rem; margin: 0 0 1.25rem; }
+
+    /* ─── Tabs (on dark hero) ─── */
+    .tabs { display: flex; gap: .25rem; border-bottom: 2px solid rgba(255,255,255,.15); }
+    .tab-btn { padding: .5rem 1rem; border: none; background: transparent; color: rgba(255,255,255,.65); font-size: .875rem; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color .15s, border-color .15s; font-family: 'Inter', sans-serif; }
+    .tab-btn:hover { color: rgba(255,255,255,.9); }
+    .tab-btn.active { color: #fff; border-bottom-color: #fff; }
+
+    /* ─── Content ─── */
+    .content { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ─── Section cards ─── */
+    .section-card { background: var(--c-surface); border-radius: 16px; border: 1px solid var(--c-border); padding: 1.5rem; margin-bottom: 1.25rem; }
+    .section-title { font-size: 1rem; font-weight: 700; color: var(--c-text); margin: 0 0 .2rem; }
+    .section-desc { font-size: .8rem; color: var(--c-text-muted); margin: 0; }
+
+    /* ─── Module rows ─── */
+    .module-row { display: flex; align-items: center; justify-content: space-between; padding: 1rem 0; border-bottom: 1px solid var(--c-surface-2); }
+    .module-row:last-child { border-bottom: none; }
+    .module-info { display: flex; align-items: center; gap: .75rem; }
+    .module-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+    .module-name { font-weight: 600; font-size: .9rem; color: var(--c-text); margin: 0 0 .15rem; }
+    .module-status { font-size: .75rem; font-weight: 500; }
+    .status-on  { color: color-mix(in srgb, #059669 90%, var(--c-text)); }
+    .status-off { color: var(--c-text-muted); }
+
+    /* ─── Toggle switch ─── */
+    .switch { position: relative; display: inline-block; width: 52px; height: 28px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background: var(--c-border); border-radius: 28px; transition: background .25s; }
+    .slider:before { content: ''; position: absolute; height: 20px; width: 20px; left: 4px; bottom: 4px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .25s; }
+    .switch input:checked + .slider { background: var(--c-primary); }
+    .switch input:checked + .slider:before { transform: translateX(24px); }
+    .switch input:disabled + .slider { opacity: .5; cursor: not-allowed; }
+    .switch.loading .slider { opacity: .6; pointer-events: none; }
+
+    /* ─── Forms ─── */
+    .form-group { margin-bottom: 1.25rem; }
+    .form-label { display: block; font-size: .8rem; font-weight: 600; color: var(--c-text); margin-bottom: .4rem; }
+    .form-input { width: 100%; padding: .6rem .875rem; border: 1.5px solid var(--c-border); border-radius: 8px; font-size: .875rem; font-family: 'Inter', sans-serif; color: var(--c-text); background: var(--c-surface); transition: border-color .15s; outline: none; }
+    .form-input:focus { border-color: var(--c-primary); }
+    .form-hint { font-size: .75rem; color: var(--c-text-muted); margin-top: .3rem; }
+    .btn-primary { padding: .65rem 1.5rem; background: var(--c-primary); color: #fff; border: none; border-radius: 8px; font-size: .875rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s; min-height: 44px; }
+    .btn-primary:hover { background: color-mix(in srgb, var(--c-primary) 85%, #000); }
+
+    /* ─── RBAC card ─── */
+    .rbac-card { display: flex; align-items: center; justify-content: space-between; background: var(--c-surface-2); border: 1.5px solid var(--c-border); border-radius: 12px; padding: 1rem 1.25rem; text-decoration: none; color: var(--c-text); transition: border-color .15s, background .15s; }
+    .rbac-card:hover { border-color: color-mix(in srgb, #7c3aed 50%, transparent); background: color-mix(in srgb, #7c3aed 8%, var(--c-surface)); }
+    .rbac-card-info { display: flex; align-items: center; gap: .75rem; }
+    .rbac-icon { width: 44px; height: 44px; background: color-mix(in srgb, #7c3aed 12%, var(--c-surface)); color: color-mix(in srgb, #7c3aed 90%, var(--c-text)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+    .rbac-title { font-weight: 700; font-size: .9rem; margin: 0 0 .15rem; color: var(--c-text); }
+    .rbac-desc { font-size: .775rem; color: var(--c-text-muted); margin: 0; }
+    .rbac-arrow { color: var(--c-text-muted); font-size: 1.1rem; }
+
+    /* ─── Placeholder cards ─── */
+    .placeholder-card { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--c-surface-2); border: 1.5px dashed var(--c-border); border-radius: 12px; margin-bottom: .75rem; }
+    .placeholder-icon { width: 40px; height: 40px; background: var(--c-surface-2); border: 1px solid var(--c-border); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--c-text-muted); font-size: 1.1rem; flex-shrink: 0; }
+    .placeholder-name { font-size: .875rem; font-weight: 600; color: var(--c-text-muted); margin: 0 0 .15rem; }
+    .badge-soon { font-size: .68rem; font-weight: 700; background: var(--c-surface-2); color: var(--c-text-muted); padding: 1px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .05em; }
+
+    /* ─── Flash messages ─── */
+    .flash-list { list-style: none; padding: 0; margin: 0 0 1.25rem; }
+    .flash-msg { padding: .75rem 1rem; border-radius: 10px; font-size: .875rem; font-weight: 500; margin-bottom: .5rem; }
+    .flash-sucesso { background: color-mix(in srgb, #059669 10%, var(--c-surface)); color: color-mix(in srgb, #059669 90%, var(--c-text)); border: 1px solid color-mix(in srgb, #059669 30%, transparent); }
+    .flash-erro    { background: color-mix(in srgb, var(--c-danger-fg) 10%, var(--c-surface)); color: var(--c-danger-fg); border: 1px solid color-mix(in srgb, var(--c-danger-fg) 30%, transparent); }
+    .flash-aviso   { background: color-mix(in srgb, #d97706 10%, var(--c-surface)); color: color-mix(in srgb, #d97706 90%, var(--c-text)); border: 1px solid color-mix(in srgb, #d97706 30%, transparent); }
+
+    /* ─── Module icon colors ─── */
+    .icon-ponto       { background: color-mix(in srgb, #0d9488 12%, var(--c-surface)); color: color-mix(in srgb, #0d9488 90%, var(--c-text)); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 640px) {
+      .content { padding: 1.25rem 1rem; }
+      .hero { padding: 1.5rem 1rem 1.25rem; }
+      .hero-title { font-size: 1.2rem; }
+      .tabs { gap: 0; overflow-x: auto; }
+      .tab-btn { padding: .5rem .75rem; font-size: .8rem; white-space: nowrap; }
+    }
+
+    /* ─── Calendar tab ─── */
+    .cal-table-wrap { overflow-x: auto; margin-bottom: 2rem; }
+    .cal-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    .cal-table thead tr { border-bottom: 2px solid var(--c-border); text-align: left; }
+    .cal-table th { padding: .75rem .5rem; color: var(--c-text-muted); font-weight: 600; }
+    .cal-table td { padding: .75rem .5rem; border-bottom: 1px solid var(--c-surface-2); }
+    .cal-table .td-date { font-family: 'DM Mono', monospace; white-space: nowrap; }
+    .badge-national { background: color-mix(in srgb, #1d4ed8 12%, var(--c-surface)); color: color-mix(in srgb, #1d4ed8 90%, var(--c-text)); padding: .15rem .6rem; border-radius: 6px; font-size: .78rem; font-weight: 600; }
+    .badge-local    { background: color-mix(in srgb, #7c3aed 12%, var(--c-surface)); color: color-mix(in srgb, #7c3aed 90%, var(--c-text)); padding: .15rem .6rem; border-radius: 6px; font-size: .78rem; font-weight: 600; }
+    .badge-season   { background: color-mix(in srgb, #d97706 12%, var(--c-surface)); color: color-mix(in srgb, #d97706 90%, var(--c-text)); padding: .15rem .6rem; border-radius: 6px; font-size: .78rem; font-weight: 600; }
+    .badge-maint    { background: var(--c-surface-2); color: var(--c-text-muted); padding: .15rem .6rem; border-radius: 6px; font-size: .78rem; font-weight: 600; }
+    /* Intervalo de datas (alta temporada), abaixo da data inicial no mobile */
+    .cal-range { display: block; font-size: .78rem; color: var(--c-text-muted); }
+    /* Procedência do cadastro: "Reservas" sinaliza evento nascido no módulo,
+       afetando só preço até um super admin promovê-lo a evento de folha. */
+    .badge-origem-reservas { background: color-mix(in srgb, var(--c-primary) 14%, var(--c-surface)); color: color-mix(in srgb, var(--c-primary) 92%, var(--c-text)); padding: .15rem .6rem; border-radius: 6px; font-size: .78rem; font-weight: 600; }
+    .badge-origem-global   { background: var(--c-surface-2); color: var(--c-text-muted); padding: .15rem .6rem; border-radius: 6px; font-size: .78rem; font-weight: 600; }
+    .btn-edit-inline { background: none; border: none; color: var(--c-primary); font-weight: 600; cursor: pointer; font-size: .85rem; padding: .3rem .5rem; min-height: 44px; }
+    .btn-del-inline  { background: none; border: none; color: var(--c-danger-fg); font-weight: 600; cursor: pointer; font-size: .85rem; padding: .3rem .5rem; min-height: 44px; }
+    .cal-empty { text-align: center; color: var(--c-text-muted); padding: 2rem 0; font-size: .95rem; }
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 640px) { .form-grid-2 { grid-template-columns: 1fr; } }
+    .form-checkboxes { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .form-checkbox-label { display: flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--c-text); cursor: pointer; }
+    .form-checkbox-label input { width: 18px; height: 18px; accent-color: var(--c-primary); }
+    .hr-section { border: none; border-top: 1px solid var(--c-border); margin: 1.5rem 0; }
+    .code-inline { background: var(--c-surface-2); border: 1px solid var(--c-border); padding: .1rem .4rem; border-radius: 4px; font-family: 'DM Mono', monospace; font-size: .8em; }
+
+    /* ─── Geofence tab ─── */
+    .geo-table-wrap { overflow-x: auto; margin-bottom: 2rem; }
+    .geo-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    .geo-table th { padding: .6rem .75rem; font-weight: 600; color: var(--c-text-muted); background: var(--c-surface-2); text-align: left; }
+    .geo-table td { padding: .6rem .75rem; border-top: 1px solid var(--c-border); }
+    .geo-table .td-name { font-weight: 500; color: var(--c-text); }
+    .geo-table .td-mono { color: var(--c-text-muted); font-family: monospace; }
+    .badge-geo-active   { background: color-mix(in srgb, #15803d 12%, var(--c-surface)); color: color-mix(in srgb, #15803d 90%, var(--c-text)); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
+    .badge-geo-inactive { background: var(--c-surface-2); color: var(--c-text-muted); padding: .2rem .6rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; }
+    .btn-edit-geo { background: color-mix(in srgb, #7c3aed 10%, var(--c-surface)); color: color-mix(in srgb, #7c3aed 90%, var(--c-text)); border: none; padding: .35rem .75rem; border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; min-height: 36px; }
+    .btn-del-geo  { background: color-mix(in srgb, var(--c-danger-fg) 10%, var(--c-surface)); color: var(--c-danger-fg); border: none; padding: .35rem .75rem; border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; min-height: 36px; }
+    .geo-empty { text-align: center; padding: 2rem 1rem; color: var(--c-text-muted); margin-bottom: 1.5rem; }
+    .btn-gps     { display: inline-flex; align-items: center; gap: .5rem; background: color-mix(in srgb, #15803d 10%, var(--c-surface)); color: color-mix(in srgb, #15803d 90%, var(--c-text)); border: 1px solid color-mix(in srgb, #15803d 25%, transparent); padding: .5rem 1rem; border-radius: 8px; font-size: .85rem; font-weight: 600; cursor: pointer; min-height: 40px; }
+    .btn-gps.warn { background: color-mix(in srgb, #d97706 10%, var(--c-surface)); color: color-mix(in srgb, #d97706 90%, var(--c-text)); border-color: color-mix(in srgb, #d97706 25%, transparent); }
+    .btn-gps.ok   { background: color-mix(in srgb, #059669 10%, var(--c-surface)); color: color-mix(in srgb, #059669 90%, var(--c-text)); border-color: color-mix(in srgb, #059669 25%, transparent); }
+    .btn-gps.err  { background: color-mix(in srgb, var(--c-danger-fg) 10%, var(--c-surface)); color: var(--c-danger-fg); border-color: color-mix(in srgb, var(--c-danger-fg) 25%, transparent); }
+
+    /* ─── Mercado Pago ─── */
+    .mp-ok   { display: flex; align-items: center; gap: .6rem; padding: .75rem 1rem; background: color-mix(in srgb, #059669 10%, var(--c-surface)); border-radius: 8px; margin-bottom: 1.5rem; font-size: .875rem; color: color-mix(in srgb, #059669 90%, var(--c-text)); border: 1px solid color-mix(in srgb, #059669 25%, transparent); }
+    .mp-warn { display: flex; align-items: center; gap: .6rem; padding: .75rem 1rem; background: color-mix(in srgb, #d97706 10%, var(--c-surface)); border-radius: 8px; margin-bottom: 1.5rem; font-size: .875rem; color: color-mix(in srgb, #d97706 90%, var(--c-text)); border: 1px solid color-mix(in srgb, #d97706 25%, transparent); }
+    .mp-info-box   { margin-top: 2rem; padding: 1rem; background: var(--c-surface-2); border-radius: 8px; border: 1px solid var(--c-border); }
+    .mp-info-title { font-size: .875rem; font-weight: 600; color: var(--c-text); margin: 0 0 .5rem; }
+    .mp-info-line  { font-size: .82rem; color: var(--c-text-muted); margin: 0 0 .4rem; }
+    .mp-info-line:last-child { margin-bottom: 0; }
+
+    /* ─── Fuso horário ─── */
+    .tz-current { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; background: color-mix(in srgb, #059669 8%, var(--c-surface)); border-radius: 8px; margin-bottom: 1.5rem; font-size: .875rem; color: color-mix(in srgb, #059669 90%, var(--c-text)); border: 1px solid color-mix(in srgb, #059669 20%, transparent); }
+
+    /* ─── Sub-tabs (Configurações por Módulo) ─── */
+    .subtab-nav { border-bottom: 1px solid var(--c-border); padding: 0 1.5rem; background: var(--c-surface-2); display: flex; overflow-x: auto; }
+    .subtab-btn { padding: .85rem 1.25rem; background: none; border: none; border-bottom: 2px solid transparent; color: var(--c-text-muted); font-weight: 500; font-size: .875rem; cursor: pointer; white-space: nowrap; min-height: 44px; font-family: 'Inter', sans-serif; transition: color .15s, border-color .15s; }
+    .subtab-btn:hover { color: var(--c-text); }
+    .subtab-btn--active { border-bottom-color: var(--c-primary) !important; color: var(--c-primary) !important; font-weight: 600 !important; }
+    .subtab-panel { display: none; padding: 1.5rem; }
+    .subtab-panel--active { display: block; }
+
+    /* ─── Modals ─── */
+    .modal-cfg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-cfg.open { display: flex; }
+    .modal-box    { background: var(--c-surface); border-radius: 16px; padding: 2rem; width: min(520px, 92vw); box-shadow: 0 20px 50px rgba(0,0,0,.2); max-height: 90vh; overflow-y: auto; }
+    .modal-box-sm { background: var(--c-surface); border-radius: 16px; padding: 2rem; width: min(480px, 92vw); box-shadow: 0 20px 50px rgba(0,0,0,.2); max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-size: 1.1rem; font-weight: 700; color: var(--c-text); margin: 0 0 1.5rem; }
+    .modal-actions-row { display: flex; gap: .75rem; margin-top: 1.5rem; }
+    .btn-modal-cancel { flex: 1; background: var(--c-surface-2); color: var(--c-text-muted); border: 1px solid var(--c-border); padding: .75rem; border-radius: 10px; font-weight: 600; font-size: .95rem; cursor: pointer; min-height: 44px; }
+    .btn-modal-cancel:hover { background: var(--c-border); }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Topbar ─── -->
+  <nav class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ url_for('portal.dashboard') }}" class="topbar-back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M19 12H5M5 12l7-7M5 12l7 7" />
+        </svg>
+        Dashboard
+      </a>
+      <div class="topbar-title">
+        ⚙ Configurações
+        <span class="badge-super">Super Admin</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ─── -->
+  <div class="hero">
+    <div class="hero-inner">
+      <h1 class="hero-title">Painel de Controle do Sistema</h1>
+      <p class="hero-sub">Gerencie módulos, permissões e identidade visual da aplicação.</p>
+
+      <div class="tabs" role="tablist">
+        <button class="tab-btn active" role="tab" data-tab="modulos" aria-selected="true">Módulos Ativos</button>
+        <button class="tab-btn" role="tab" data-tab="regras" aria-selected="false">Regras Globais</button>
+        <button class="tab-btn" role="tab" data-tab="branding" aria-selected="false">Identidade Visual</button>
+        <button class="tab-btn" role="tab" data-tab="empresa" aria-selected="false">Dados da Empresa</button>
+        <button class="tab-btn" role="tab" data-tab="config-modulos" aria-selected="false">⚙️ Configurações por Módulo</button>
+        <button class="tab-btn" role="tab" data-tab="calendario" aria-selected="false">Calendário Global</button>
+        <button class="tab-btn" role="tab" data-tab="mercadopago" aria-selected="false">Mercado Pago</button>
+        <button class="tab-btn" role="tab" data-tab="fuso-horario" aria-selected="false">Fuso Horário</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Content ─── -->
+  <main class="content">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <ul class="flash-list">
+      {% for category, message in messages %}
+      <li class="flash-msg flash-{{ category }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% endwith %}
+
+    <!-- ── Tab: Módulos Ativos ─── -->
+    <div id="tab-modulos" class="tab-panel active" role="tabpanel">
+
+      <div class="section-card">
+        <div style="margin-bottom:1.25rem;">
+          <p class="section-title">Master Switch — Módulos</p>
+          <p class="section-desc" style="margin-top:.2rem;">
+            Desligar um módulo oculta sua entrada do dashboard para todos os colaboradores
+            e retorna HTTP 403 em qualquer acesso direto à URL.
+            Super admins sempre têm acesso, mesmo com o módulo desligado.
+          </p>
+        </div>
+
+        {% set icons = {'ponto': '⏱', 'reservas': '📅'} %}
+
+        {% for mod in modulos_info %}
+        <div class="module-row">
+          <div class="module-info">
+            <div class="module-icon icon-{{ mod.nome }}">{{ icons[mod.nome] }}</div>
+            <div>
+              <p class="module-name">{{ mod.label }}</p>
+              <p class="module-status {% if mod.ativo %}status-on{% else %}status-off{% endif %}" id="status-{{ mod.nome }}">
+                {% if mod.ativo %}Ativo{% else %}Desativado{% endif %}
+              </p>
+            </div>
+          </div>
+          <label class="switch" id="switch-{{ mod.nome }}" title="Ligar/desligar {{ mod.label }}">
+            <input type="checkbox" {% if mod.ativo %}checked{% endif %}
+              onchange="toggleModulo('{{ mod.chave }}', '{{ mod.nome }}', this)" aria-label="Módulo {{ mod.label }}" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Nomes de exibição dos módulos (2.12) -->
+      <div class="section-card">
+        <div style="margin-bottom:1.25rem;">
+          <p class="section-title">Nomes dos Módulos</p>
+          <p class="section-desc" style="margin-top:.2rem;">
+            Renomeie como cada módulo aparece para os colaboradores — cards do início,
+            títulos de página e tela de permissões. Deixar em branco volta ao nome padrão.
+            Permissões e endereços internos não mudam.
+          </p>
+        </div>
+
+        <form method="post" action="{{ url_for('configuracoes.salvar_nomes_modulos') }}">
+          <div style="display:grid;grid-template-columns:1fr;gap:.75rem;">
+            {% for item in nomes_modulos_info %}
+            <div style="display:flex;flex-direction:column;gap:.25rem;">
+              <label for="nome_{{ item.modulo }}"
+                     style="font-size:.78rem;font-weight:600;color:var(--c-text-muted);">
+                {{ item.padrao }}
+                <span style="font-weight:400;">(padrão)</span>
+              </label>
+              <input type="text" id="nome_{{ item.modulo }}" name="nome_{{ item.modulo }}"
+                     value="{{ item.atual }}" placeholder="{{ item.padrao }}" maxlength="40"
+                     style="width:100%;min-height:44px;padding:.5rem .9rem;border-radius:12px;
+                            border:1px solid var(--c-border);background:var(--c-surface);
+                            color:var(--c-text);font-size:.875rem;" />
+            </div>
+            {% endfor %}
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:1rem;">
+            <button type="submit" class="ds-btn ds-btn-primary">Salvar nomes</button>
+          </div>
+        </form>
+      </div>
+
+      <a href="{{ url_for('configuracoes.listar_roles') }}" class="rbac-card">
+        <div class="rbac-card-info">
+          <div class="rbac-icon">🔐</div>
+          <div>
+            <p class="rbac-title">Controle de Acesso (Roles)</p>
+            <p class="rbac-desc">Gerencie roles e suas permissões no portal do colaborador.</p>
+          </div>
+        </div>
+        <span class="rbac-arrow">›</span>
+      </a>
+    </div>
+
+    <!-- ── Tab: Regras Globais ─── -->
+    <div id="tab-regras" class="tab-panel" role="tabpanel">
+      <div class="section-card">
+        <p class="section-title" style="margin:0 0 1rem">Regras Globais do Sistema</p>
+        <p class="section-desc" style="margin:0 0 1.5rem">
+          Configurações que afetam o comportamento de múltiplos módulos simultaneamente.
+        </p>
+
+        {% set placeholders = [
+          ('⏰', 'Tolerância de Ponto (min)', 'Tempo de tolerância para atrasos no ponto eletrônico.'),
+          ('📋', 'Aprovação Automática', 'Aprovar automaticamente registros sem inconsistências.'),
+          ('📧', 'Notificações por E-mail', 'Enviar alertas por e-mail para supervisores.'),
+          ('🌍', 'Geofencing Obrigatório', 'Exige que o colaborador esteja no local para registrar ponto.'),
+        ] %}
+        {% for icon, nome, desc in placeholders %}
+        <div class="placeholder-card">
+          <div class="placeholder-icon">{{ icon }}</div>
+          <div>
+            <p class="placeholder-name">{{ nome }}</p>
+            <span class="badge-soon">Em breve</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ── Tab: Identidade Visual ─── -->
+    <div id="tab-branding" class="tab-panel" role="tabpanel">
+      <div class="section-card">
+        <p class="section-title" style="margin:0 0 .25rem">Identidade Visual</p>
+        <p class="section-desc" style="margin:0 0 1.5rem">
+          Os valores aqui substituem as variáveis de ambiente <code class="code-inline">COMPANY_NAME</code>
+          e <code class="code-inline">COMPANY_LOGO</code>. Deixe em branco para usar o valor padrão do servidor.
+        </p>
+        <form method="POST" action="{{ url_for('configuracoes.salvar_branding') }}">
+          <div class="form-group">
+            <label class="form-label" for="empresa_nome">Nome da Empresa</label>
+            <input class="form-input" type="text" id="empresa_nome" name="empresa_nome" value="{{ empresa_nome }}"
+              placeholder="Ex: SISTUR Turismo" maxlength="120" />
+            <p class="form-hint">Exibido no topo do portal e na aba do navegador.</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="empresa_logo">URL do Logotipo</label>
+            <input class="form-input" type="url" id="empresa_logo" name="empresa_logo" value="{{ empresa_logo }}"
+              placeholder="https://exemplo.com/logo.png" maxlength="500" />
+            <p class="form-hint">URL pública da imagem do logotipo (PNG ou SVG recomendado).</p>
+          </div>
+          <button type="submit" class="btn-primary">Salvar Identidade Visual</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Tab: Dados da Empresa ─── -->
+    <div id="tab-empresa" class="tab-panel" role="tabpanel">
+      <div class="section-card">
+        <p class="section-title" style="margin:0 0 .25rem">Dados Cadastrais da Empresa</p>
+        <p class="section-desc" style="margin:0 0 1.5rem">
+          Estas informações são exibidas no cabeçalho do PDF da <strong>Folha de Ponto</strong>.
+          Deixe em branco para omitir o campo do documento.
+        </p>
+        <form method="POST" action="{{ url_for('configuracoes.salvar_dados_empresa') }}">
+          <div class="form-group">
+            <label class="form-label" for="empresa_razao_social">Razão Social da Empresa</label>
+            <input class="form-input" type="text" id="empresa_razao_social" name="empresa_razao_social"
+              value="{{ empresa_razao_social }}" placeholder="Ex: SISTUR Turismo LTDA" maxlength="120" />
+            <p class="form-hint">Nome oficial exibido no cabeçalho do PDF da Folha de Ponto.</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="empresa_cnpj">CNPJ da Empresa</label>
+            <input class="form-input" type="text" id="empresa_cnpj" name="empresa_cnpj" value="{{ empresa_cnpj }}"
+              placeholder="00.000.000/0000-00" maxlength="18" />
+            <p class="form-hint">Exibido no cabeçalho do PDF da Folha de Ponto.</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="empresa_endereco">Endereço Completo</label>
+            <input class="form-input" type="text" id="empresa_endereco" name="empresa_endereco"
+              value="{{ empresa_endereco }}" placeholder="Rua Exemplo, 123 — Centro — Cidade/UF" maxlength="300" />
+            <p class="form-hint">Endereço completo exibido no PDF da Folha de Ponto.</p>
+          </div>
+          <button type="submit" class="btn-primary">Salvar Dados da Empresa</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Tab: Configurações por Módulo ─── -->
+    <div id="tab-config-modulos" class="tab-panel" role="tabpanel">
+      <div class="section-card" style="padding:0; overflow:hidden;">
+
+        <div class="subtab-nav">
+          <button class="subtab-btn subtab-btn--active" data-subtab="cfg-ponto">🕐 Ponto Eletrônico</button>
+        </div>
+
+        <div id="subtab-cfg-ponto" class="subtab-panel subtab-panel--active">
+
+          <p class="section-title" style="margin:0 0 .25rem">📍 Geofencing</p>
+          <p class="section-desc" style="margin:0 0 1.5rem">
+            Defina as zonas geográficas autorizadas para registro de ponto.
+            O colaborador deve estar dentro do raio de <strong>pelo menos uma zona ativa</strong> para poder registrar.
+            Quando nenhuma zona estiver cadastrada, o geofencing fica <strong>desabilitado</strong> (qualquer localização é aceita).
+          </p>
+
+          {% if geofence_locations %}
+          <div class="geo-table-wrap">
+            <table class="geo-table">
+              <thead>
+                <tr>
+                  <th>Nome</th><th>Latitude</th><th>Longitude</th><th>Raio (m)</th><th>Status</th><th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for loc in geofence_locations %}
+                <tr>
+                  <td class="td-name">{{ loc.name }}</td>
+                  <td class="td-mono">{{ "%.6f"|format(loc.latitude) }}</td>
+                  <td class="td-mono">{{ "%.6f"|format(loc.longitude) }}</td>
+                  <td>{{ loc.radius_meters }}</td>
+                  <td>
+                    {% if loc.is_active %}<span class="badge-geo-active">Ativa</span>
+                    {% else %}<span class="badge-geo-inactive">Inativa</span>{% endif %}
+                  </td>
+                  <td>
+                    <div style="display:flex;gap:.5rem;align-items:center;">
+                      <button type="button" class="btn-edit-geo btn-editar-geo"
+                        data-id="{{ loc.id }}" data-name="{{ loc.name }}"
+                        data-lat="{{ loc.latitude }}" data-lng="{{ loc.longitude }}"
+                        data-radius="{{ loc.radius_meters }}" data-active="{{ '1' if loc.is_active else '0' }}">
+                        Editar
+                      </button>
+                      <form method="POST" action="{{ url_for('configuracoes.geofence_deletar', loc_id=loc.id) }}"
+                        onsubmit="return confirm('Remover a zona \'{{ loc.name }}\'? Esta ação não pode ser desfeita.')">
+                        <button type="submit" class="btn-del-geo">Remover</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="geo-empty">
+            <div style="font-size:2rem;margin-bottom:.5rem;">📍</div>
+            <p style="font-size:.9rem;">Nenhuma zona cadastrada. O geofencing está <strong>desabilitado</strong>.</p>
+          </div>
+          {% endif %}
+
+          <hr class="hr-section" />
+
+          <p class="section-title" style="margin:0 0 1rem;font-size:.95rem;">Adicionar Nova Zona</p>
+          <form method="POST" action="{{ url_for('configuracoes.geofence_criar') }}">
+            <div class="form-group">
+              <label class="form-label" for="geo_name">Nome da Zona</label>
+              <input class="form-input" type="text" id="geo_name" name="name"
+                placeholder="Ex: Sede Central, Filial Norte" maxlength="100" required />
+            </div>
+            <div style="margin-bottom:1rem;">
+              <button type="button" id="btn-obter-localizacao" class="btn-gps" onclick="obterLocalizacaoAtual()">
+                <span id="geo-btn-icon">📍</span>
+                <span id="geo-btn-label">Obter localização atual</span>
+              </button>
+              <p class="form-hint">Usa o GPS do seu dispositivo para preencher latitude e longitude automaticamente.</p>
+            </div>
+            <div class="form-grid-2">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="geo_lat">Latitude</label>
+                <input class="form-input" type="number" id="geo_lat" name="latitude" step="0.000001" placeholder="-23.550520" required />
+                <p class="form-hint">Graus decimais (ex: -23.550520)</p>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="geo_lng">Longitude</label>
+                <input class="form-input" type="number" id="geo_lng" name="longitude" step="0.000001" placeholder="-46.633309" required />
+                <p class="form-hint">Graus decimais (ex: -46.633309)</p>
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:1rem;">
+              <label class="form-label" for="geo_radius">Raio (metros)</label>
+              <input class="form-input" type="number" id="geo_radius" name="radius_meters" min="10" max="50000" value="200" required />
+              <p class="form-hint">Distância máxima do centro para o colaborador ser aceito. Mínimo: 10 m.</p>
+            </div>
+            <button type="submit" class="btn-primary">Adicionar Zona</button>
+          </form>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab: Calendário Global & Feriados ─── -->
+    <div id="tab-calendario" class="tab-panel" role="tabpanel">
+      <div class="section-card">
+        <p class="section-title" style="margin:0 0 .3rem;">Calendário Global & Feriados</p>
+        <p class="section-desc" style="margin:0 0 1rem;">
+          Gerencie feriados nacionais, locais, datas de alta temporada e manutenções.
+          Todos os módulos consultam esta base — não hardcode datas.
+        </p>
+        <p class="section-desc" style="margin:0 0 1.5rem;">
+          <strong>Afeta precificação</strong> aplica a tarifa de data especial das reservas,
+          independentemente do tipo — feriado e alta temporada valem igual.
+          <strong>Afeta folha/ponto</strong> só vale para feriado nacional ou local.
+          Eventos com origem <em>Reservas</em> foram criados pelo admin do módulo e afetam
+          apenas preço; marcar “afeta folha/ponto” aqui os promove a feriado do sistema
+          e passa a gestão deles para esta tela.
+        </p>
+
+        {% if eventos_calendario %}
+        <div class="cal-table-wrap">
+          <table class="cal-table">
+            <thead>
+              <tr>
+                <th>Data</th><th>Título</th><th>Tipo</th><th>Origem</th>
+                <th style="text-align:center;">Precificação</th>
+                <th style="text-align:center;">Folha</th>
+                <th style="text-align:center;">Recorrente</th>
+                <th style="text-align:right;">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ev in eventos_calendario %}
+              <tr>
+                <td class="td-date">
+                  {{ ev.data_evento.strftime('%d/%m/%Y') }}{% if ev.data_fim %}
+                  <span class="cal-range">até {{ ev.data_fim.strftime('%d/%m/%Y') }}</span>
+                  {% endif %}
+                </td>
+                <td style="font-weight:500;">{{ ev.titulo }}</td>
+                <td>
+                  {% if ev.tipo.value == 'NATIONAL_HOLIDAY' %}<span class="badge-national">Nacional</span>
+                  {% elif ev.tipo.value == 'LOCAL_HOLIDAY' %}<span class="badge-local">Local</span>
+                  {% elif ev.tipo.value == 'HIGH_SEASON' %}<span class="badge-season">Alta Temporada</span>
+                  {% elif ev.tipo.value == 'MAINTENANCE' %}<span class="badge-maint">Manutenção</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if ev.origem == 'reservas' %}
+                    <span class="badge-origem-reservas" title="Cadastrado no calendário do módulo de Reservas">Reservas</span>
+                  {% else %}
+                    <span class="badge-origem-global">Global</span>
+                  {% endif %}
+                </td>
+                <td style="text-align:center;">{{ '✓' if ev.afeta_precificacao else '—' }}</td>
+                <td style="text-align:center;">{{ '✓' if ev.afeta_folha else '—' }}</td>
+                <td style="text-align:center;">{{ '✓' if ev.recorrente_anual else '—' }}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                  <button type="button" class="btn-edit-inline"
+                    onclick="abrirModalEditarEvento({{ ev.id }}, '{{ ev.titulo }}', '{{ ev.data_evento.isoformat() }}', '{{ ev.data_fim.isoformat() if ev.data_fim else '' }}', '{{ ev.tipo.value }}', {{ 'true' if ev.afeta_precificacao else 'false' }}, {{ 'true' if ev.afeta_folha else 'false' }}, {{ 'true' if ev.recorrente_anual else 'false' }})">
+                    Editar
+                  </button>
+                  <form method="POST" action="{{ url_for('configuracoes.calendario_deletar', event_id=ev.id) }}"
+                    style="display:inline;" onsubmit="return confirm('Remover evento \'{{ ev.titulo }}\'?');">
+                    <button type="submit" class="btn-del-inline">Remover</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="cal-empty">Nenhum evento cadastrado. Adicione feriados e datas especiais abaixo.</p>
+        {% endif %}
+
+        <div style="border-top:1px solid var(--c-border);padding-top:1.5rem;">
+          <p class="section-title" style="margin:0 0 1rem;font-size:1rem;">Novo Evento</p>
+          <form method="POST" action="{{ url_for('configuracoes.calendario_criar') }}">
+            <div class="form-grid-2">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="cal_titulo">Título</label>
+                <input class="form-input" type="text" id="cal_titulo" name="titulo"
+                  placeholder="Ex: Natal, Carnaval, Alta Temporada Verão" maxlength="150" required />
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="cal_data">Data inicial</label>
+                <input class="form-input" type="date" id="cal_data" name="data_evento" required />
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:1rem;">
+              <label class="form-label" for="cal_data_fim">Data final (opcional)</label>
+              <input class="form-input" type="date" id="cal_data_fim" name="data_fim" />
+              <p class="form-hint">Deixe vazio para um evento de um dia só. Use para períodos como alta temporada.</p>
+            </div>
+            <div class="form-group" style="margin-top:1rem;">
+              <label class="form-label" for="cal_tipo">Tipo do Evento</label>
+              <select class="form-input" id="cal_tipo" name="tipo" required style="cursor:pointer;">
+                <option value="NATIONAL_HOLIDAY">Feriado Nacional</option>
+                <option value="LOCAL_HOLIDAY">Feriado Local</option>
+                <option value="HIGH_SEASON">Alta Temporada</option>
+                <option value="MAINTENANCE">Manutenção</option>
+              </select>
+            </div>
+            <div class="form-checkboxes" style="margin-top:1rem;">
+              <label class="form-checkbox-label"><input type="checkbox" name="afeta_precificacao" value="1" />Afeta precificação</label>
+              <label class="form-checkbox-label"><input type="checkbox" name="afeta_folha" value="1" />Afeta folha/ponto</label>
+              <label class="form-checkbox-label"><input type="checkbox" name="recorrente_anual" value="1" />Recorrente anual</label>
+            </div>
+            <button type="submit" class="btn-primary" style="margin-top:1.25rem;">Adicionar Evento</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab: Mercado Pago ─── -->
+    <div id="tab-mercadopago" class="tab-panel" role="tabpanel">
+      <div class="section-card">
+        <p class="section-title" style="margin:0 0 .25rem;">Mercado Pago — Credenciais de Integração</p>
+        <p class="section-desc" style="margin:0 0 1.5rem;">
+          Configure as credenciais do Mercado Pago para processamento de pagamentos.
+          O <strong>Access Token</strong> é usado exclusivamente no servidor (nunca exposto ao frontend).
+          A <strong>Public Key</strong> é enviada ao WordPress para inicializar o MP Bricks no checkout.
+        </p>
+
+        {% if mp_access_token %}
+        <div class="mp-ok">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+          <span>Credenciais configuradas. O Access Token está armazenado com segurança.</span>
+        </div>
+        {% else %}
+        <div class="mp-warn">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          <span>Nenhum Access Token configurado. Pagamentos estão desabilitados até a configuração ser salva.</span>
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('configuracoes.salvar_mercadopago') }}">
+          <div class="form-group">
+            <label class="form-label" for="mp_access_token">Access Token (servidor)</label>
+            <input class="form-input" type="password" id="mp_access_token" name="mp_access_token"
+              value="{{ mp_access_token }}" placeholder="APP_USR-... ou TEST-..." autocomplete="off" />
+            <p class="form-hint">
+              Inicia com <code class="code-inline">APP_USR-</code> (produção) ou <code class="code-inline">TEST-</code> (sandbox).
+              Deixe vazio para remover e usar a variável de ambiente <code class="code-inline">MP_ACCESS_TOKEN</code>.
+            </p>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="mp_public_key">Public Key (frontend / WordPress)</label>
+            <input class="form-input" type="text" id="mp_public_key" name="mp_public_key"
+              value="{{ mp_public_key }}" placeholder="APP_USR-... ou TEST-..." autocomplete="off" />
+            <p class="form-hint">Chave pública retornada ao WordPress para inicializar o MP Bricks no checkout.</p>
+          </div>
+          <button type="submit" class="btn-primary">Salvar Credenciais</button>
+        </form>
+
+        <div class="mp-info-box">
+          <p class="mp-info-title">Onde encontrar as credenciais</p>
+          <p class="mp-info-line">1. Acesse o painel do Mercado Pago → <strong>Seu negócio → Configurações → Credenciais</strong>.</p>
+          <p class="mp-info-line">2. Use as credenciais de <strong>Produção</strong> no ambiente ao vivo e <strong>Teste</strong> em homologação.</p>
+          <p class="mp-info-line">3. Configure o webhook do MP para apontar para:
+            <code class="code-inline">https://seu-dominio.com/api/v1/payments/webhook</code>
+          </p>
+          <p class="mp-info-line">4. O Access Token também pode ficar no
+            <a href="{{ url_for('configuracoes.segredos') }}" class="underline">cofre de segredos</a>
+            (criptografado), que tem prioridade sobre o campo acima.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab: Fuso Horário ─── -->
+    <div id="tab-fuso-horario" class="tab-panel" role="tabpanel">
+      <div class="section-card">
+        <p class="section-title" style="margin:0 0 .25rem;">Fuso Horário do Sistema</p>
+        <p class="section-desc" style="margin:0 0 1.5rem;">
+          Define o fuso horário usado em todos os módulos: Ponto Eletrônico, Reservas, Avisos e relatórios.
+          Todos os horários são armazenados em UTC e convertidos para este fuso na exibição.
+        </p>
+        <form method="POST" action="{{ url_for('configuracoes.salvar_fuso_horario') }}">
+          <div class="form-group">
+            <label class="form-label" for="system_timezone">Fuso Horário</label>
+            <select class="form-input" id="system_timezone" name="system_timezone" style="cursor:pointer;">
+              {% for tz_val, tz_label in fusos_disponiveis %}
+              <option value="{{ tz_val }}" {% if tz_val == system_timezone %}selected{% endif %}>{{ tz_label }}</option>
+              {% endfor %}
+            </select>
+            <p class="form-hint">
+              Se o seu fuso não aparece na lista, você pode digitar o identificador IANA manualmente
+              no campo abaixo (ex: <code class="code-inline">America/Maceio</code>).
+            </p>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="system_timezone_custom">Fuso personalizado (opcional)</label>
+            <input class="form-input" type="text" id="system_timezone_custom"
+              placeholder="Ex: America/Maceio" autocomplete="off"
+              oninput="document.getElementById('system_timezone').value = this.value || '{{ system_timezone }}'" />
+            <p class="form-hint">Deixe em branco para usar a seleção acima.</p>
+          </div>
+          <div class="tz-current">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"/>
+            </svg>
+            <span>Fuso atual: <strong>{{ system_timezone }}</strong></span>
+          </div>
+          <button type="submit" class="btn-primary">Salvar Fuso Horário</button>
+        </form>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Modal: Editar Evento do Calendário ─── -->
+  <div id="modal-editar-evento" class="modal-cfg">
+    <div class="modal-box">
+      <p class="modal-title">Editar Evento</p>
+      <form method="POST" id="form-editar-evento">
+        <div class="form-group">
+          <label class="form-label">Título</label>
+          <input class="form-input" type="text" name="titulo" id="edit_ev_titulo" maxlength="150" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data inicial</label>
+          <input class="form-input" type="date" name="data_evento" id="edit_ev_data" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data final (opcional)</label>
+          <input class="form-input" type="date" name="data_fim" id="edit_ev_data_fim" />
+          <p class="form-hint">Vazio = evento de um dia só.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-input" name="tipo" id="edit_ev_tipo" required style="cursor:pointer;">
+            <option value="NATIONAL_HOLIDAY">Feriado Nacional</option>
+            <option value="LOCAL_HOLIDAY">Feriado Local</option>
+            <option value="HIGH_SEASON">Alta Temporada</option>
+            <option value="MAINTENANCE">Manutenção</option>
+          </select>
+        </div>
+        <div class="form-checkboxes" style="margin-bottom:1rem;">
+          <label class="form-checkbox-label"><input type="checkbox" name="afeta_precificacao" id="edit_ev_prec" value="1" />Afeta precificação</label>
+          <label class="form-checkbox-label"><input type="checkbox" name="afeta_folha" id="edit_ev_folha" value="1" />Afeta folha/ponto</label>
+          <label class="form-checkbox-label"><input type="checkbox" name="recorrente_anual" id="edit_ev_recorrente" value="1" />Recorrente anual</label>
+        </div>
+        <div class="modal-actions-row">
+          <button type="submit" class="btn-primary" style="flex:1;">Salvar Alterações</button>
+          <button type="button" class="btn-modal-cancel" onclick="fecharModalEvento()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Editar Zona de Geofence ─── -->
+  <div id="modal-editar-geo" class="modal-cfg">
+    <div class="modal-box-sm">
+      <p class="modal-title">Editar Zona de Geofence</p>
+      <form method="POST" id="form-editar-geo">
+        <div class="form-group">
+          <label class="form-label">Nome</label>
+          <input class="form-input" type="text" name="name" id="edit_geo_name" maxlength="100" required />
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Latitude</label>
+            <input class="form-input" type="number" name="latitude" id="edit_geo_lat" step="0.000001" required />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Longitude</label>
+            <input class="form-input" type="number" name="longitude" id="edit_geo_lng" step="0.000001" required />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:1rem;">
+          <label class="form-label">Raio (metros)</label>
+          <input class="form-input" type="number" name="radius_meters" id="edit_geo_radius" min="10" max="50000" required />
+        </div>
+        <div class="form-group">
+          <label class="form-checkbox-label">
+            <input type="checkbox" name="is_active" id="edit_geo_active" value="1" />
+            Zona ativa
+          </label>
+        </div>
+        <div class="modal-actions-row">
+          <button type="submit" class="btn-primary" style="flex:1;">Salvar Alterações</button>
+          <button type="button" class="btn-modal-cancel" onclick="fecharModalGeo()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ── Tab switching ──────────────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        document.getElementById('tab-' + tab).classList.add('active');
+      });
+    });
+
+    // ── Module toggle (AJAX) ───────────────────────────────────────────────
+    async function toggleModulo(chave, nome, checkbox) {
+      const switchEl = document.getElementById('switch-' + nome);
+      const statusEl = document.getElementById('status-' + nome);
+      switchEl.classList.add('loading');
+      checkbox.disabled = true;
+      try {
+        const res = await fetch(
+          `/admin/configuracoes/modulos/${encodeURIComponent(chave)}/toggle`,
+          { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } }
+        );
+        if (!res.ok) throw new Error('Erro na requisição');
+        const data = await res.json();
+        checkbox.checked = data.ativo;
+        statusEl.textContent = data.ativo ? 'Ativo' : 'Desativado';
+        statusEl.className = 'module-status ' + (data.ativo ? 'status-on' : 'status-off');
+      } catch (err) {
+        checkbox.checked = !checkbox.checked;
+        alert('Erro ao alterar configuração. Tente novamente.');
+      } finally {
+        switchEl.classList.remove('loading');
+        checkbox.disabled = false;
+      }
+    }
+
+    // ── GPS button ─────────────────────────────────────────────────────────
+    function obterLocalizacaoAtual() {
+      const btn   = document.getElementById('btn-obter-localizacao');
+      const icon  = document.getElementById('geo-btn-icon');
+      const label = document.getElementById('geo-btn-label');
+
+      if (!navigator.geolocation) {
+        btn.className = 'btn-gps warn';
+        icon.textContent  = '⚠️';
+        label.textContent = 'GPS não suportado neste navegador';
+        return;
+      }
+
+      icon.textContent  = '⏳';
+      label.textContent = 'Obtendo localização…';
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          document.getElementById('geo_lat').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('geo_lng').value = pos.coords.longitude.toFixed(6);
+          btn.className = 'btn-gps ok';
+          icon.textContent  = '✅';
+          label.textContent = 'Localização obtida';
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        },
+        function () {
+          btn.className = 'btn-gps err';
+          icon.textContent  = '⚠️';
+          label.textContent = 'Permissão negada ou erro de GPS';
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        },
+        { timeout: 10000, maximumAge: 0, enableHighAccuracy: true }
+      );
+    }
+
+    // ── Sub-tabs ───────────────────────────────────────────────────────────
+    document.querySelectorAll('.subtab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.subtab;
+        document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('subtab-btn--active'));
+        document.querySelectorAll('.subtab-panel').forEach(p => p.classList.remove('subtab-panel--active'));
+        btn.classList.add('subtab-btn--active');
+        document.getElementById('subtab-' + target).classList.add('subtab-panel--active');
+      });
+    });
+
+    // ── Geofence modal ─────────────────────────────────────────────────────
+    const modalGeo = document.getElementById('modal-editar-geo');
+    const formGeo  = document.getElementById('form-editar-geo');
+
+    document.querySelectorAll('.btn-editar-geo').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        document.getElementById('edit_geo_name').value   = btn.dataset.name;
+        document.getElementById('edit_geo_lat').value    = btn.dataset.lat;
+        document.getElementById('edit_geo_lng').value    = btn.dataset.lng;
+        document.getElementById('edit_geo_radius').value = btn.dataset.radius;
+        document.getElementById('edit_geo_active').checked = btn.dataset.active === '1';
+        formGeo.action = `/admin/configuracoes/geofence/${id}/editar`;
+        modalGeo.classList.add('open');
+      });
+    });
+
+    function fecharModalGeo() { modalGeo.classList.remove('open'); }
+    modalGeo.addEventListener('click', e => { if (e.target === modalGeo) fecharModalGeo(); });
+
+    // ── Calendário modal ───────────────────────────────────────────────────
+    const modalEvento = document.getElementById('modal-editar-evento');
+    const formEvento  = document.getElementById('form-editar-evento');
+
+    // 0 é placeholder trocado pelo id real — a URL vem do url_for, não de
+    // string montada à mão (que quebra se o prefixo do blueprint mudar).
+    const EVENTO_EDIT_URL = "{{ url_for('configuracoes.calendario_editar', event_id=0) }}";
+
+    function abrirModalEditarEvento(id, titulo, data, dataFim, tipo, precificacao, folha, recorrente) {
+      document.getElementById('edit_ev_titulo').value      = titulo;
+      document.getElementById('edit_ev_data').value        = data;
+      document.getElementById('edit_ev_data_fim').value    = dataFim || '';
+      document.getElementById('edit_ev_tipo').value        = tipo;
+      document.getElementById('edit_ev_prec').checked      = precificacao;
+      document.getElementById('edit_ev_folha').checked     = folha;
+      document.getElementById('edit_ev_recorrente').checked = recorrente;
+      formEvento.action = EVENTO_EDIT_URL.replace('/calendario/0/', `/calendario/${id}/`);
+      modalEvento.classList.add('open');
+    }
+
+    function fecharModalEvento() { modalEvento.classList.remove('open'); }
+    modalEvento.addEventListener('click', e => { if (e.target === modalEvento) fecharModalEvento(); });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { fecharModalGeo(); fecharModalEvento(); }
+    });
+  </script>
+
+</body>
+</html>

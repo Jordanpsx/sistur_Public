@@ -1,0 +1,134 @@
+{% extends "reservas/reservas_base.html" %}
+{#
+  PDV — Reconciliação de sync offline.
+  Mostra um resumo operacional de PdvOfflineSyncLog sem renderizar o payload bruto.
+#}
+
+{% block html_title %}Reconciliação PDV{% endblock %}
+{% block page_title %}Reconciliação PDV{% endblock %}
+{% block page_subtitle %}
+  <p class="text-sm mt-0.5" style="color:var(--c-text-muted)">Tentativas recentes de sincronização offline</p>
+{% endblock %}
+
+{% block reservas_content %}
+<style>
+  .pdv-sync-panel {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+  }
+  .pdv-sync-table th {
+    color: var(--c-text-muted);
+    background: var(--c-surface-2);
+    border-bottom: 1px solid var(--c-border);
+  }
+  .pdv-sync-table td {
+    color: var(--c-text);
+    border-bottom: 1px solid var(--c-border);
+  }
+  .pdv-sync-table tr:last-child td { border-bottom: 0; }
+  .pdv-sync-muted { color: var(--c-text-muted); }
+  .pdv-sync-filter {
+    color: var(--c-text);
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+  }
+  .pdv-sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pdv-sync-badge::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+  }
+  .pdv-sync-ok {
+    color: var(--c-success-fg);
+    background: var(--c-success-bg);
+  }
+  .pdv-sync-ok::before { background: var(--c-success-fg); }
+  .pdv-sync-warn {
+    color: var(--c-warning-fg);
+    background: var(--c-warning-bg);
+  }
+  .pdv-sync-warn::before { background: var(--c-warning-fg); }
+  .pdv-sync-danger {
+    color: var(--c-danger-fg);
+    background: var(--c-danger-bg);
+  }
+  .pdv-sync-danger::before { background: var(--c-danger-fg); }
+</style>
+
+<section class="pdv-sync-panel overflow-hidden">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-b" style="border-color:var(--c-border)">
+    <div>
+      <h2 class="text-sm font-semibold" style="color:var(--c-text)">Logs de sincronização</h2>
+      <p class="text-xs pdv-sync-muted mt-0.5">Últimas {{ logs|length }} tentativas processadas</p>
+    </div>
+    <form method="get" class="flex items-center gap-2">
+      <label for="outcome" class="text-xs font-medium pdv-sync-muted">Status</label>
+      <select id="outcome" name="outcome" class="pdv-sync-filter rounded-lg text-sm px-3 py-2" onchange="this.form.submit()">
+        {% for value, label in outcomes %}
+          <option value="{{ value }}" {% if outcome == value or (not outcome and not value) %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="pdv-sync-table min-w-full text-sm">
+      <thead>
+        <tr>
+          <th class="text-left font-semibold px-4 py-3">Processado</th>
+          <th class="text-left font-semibold px-4 py-3">Resultado</th>
+          <th class="text-left font-semibold px-4 py-3">Terminal</th>
+          <th class="text-left font-semibold px-4 py-3">Venda</th>
+          <th class="text-left font-semibold px-4 py-3">Resumo</th>
+          <th class="text-left font-semibold px-4 py-3">Detalhe</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+          {% set summary = log.payload_summary %}
+          {% set badge_class = 'pdv-sync-ok' if log.outcome == 'ACCEPTED' else ('pdv-sync-warn' if log.outcome == 'REJECTED_DUPLICATE' else 'pdv-sync-danger') %}
+          <tr>
+            <td class="px-4 py-3 whitespace-nowrap">
+              {{ log.processed_at[:16].replace('T', ' ') if log.processed_at else '-' }}
+            </td>
+            <td class="px-4 py-3">
+              <span class="pdv-sync-badge {{ badge_class }}">{{ log.outcome }}</span>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ log.device_id or '-' }}</td>
+            <td class="px-4 py-3">
+              <code class="text-xs">{{ log.client_sale_uuid }}</code>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              {{ summary.payment_method or '-' }}
+              <span class="pdv-sync-muted">·</span>
+              {{ summary.total_quantity }} un.
+              <span class="pdv-sync-muted">·</span>
+              Turno {{ summary.shift_id or '-' }}
+            </td>
+            <td class="px-4 py-3 max-w-[28rem]">
+              <span class="line-clamp-2">{{ log.error_detail or 'Sem erro registrado' }}</span>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="px-4 py-10 text-center pdv-sync-muted">
+              Nenhuma tentativa de sync encontrada para o filtro atual.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

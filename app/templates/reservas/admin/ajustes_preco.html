@@ -1,0 +1,1640 @@
+{% extends 'reservas/reservas_base.html' %}
+{# Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved #}
+
+{% block html_title %}Ajustes de Preços{% endblock %}
+
+{% block page_title %}Outros ajustes de preços{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">
+  Early Bird e demais regras de desconto automático sobre reservas
+</p>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# Badges de data especial no calendário. Cores próprias por tipo de evento,
+   sobre tokens do design system — nada de hex de marca hardcoded. #}
+<style>
+  .cal-evento {
+    background: var(--c-info-bg);
+    color: var(--c-info-fg);
+    border: 1px solid var(--c-info-bd);
+  }
+  .cal-evento--high-season {
+    background: var(--c-success-bg);
+    color: var(--c-success-fg);
+    border-color: var(--c-success-bd);
+  }
+  .cal-evento--national-holiday,
+  .cal-evento--local-holiday {
+    background: var(--c-danger-bg);
+    color: var(--c-danger-fg);
+    border-color: var(--c-danger-bd);
+  }
+  .cal-evento--maintenance {
+    background: var(--c-warning-bg);
+    color: var(--c-warning-fg);
+    border-color: var(--c-warning-bd);
+  }
+  /* Evento promovido/global: legível, mas visivelmente fora do alcance daqui. */
+  .cal-evento--travado {
+    background: var(--c-surface-2);
+    color: var(--c-text-muted);
+    border-style: dashed;
+    border-color: var(--c-border);
+  }
+</style>
+
+{# ── Flash messages ── #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+    <div class="mb-4 px-4 py-3 rounded-lg text-sm font-medium
+                {{ 'bg-green-50 dark:bg-green-900/30 text-green-800 border border-green-200 dark:border-green-800' if category == 'sucesso'
+                   else 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 border border-amber-200 dark:border-amber-800' if category == 'aviso'
+                   else 'bg-red-50 dark:bg-red-900/30 text-red-800 border border-red-200 dark:border-red-800' }}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+{# ══════════════════════════════════════════════════════════════════════
+   Taxa de serviço e desconto linear (ReservaConfig, por fonte)
+══════════════════════════════════════════════════════════════════════ #}
+
+<div class="flex items-center gap-3 mb-4">
+  <h2 class="text-sm font-bold text-content whitespace-nowrap">Taxa de Serviço e Desconto Linear</h2>
+  <div class="flex-1 h-px bg-surface-2"></div>
+</div>
+
+<div class="bg-surface-2 border border-line rounded-xl px-4 py-3 text-sm text-content-muted mb-6 leading-relaxed">
+  A <strong>taxa de serviço</strong> incide sobre o subtotal já descontado e entra no total
+  da reserva. O <strong>desconto linear</strong> vale para toda reserva da fonte e
+  <em>soma</em> com Early Bird e descontos de calendário. Deixe o campo vazio para a fonte
+  herdar o valor global.
+</div>
+
+{% if sources %}
+<div class="space-y-3 mb-10">
+  {% for s in sources %}
+  {% set cfg = pricing_config.get(s.id, {}) %}
+  {% set taxa = cfg.get('service_fee_percent', {}) %}
+  {% set desc = cfg.get('flat_discount_percent', {}) %}
+  <form method="POST"
+        action="{{ url_for('reservas.admin_ajustes_preco_config_salvar', source_id=s.id) }}"
+        class="bg-surface rounded-xl border border-line shadow-sm px-5 py-4">
+    <div class="flex flex-col sm:flex-row sm:items-end gap-4">
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold text-content truncate">{{ s.display_name or s.name }}</p>
+        <p class="text-[11px] text-content-muted mt-0.5">
+          {% if taxa.proprio or desc.proprio %}Regra própria desta fonte{% else %}Herdando configuração global{% endif %}
+        </p>
+      </div>
+
+      <div class="w-full sm:w-40">
+        <label class="block text-xs font-semibold text-content-muted mb-1"
+               for="fee_{{ s.id }}">Taxa de serviço (%)</label>
+        <input type="number" step="0.01" min="0" max="100"
+               id="fee_{{ s.id }}" name="service_fee_percent"
+               value="{{ taxa.valor if taxa.proprio and taxa.valor is not none else '' }}"
+               placeholder="{{ taxa['global'] if taxa['global'] is not none else '0' }}"
+               class="w-full min-h-[44px] border border-line rounded-lg px-3 text-sm
+                      bg-surface text-content focus:outline-none focus:ring-2 focus:ring-teal-400">
+      </div>
+
+      <div class="w-full sm:w-40">
+        <label class="block text-xs font-semibold text-content-muted mb-1"
+               for="flat_{{ s.id }}">Desconto linear (%)</label>
+        <input type="number" step="0.01" min="0" max="100"
+               id="flat_{{ s.id }}" name="flat_discount_percent"
+               value="{{ desc.valor if desc.proprio and desc.valor is not none else '' }}"
+               placeholder="{{ desc['global'] if desc['global'] is not none else '0' }}"
+               class="w-full min-h-[44px] border border-line rounded-lg px-3 text-sm
+                      bg-surface text-content focus:outline-none focus:ring-2 focus:ring-teal-400">
+      </div>
+
+      <button type="submit"
+              class="w-full sm:w-auto min-h-[44px] px-5 rounded-lg bg-teal-600 hover:bg-teal-700
+                     text-white text-sm font-semibold transition-colors whitespace-nowrap">
+        Salvar
+      </button>
+    </div>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════════════════
+   Early Bird — Desconto por Reserva Antecipada
+══════════════════════════════════════════════════════════════════════ #}
+
+<div class="flex items-center gap-3 mb-4">
+  <h2 class="text-sm font-bold text-content whitespace-nowrap">Early Bird — Desconto por Antecedência</h2>
+  <div class="flex-1 h-px bg-surface-2"></div>
+</div>
+
+{# Info panel #}
+<div class="bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-xl px-4 py-3 text-sm text-teal-800 mb-6 leading-relaxed">
+  <strong>Como funciona:</strong> O sistema verifica automaticamente se o cliente está reservando
+  com antecedência mínima e aplica o maior desconto disponível. Regras específicas de
+  <em>categoria</em> têm prioridade sobre regras de <em>fonte</em>. Dentro do mesmo nível,
+  a regra com maior antecedência mínima que o booking ainda qualifica é aplicada.
+  Cada regra pode ter <strong>tiers de estadia</strong> opcionais — percentuais diferentes
+  conforme o número de dias no camping (o tier mais alto aplicável substitui o desconto base).
+</div>
+
+{# ── Tabela de regras ── #}
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden mb-8">
+  <div class="px-5 py-4 border-b border-line flex items-center justify-between">
+    <h3 class="font-bold text-content">Regras cadastradas</h3>
+    <span class="text-xs text-content-muted font-medium">{{ regras|length }} regra(s)</span>
+  </div>
+
+  {% if regras %}
+  <div class="overflow-x-auto">
+    <table class="r-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Fonte</th>
+          <th>Categoria</th>
+          <th>Antecedência mínima</th>
+          <th>Desconto base</th>
+          <th>Tiers estadia</th>
+          <th>Status</th>
+          <th style="width: 160px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for regra in regras %}
+        <tr>
+          <td><span class="font-mono text-xs text-content-muted">{{ regra.id }}</span></td>
+          <td><span class="font-semibold text-content">{{ regra.source.name if regra.source else '—' }}</span></td>
+          <td>
+            {% if regra.category %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 dark:bg-teal-800/40 text-teal-700 dark:text-teal-300">
+                {{ regra.category.name }}
+              </span>
+            {% else %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-surface-2 text-content-muted">
+                Todas
+              </span>
+            {% endif %}
+          </td>
+          <td>
+            <strong class="text-content">{{ regra.min_days_in_advance }}</strong>
+            <span class="text-content-muted text-xs"> dias</span>
+          </td>
+          <td>
+            <strong class="text-green-600 dark:text-green-300">{{ regra.discount_percentage }}%</strong>
+          </td>
+          <td>
+            {% if regra.stay_tiers %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700 dark:text-violet-300">
+                {{ regra.stay_tiers|length }} tier(s)
+              </span>
+            {% else %}
+              <span class="text-xs text-content-muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if regra.is_active %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 dark:text-green-300">Ativa</span>
+            {% else %}
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 dark:bg-red-800/40 text-red-600 dark:text-red-400">Inativa</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="flex items-center gap-2">
+              <button type="button"
+                class="px-3 py-1.5 bg-surface-2 hover:bg-surface-2 text-content-muted text-xs font-semibold rounded-lg border border-line transition-colors"
+                onclick="abrirEdicao(
+                  {{ regra.id }},
+                  {{ regra.min_days_in_advance }},
+                  {{ regra.discount_percentage }},
+                  {{ 'true' if regra.is_active else 'false' }},
+                  {{ regra.stay_tiers | map(attribute='id') | list | tojson }},
+                  {{ regra.stay_tiers | map(attribute='min_stay_days') | list | tojson }},
+                  {{ regra.stay_tiers | map(attribute='discount_percentage') | map('float') | list | tojson }}
+                )">
+                Editar
+              </button>
+              <form method="POST"
+                action="{{ url_for('reservas.admin_ajustes_preco_deletar', rule_id=regra.id) }}"
+                onsubmit="return confirm('Remover esta regra permanentemente?')">
+                <button type="submit"
+                  class="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 text-red-600 dark:text-red-400 text-xs font-semibold rounded-lg border border-red-200 dark:border-red-800 transition-colors">
+                  Remover
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="py-12 text-center text-content-muted">
+    <svg class="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+    </svg>
+    <p class="text-sm">Nenhuma regra cadastrada ainda. Crie a primeira abaixo.</p>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Formulário de criação ── #}
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden">
+  <div class="px-5 py-4 border-b border-line">
+    <h3 class="font-bold text-content">Nova regra de desconto por antecedência</h3>
+  </div>
+  <form method="POST" action="{{ url_for('reservas.admin_ajustes_preco_criar') }}"
+        class="px-5 py-5">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <div>
+        <label class="block text-xs font-semibold text-content-muted mb-1">Fonte (venue) *</label>
+        <select name="source_id" required onchange="filtrarCategorias()"
+                class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-teal-400">
+          <option value="">Selecione…</option>
+          {% for s in sources %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-content-muted mb-1">Categoria</label>
+        <select id="category_id" name="category_id"
+                class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-teal-400">
+          <option value="">Todas as categorias</option>
+          {% for c in categories %}
+            <option value="{{ c.id }}" data-source="{{ c.source_id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-content-muted mt-1">Vazio = aplica a todas da fonte.</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-content-muted mb-1">Antecedência mínima (dias) *</label>
+        <input type="number" name="min_days_in_advance" min="1" max="365" required
+               placeholder="Ex: 30"
+               class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-teal-400">
+        <p class="text-xs text-content-muted mt-1">Reservas feitas com pelo menos este número de dias.</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-content-muted mb-1">Desconto base (%) *</label>
+        <input type="number" name="discount_percentage" min="0.01" max="100" step="0.01" required
+               placeholder="Ex: 10.00"
+               class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                      focus:outline-none focus:ring-2 focus:ring-teal-400">
+        <p class="text-xs text-content-muted mt-1">Aplicado quando nenhum tier de estadia qualifica.</p>
+      </div>
+
+    </div>
+
+    <div class="flex items-center gap-2 mt-4">
+      <input type="checkbox" id="is_active_new" name="is_active" value="1" checked
+             class="w-4 h-4 rounded text-teal-600 dark:text-teal-300 focus:ring-teal-400">
+      <label for="is_active_new" class="text-sm text-content-muted">Regra ativa imediatamente</label>
+    </div>
+
+    <div class="mt-4">
+      <button type="submit"
+              class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
+        Criar regra
+      </button>
+    </div>
+
+  </form>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════
+   Descontos por Data Específica — Calendário
+══════════════════════════════════════════════════════════════════════ #}
+
+<div class="flex items-center gap-3 mb-4 mt-10">
+  <h2 class="text-sm font-bold text-content whitespace-nowrap">Descontos por Data Específica</h2>
+  <div class="flex-1 h-px bg-surface-2"></div>
+</div>
+
+<div class="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm text-amber-800 mb-6 leading-relaxed">
+  <strong>Prioridade máxima:</strong> descontos cadastrados aqui substituem o Early Bird para
+  a data específica de check-in. Suportam tiers de estadia com a mesma lógica.
+  Selecione uma fonte para visualizar e editar o calendário.
+</div>
+
+{# Seletor de fonte + navegação de mês #}
+<div class="bg-surface rounded-xl border border-line shadow-sm overflow-hidden mb-4">
+  <div class="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+    <div class="flex items-center gap-2 flex-1">
+      <label class="text-xs font-semibold text-content-muted whitespace-nowrap">Fonte:</label>
+      <select id="calSourceSelect"
+              class="border border-line rounded-lg px-3 py-1.5 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <option value="">Selecione uma fonte…</option>
+        {% for s in sources %}
+          <option value="{{ s.id }}" {% if cal_source == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="calPrev" type="button"
+              class="p-2 rounded-lg hover:bg-surface-2 text-content-muted transition-colors"
+              title="Mês anterior">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <span id="calMonthLabel" class="text-sm font-semibold text-content min-w-[140px] text-center"></span>
+      <button id="calNext" type="button"
+              class="p-2 rounded-lg hover:bg-surface-2 text-content-muted transition-colors"
+              title="Próximo mês">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  {# Grade do calendário #}
+  <div id="calGrid" class="px-4 pb-5">
+    <div class="text-center text-content-muted text-sm py-8">
+      Selecione uma fonte para ver o calendário.
+    </div>
+  </div>
+</div>
+
+{# ── Modal de edição ── #}
+<div id="editModal"
+     class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+     onclick="fecharEdicaoFora(event)">
+  <div class="bg-surface rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden">
+
+    {# Cabeçalho do modal #}
+    <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+      <h3 class="font-bold text-content">Editar regra</h3>
+      <button type="button" onclick="fecharEdicao()"
+              class="text-content-muted hover:text-content-muted transition-colors p-1">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="px-6 py-5 overflow-y-auto max-h-[80vh]">
+
+      {# Formulário principal da regra #}
+      <form method="POST" id="editForm">
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-content-muted mb-1">Antecedência mínima (dias) *</label>
+            <input type="number" id="edit_min_days" name="min_days_in_advance"
+                   min="1" max="365" required
+                   class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                          focus:outline-none focus:ring-2 focus:ring-teal-400">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-content-muted mb-1">Desconto base (%) *</label>
+            <input type="number" id="edit_pct" name="discount_percentage"
+                   min="0.01" max="100" step="0.01" required
+                   class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                          focus:outline-none focus:ring-2 focus:ring-teal-400">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 mt-4">
+          <input type="checkbox" id="edit_is_active" name="is_active" value="1"
+                 class="w-4 h-4 rounded text-teal-600 dark:text-teal-300 focus:ring-teal-400">
+          <label for="edit_is_active" class="text-sm text-content-muted">Regra ativa</label>
+        </div>
+
+        <div class="flex gap-3 mt-4">
+          <button type="submit"
+                  class="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
+            Salvar alterações
+          </button>
+          <button type="button" onclick="fecharEdicao()"
+                  class="px-4 py-2 bg-surface-2 hover:bg-surface-2 text-content-muted text-sm font-semibold rounded-lg transition-colors">
+            Cancelar
+          </button>
+        </div>
+
+      </form>
+
+      {# ── Seção de tiers de estadia ── #}
+      <div class="mt-6 pt-5 border-t border-line">
+        <div class="flex items-center gap-2 mb-3">
+          <h4 class="text-sm font-bold text-content">Tiers por dias de estadia</h4>
+          <span class="text-xs text-content-muted">(opcional)</span>
+        </div>
+        <p class="text-xs text-content-muted mb-4 leading-relaxed">
+          Defina percentuais diferentes conforme o número de dias no camping.
+          O tier com o maior mínimo que a estadia qualifica substitui o desconto base.
+        </p>
+
+        {# Lista de tiers existentes — preenchida por JS #}
+        <div id="tiersList" class="space-y-2 mb-4"></div>
+
+        {# Formulário para adicionar novo tier #}
+        <form method="POST" id="addTierForm" class="bg-surface-2 rounded-xl p-4 border border-line">
+          <p class="text-xs font-semibold text-content-muted mb-3">Adicionar tier</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-content-muted mb-1">Mínimo de dias de estadia *</label>
+              <input type="number" name="min_stay_days" min="1" max="365" required
+                     placeholder="Ex: 3"
+                     class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                            focus:outline-none focus:ring-2 focus:ring-violet-400 bg-surface">
+            </div>
+            <div>
+              <label class="block text-xs text-content-muted mb-1">Desconto (%) *</label>
+              <input type="number" name="discount_percentage" min="0.01" max="100" step="0.01" required
+                     placeholder="Ex: 15.00"
+                     class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                            focus:outline-none focus:ring-2 focus:ring-violet-400 bg-surface">
+            </div>
+          </div>
+          <button type="submit"
+                  class="mt-3 w-full px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition-colors">
+            + Adicionar tier
+          </button>
+        </form>
+
+      </div>
+    </div>{# /overflow #}
+  </div>
+</div>
+
+<script>
+  let _currentRuleId = null;
+
+  function filtrarCategorias() {
+    const sourceId = document.querySelector('[name=source_id]').value;
+    const select = document.getElementById('category_id');
+    Array.from(select.options).forEach(opt => {
+      if (!opt.value) return;
+      opt.hidden = opt.dataset.source !== sourceId;
+    });
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.dataset.source && selected.dataset.source !== sourceId) {
+      select.value = '';
+    }
+  }
+
+  function abrirEdicao(ruleId, minDays, pct, isActive, tierIds, tierDays, tierPcts) {
+    _currentRuleId = ruleId;
+
+    document.getElementById('editForm').action =
+      `/reservas/admin/config/ajustes-preco/${ruleId}/editar`;
+    document.getElementById('edit_min_days').value = minDays;
+    document.getElementById('edit_pct').value = pct;
+    document.getElementById('edit_is_active').checked = isActive;
+
+    document.getElementById('addTierForm').action =
+      `/reservas/admin/config/ajustes-preco/${ruleId}/tiers/criar`;
+
+    _renderTiers(ruleId, tierIds, tierDays, tierPcts);
+
+    document.getElementById('editModal').classList.remove('hidden');
+  }
+
+  function _renderTiers(ruleId, ids, days, pcts) {
+    const list = document.getElementById('tiersList');
+    list.innerHTML = '';
+
+    if (!ids || ids.length === 0) {
+      list.innerHTML =
+        '<p class="text-xs text-content-muted italic">Nenhum tier cadastrado — o desconto base da regra sempre é aplicado.</p>';
+      return;
+    }
+
+    ids.forEach((id, i) => {
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between bg-surface border border-line rounded-lg px-3 py-2';
+      row.innerHTML = `
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700 dark:text-violet-300">
+            ≥ ${days[i]} dia${days[i] !== 1 ? 's' : ''}
+          </span>
+          <span class="text-sm font-semibold text-green-600 dark:text-green-300">${pcts[i]}%</span>
+        </div>
+        <form method="POST"
+              action="/reservas/admin/config/ajustes-preco/${ruleId}/tiers/${id}/deletar"
+              onsubmit="return confirm('Remover este tier?')">
+          <button type="submit"
+                  class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300 font-semibold px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
+            Remover
+          </button>
+        </form>`;
+      list.appendChild(row);
+    });
+  }
+
+  function fecharEdicao() {
+    document.getElementById('editModal').classList.add('hidden');
+    _currentRuleId = null;
+  }
+
+  function fecharEdicaoFora(e) {
+    if (e.target === document.getElementById('editModal')) fecharEdicao();
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharEdicao(); });
+
+  {# Auto-abre modal se redirecionado após criar/remover um tier #}
+  {% if open_rule_id %}
+  document.addEventListener('DOMContentLoaded', function () {
+    {% for regra in regras %}{% if regra.id == open_rule_id %}
+    abrirEdicao(
+      {{ regra.id }},
+      {{ regra.min_days_in_advance }},
+      {{ regra.discount_percentage }},
+      {{ 'true' if regra.is_active else 'false' }},
+      {{ regra.stay_tiers | map(attribute='id') | list | tojson }},
+      {{ regra.stay_tiers | map(attribute='min_stay_days') | list | tojson }},
+      {{ regra.stay_tiers | map(attribute='discount_percentage') | map('float') | list | tojson }}
+    );
+    {% endif %}{% endfor %}
+  });
+  {% endif %}
+
+  {# ── Calendário de descontos por data ── #}
+  (function () {
+    const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                       'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const today = new Date();
+
+    let calYear  = {{ cal_year  or 'null' }};
+    let calMonth = {{ cal_month or 'null' }};  // 1-based
+    if (!calYear)  calYear  = today.getFullYear();
+    if (!calMonth) calMonth = today.getMonth() + 1;
+
+    let calSourceId = {{ cal_source or 'null' }};
+    window._calSourceId = calSourceId;
+    let calDiscounts = {};  // { "YYYY-MM-DD": [discount, ...] }
+    let calEventos   = {};  // { "YYYY-MM-DD": [evento, ...] }
+
+    // Expande o intervalo [data_inicio, data_fim] do evento nos dias do mês
+    // visível — um evento de alta temporada de julho pinta as 31 células.
+    function indexarEventos(eventos) {
+      const mapa = {};
+      const primeiro = new Date(calYear, calMonth - 1, 1);
+      const ultimo   = new Date(calYear, calMonth, 0);
+
+      (eventos || []).forEach(ev => {
+        let ini = new Date(ev.data_inicio + 'T00:00:00');
+        let fim = new Date(ev.data_fim + 'T00:00:00');
+
+        // Recorrente anual: projeta o intervalo no ano em exibição.
+        if (ev.recorrente_anual) {
+          const span = Math.round((fim - ini) / 86400000);
+          ini = new Date(calYear, ini.getMonth(), ini.getDate());
+          fim = new Date(ini.getTime() + span * 86400000);
+        }
+
+        const de  = ini > primeiro ? ini : primeiro;
+        const ate = fim < ultimo   ? fim : ultimo;
+        for (let d = new Date(de); d <= ate; d.setDate(d.getDate() + 1)) {
+          const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          if (!mapa[k]) mapa[k] = [];
+          mapa[k].push(ev);
+        }
+      });
+      return mapa;
+    }
+
+    // ── Carrega descontos e datas especiais do mês via API ─────────────────
+    async function loadMonth() {
+      const grid = document.getElementById('calGrid');
+      if (!calSourceId) {
+        grid.innerHTML = '<div class="text-center text-content-muted text-sm py-8">Selecione uma fonte para ver o calendário.</div>';
+        document.getElementById('calMonthLabel').textContent = '';
+        return;
+      }
+      window._calYear  = calYear;
+    window._calMonth = calMonth;
+    document.getElementById('calMonthLabel').textContent =
+        `${MONTHS_PT[calMonth - 1]} ${calYear}`;
+
+      grid.innerHTML = '<div class="text-center text-content-muted text-sm py-8">Carregando…</div>';
+      try {
+        const r = await fetch(
+          `/reservas/admin/config/ajustes-preco/calendar/api?source_id=${calSourceId}&year=${calYear}&month=${calMonth}`
+        );
+        const data = await r.json();
+        calDiscounts = {};
+        (data.discounts || []).forEach(d => {
+          if (!calDiscounts[d.date]) calDiscounts[d.date] = [];
+          calDiscounts[d.date].push(d);
+        });
+        calEventos = indexarEventos(data.eventos);
+      } catch (e) {
+        calDiscounts = {};
+        calEventos = {};
+      }
+      renderCalendar();
+    }
+    window.loadCalendarMonth = loadMonth;
+
+    // ── Renderiza a grade do calendário ───────────────────────────────────
+    function renderCalendar() {
+      const grid = document.getElementById('calGrid');
+      const firstDay = new Date(calYear, calMonth - 1, 1).getDay(); // 0=Dom
+      // Ajusta para semana começar na segunda
+      const startOffset = (firstDay + 6) % 7;
+      const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+      let html = `<div class="grid grid-cols-7 gap-px bg-surface-2 rounded-lg overflow-hidden text-center">`;
+
+      // Cabeçalho dias da semana
+      ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].forEach(d => {
+        html += `<div class="bg-surface-2 text-xs font-semibold text-content-muted py-2">${d}</div>`;
+      });
+
+      // Células vazias antes do dia 1
+      for (let i = 0; i < startOffset; i++) {
+        html += `<div class="bg-surface min-h-[72px]"></div>`;
+      }
+
+      // Dias do mês
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const discounts = calDiscounts[dateStr] || [];
+        const eventos   = calEventos[dateStr] || [];
+        const isToday = dateStr === todayStr;
+
+        const hasActive   = discounts.some(d => d.is_active);
+        const hasInactive = discounts.some(d => !d.is_active);
+
+        let cellBg = 'bg-surface hover:bg-amber-50 dark:hover:bg-amber-900/30';
+        if (hasActive)   cellBg = 'bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100';
+        if (hasInactive && !hasActive) cellBg = 'bg-surface-2 hover:bg-surface-2';
+
+        let dayLabel = `<span class="text-xs font-semibold ${isToday ? 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal-600 text-white' : 'text-content-muted'}">${day}</span>`;
+
+        // Camada 1: datas especiais (Calendário Global). Precede os descontos
+        // porque é o que muda a tarifa base do dia.
+        let eventoBadges = '';
+        eventos.forEach(ev => {
+          const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(ev))));
+          const lock = ev.editavel
+            ? ''
+            : '<span title="Gerenciado nas Configurações Globais" aria-hidden="true">&#128274;</span> ';
+          eventoBadges += `<div class="cal-evento cal-evento--${ev.tipo.toLowerCase().replace(/_/g,'-')} ${ev.editavel ? '' : 'cal-evento--travado'} mt-0.5 px-1 py-0.5 rounded text-[10px] font-semibold leading-tight cursor-pointer truncate"
+                               data-date="${dateStr}"
+                               data-evento="${encoded}"
+                               title="${ev.titulo}">
+                             ${lock}${ev.titulo}
+                           </div>`;
+        });
+
+        let badges = eventoBadges;
+        discounts.forEach(d => {
+          const opacity  = d.is_active ? '' : 'opacity-50';
+          const catTag   = d.category_name
+            ? `<span class="block text-[9px] truncate text-amber-600 dark:text-amber-300">${d.category_name}</span>`
+            : '';
+          // Mostra o maior tier de antecedência disponível, ou o rótulo da data
+          const tierLabel = d.tiers && d.tiers.length > 0
+            ? `até ${Math.max(...d.tiers.map(t => t.pct))}%`
+            : (d.label || 'Data especial');
+          // Encode JSON as base64 to avoid any quote conflicts inside HTML attributes
+          const encoded  = btoa(unescape(encodeURIComponent(JSON.stringify(d))));
+          badges += `<div class="cal-badge mt-0.5 px-1 py-0.5 rounded bg-amber-200 text-amber-800 text-[10px] font-semibold leading-tight cursor-pointer ${opacity}"
+                         data-date="${dateStr}"
+                         data-discount="${encoded}">
+                       ${tierLabel} ${catTag}
+                     </div>`;
+        });
+
+        html += `<div class="bg-surface ${cellBg} min-h-[72px] p-1.5 cursor-pointer transition-colors"
+                      onclick="abrirCalendarNovo('${dateStr}')"
+                      data-date="${dateStr}">
+                   <div class="flex justify-between items-start">
+                     ${dayLabel}
+                     ${discounts.length ? `<span class="text-[9px] text-amber-500 font-bold">${discounts.length}</span>` : ''}
+                   </div>
+                   ${badges}
+                 </div>`;
+      }
+
+      // Células vazias após o último dia (completar última semana)
+      const totalCells = startOffset + daysInMonth;
+      const remainder = totalCells % 7;
+      if (remainder > 0) {
+        for (let i = remainder; i < 7; i++) {
+          html += `<div class="bg-surface min-h-[72px]"></div>`;
+        }
+      }
+
+      html += '</div>';
+      grid.innerHTML = html;
+
+      // Restaura estado de seleção do modo replicação após re-renderização
+      _aplicarEstadoReplicaNaGrade();
+
+      // Delegated click: badges open edit modal; plain cells open create modal
+      grid.querySelectorAll('.cal-badge').forEach(badge => {
+        badge.addEventListener('click', function (e) {
+          e.stopPropagation();
+          const discount = JSON.parse(decodeURIComponent(escape(atob(this.dataset.discount))));
+          abrirCalendarModal(this.dataset.date, discount);
+        });
+      });
+
+      grid.querySelectorAll('.cal-evento').forEach(badge => {
+        badge.addEventListener('click', function (e) {
+          e.stopPropagation();
+          const evento = JSON.parse(decodeURIComponent(escape(atob(this.dataset.evento))));
+          abrirEventoModal(this.dataset.date, evento);
+        });
+      });
+    }
+
+    // ── Navegação de mês ──────────────────────────────────────────────────
+    document.getElementById('calPrev').addEventListener('click', () => {
+      calMonth--;
+      if (calMonth < 1) { calMonth = 12; calYear--; }
+      loadMonth();
+    });
+    document.getElementById('calNext').addEventListener('click', () => {
+      calMonth++;
+      if (calMonth > 12) { calMonth = 1; calYear++; }
+      loadMonth();
+    });
+    document.getElementById('calSourceSelect').addEventListener('change', function () {
+      calSourceId = this.value ? parseInt(this.value) : null;
+      window._calSourceId = calSourceId;
+      loadMonth();
+    });
+
+    // Inicializa
+    document.addEventListener('DOMContentLoaded', () => {
+      if (calSourceId) {
+        document.getElementById('calSourceSelect').value = calSourceId;
+      }
+      loadMonth();
+    });
+  })();
+
+  // ── Funções do modal de calendário ────────────────────────────────────────
+  let _calCurrentDate   = null;
+  let _calCurrentCdId   = null;
+
+  // ── Modo replicação ───────────────────────────────────────────────────────
+  let _replicaMode        = false;
+  let _replicaSourceCdId  = null;
+  let _replicaSourceDate  = null;
+  let _replicaSelectedDates = new Set();
+
+  function entrarModoReplica() {
+    _replicaMode       = true;
+    _replicaSourceCdId = _calCurrentCdId;
+    _replicaSourceDate = _calCurrentDate;
+    _replicaSelectedDates = new Set();
+    fecharCalendarModal();
+    document.getElementById('replicaBar').classList.remove('hidden');
+    _atualizarBarraReplica();
+    document.getElementById('calGrid').classList.add('ring-2', 'ring-blue-200', 'rounded-lg');
+  }
+
+  function sairModoReplica() {
+    _replicaMode = false;
+    _replicaSourceCdId = null;
+    _replicaSourceDate = null;
+    _replicaSelectedDates = new Set();
+    document.getElementById('replicaBar').classList.add('hidden');
+    document.getElementById('calGrid').classList.remove('ring-2', 'ring-blue-200', 'rounded-lg');
+    // Remove marcações visuais.
+    // Um token por argumento: classList.add/remove rejeitam a string inteira
+    // (InvalidCharacterError) se qualquer token contiver espaço — e nesse caso
+    // nenhuma classe chega a ser aplicada.
+    document.querySelectorAll('.cal-replica-selected, .cal-replica-source').forEach(el => {
+      el.classList.remove('cal-replica-selected', 'cal-replica-source',
+        'ring-2', 'ring-inset', 'ring-blue-500', 'bg-blue-50', 'dark:bg-blue-900/30',
+        'ring-amber-500', 'bg-amber-50', 'dark:bg-amber-900/30', 'cursor-not-allowed');
+    });
+  }
+
+  function _toggleReplicaDate(dateStr) {
+    if (dateStr === _replicaSourceDate) return;
+    if (_replicaSelectedDates.has(dateStr)) {
+      _replicaSelectedDates.delete(dateStr);
+    } else {
+      _replicaSelectedDates.add(dateStr);
+    }
+    _aplicarEstiloReplicaCelula(dateStr);
+    _atualizarBarraReplica();
+  }
+
+  function _aplicarEstiloReplicaCelula(dateStr) {
+    // Seleciona apenas a célula-dia (não o badge interno)
+    const cell = document.querySelector(`#calGrid [data-date="${dateStr}"]`);
+    if (!cell) return;
+    if (dateStr === _replicaSourceDate) {
+      cell.classList.add('cal-replica-source', 'ring-2', 'ring-inset', 'ring-amber-500', 'bg-amber-50', 'dark:bg-amber-900/30', 'cursor-not-allowed');
+      return;
+    }
+    if (_replicaSelectedDates.has(dateStr)) {
+      cell.classList.add('cal-replica-selected', 'ring-2', 'ring-inset', 'ring-blue-500', 'bg-blue-50', 'dark:bg-blue-900/30');
+      cell.classList.remove('ring-amber-500', 'bg-amber-50', 'dark:bg-amber-900/30');
+    } else {
+      cell.classList.remove('cal-replica-selected', 'ring-2', 'ring-inset', 'ring-blue-500', 'bg-blue-50', 'dark:bg-blue-900/30');
+    }
+  }
+
+  function _atualizarBarraReplica() {
+    const count = _replicaSelectedDates.size;
+    document.getElementById('replicaCount').textContent = count;
+    document.getElementById('replicaConfirmBtn').disabled = count === 0;
+  }
+
+  function _aplicarEstadoReplicaNaGrade() {
+    if (!_replicaMode) return;
+    // Restaura estilos após reload do calendário
+    if (_replicaSourceDate) _aplicarEstiloReplicaCelula(_replicaSourceDate);
+    _replicaSelectedDates.forEach(d => _aplicarEstiloReplicaCelula(d));
+  }
+
+  function confirmarReplicacao() {
+    if (_replicaSelectedDates.size === 0) return;
+    const btn = document.getElementById('replicaConfirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Replicando…';
+
+    fetch(`/reservas/admin/config/ajustes-preco/calendar/${_replicaSourceCdId}/replicar`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ target_dates: [..._replicaSelectedDates] }),
+    })
+    .then(_parseReplicaResponse)
+    .then(({ status, data }) => {
+      btn.disabled = (_replicaSelectedDates.size === 0);
+      btn.textContent = 'Replicar';
+      if (status === 409) {
+        const conflitos = data.conflitos || [];
+        const datesFormatted = conflitos.map(d => { const [,m,dd] = d.split('-'); return dd+'/'+m; }).join(', ');
+        document.getElementById('replicaConflictMsg').textContent =
+          `${conflitos.length} dia(s) já possuem regras configuradas (${datesFormatted}). Como deseja proceder?`;
+        document.getElementById('replicaConflictModal').classList.remove('hidden');
+      } else if (data.ok) {
+        _mostrarResultadoReplicacao(data);
+      } else {
+        alert(data.error || 'Erro ao replicar.');
+      }
+    })
+    .catch((err) => {
+      btn.disabled = false;
+      btn.textContent = 'Replicar';
+      alert(err.message || 'Erro ao comunicar com o servidor.');
+    });
+  }
+
+  function resolverConflito(strategy) {
+    document.getElementById('replicaConflictModal').classList.add('hidden');
+
+    fetch(`/reservas/admin/config/ajustes-preco/calendar/${_replicaSourceCdId}/replicar`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ target_dates: [..._replicaSelectedDates], on_conflict: strategy }),
+    })
+    .then(_parseReplicaResponse)
+    .then(({ data }) => data)
+    .then(data => {
+      if (data.ok) {
+        _mostrarResultadoReplicacao(data);
+      } else {
+        alert(data.error || 'Erro ao replicar.');
+      }
+    })
+    .catch((err) => alert(err.message || 'Erro ao comunicar com o servidor.'));
+  }
+
+  function _parseReplicaResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      return response.json().then(data => ({ status: response.status, data }));
+    }
+    return response.text().then(() => {
+      if (response.status === 401) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+      if (response.status === 403) {
+        throw new Error('Sem permissão para executar esta ação.');
+      }
+      throw new Error(`Erro ao comunicar com o servidor. Status ${response.status}.`);
+    });
+  }
+
+  function _mostrarResultadoReplicacao(data) {
+    const parts = [];
+    if (data.criados)      parts.push(`${data.criados} dia(s) criado(s)`);
+    if (data.substituidos) parts.push(`${data.substituidos} dia(s) substituído(s)`);
+    if (data.pulados)      parts.push(`${data.pulados} dia(s) ignorado(s)`);
+    const msg = document.getElementById('replicaSuccessMsg');
+    msg.textContent = 'Replicação concluída: ' + parts.join(', ') + '.';
+    document.getElementById('replicaSuccessBanner').classList.remove('hidden');
+    setTimeout(() => document.getElementById('replicaSuccessBanner').classList.add('hidden'), 5000);
+    sairModoReplica();
+    window.loadCalendarMonth();
+  }
+
+  function abrirCalendarNovo(dateStr) {
+    if (_replicaMode) { _toggleReplicaDate(dateStr); return; }
+    // Clique em célula vazia → abre modal para criar novo desconto
+    _calCurrentDate = dateStr;
+    _calCurrentCdId = null;
+
+    const [y, m, d] = dateStr.split('-');
+    document.getElementById('calModalTitle').textContent =
+      `Desconto para ${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+    document.getElementById('calModalDate').value = dateStr;
+    document.getElementById('calModalLabel').value = '';
+    document.getElementById('calModalActive').checked = true;
+
+    // Pré-seleciona a fonte ativa no calendário
+    const srcSel = document.getElementById('calModalSource');
+    if (window._calSourceId) {
+      srcSel.value = window._calSourceId;
+      filtrarCalModalCategorias();
+    }
+
+    document.getElementById('calModalFormSection').classList.remove('hidden');
+    document.getElementById('calModalEditSection').classList.add('hidden');
+    document.getElementById('calModalDeleteBtn').classList.add('hidden');
+    document.getElementById('calModal').classList.remove('hidden');
+  }
+
+  function abrirCalendarModal(dateStr, discount) {
+    if (_replicaMode) { _toggleReplicaDate(dateStr); return; }
+    // Clique num badge existente → abre modal de edição
+    _calCurrentDate = dateStr;
+    _calCurrentCdId = discount.id;
+
+    const [y, m, d] = dateStr.split('-');
+    const catLabel = discount.category_name ? ` (${discount.category_name})` : ' (Todas)';
+    document.getElementById('calModalTitle').textContent =
+      `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}${catLabel}`;
+
+    // Preenche formulário de edição
+    document.getElementById('edit_cal_label').value = discount.label || '';
+    document.getElementById('edit_cal_active').checked = discount.is_active;
+
+    const editForm = document.getElementById('calEditForm');
+    editForm.action = `/reservas/admin/config/ajustes-preco/calendar/${discount.id}/editar`;
+
+    const deleteForm = document.getElementById('calDeleteForm');
+    deleteForm.action = `/reservas/admin/config/ajustes-preco/calendar/${discount.id}/deletar`;
+
+    _renderCalTiers(discount.id, discount.tiers || []);
+
+    const addTierForm = document.getElementById('calAddTierForm');
+    addTierForm.action = `/reservas/admin/config/ajustes-preco/calendar/${discount.id}/tiers/criar`;
+
+    document.getElementById('calModalFormSection').classList.add('hidden');
+    document.getElementById('calModalEditSection').classList.remove('hidden');
+    document.getElementById('calModalDeleteBtn').classList.remove('hidden');
+    document.getElementById('calModal').classList.remove('hidden');
+  }
+
+  // Tiers atualmente exibidos no modal (array vivo — atualizado por add/remove AJAX)
+  let _calCurrentTiers = [];
+
+  function _renderCalTiers(cdId, tiers) {
+    _calCurrentTiers = tiers ? [...tiers] : [];
+    const list = document.getElementById('calTiersList');
+    list.innerHTML = '';
+    if (_calCurrentTiers.length === 0) {
+      list.innerHTML = '<p class="text-xs text-content-muted italic">Nenhum tier cadastrado. Sem tiers, esta data não produz desconto.</p>';
+      return;
+    }
+    // Ordena: maior antecedência primeiro; dentro do mesmo nível, maior estadia primeiro (null por último)
+    const sorted = [..._calCurrentTiers].sort((a, b) => {
+      if (b.min_days_in_advance !== a.min_days_in_advance)
+        return b.min_days_in_advance - a.min_days_in_advance;
+      return (b.min_stay_days ?? -1) - (a.min_stay_days ?? -1);
+    });
+    sorted.forEach(t => {
+      const advLabel = `≥ ${t.min_days_in_advance} dia${t.min_days_in_advance !== 1 ? 's' : ''} antecedência`;
+      const stayLabel = t.min_stay_days
+        ? `≥ ${t.min_stay_days} noite${t.min_stay_days !== 1 ? 's' : ''}`
+        : 'qualquer estadia';
+      const row = document.createElement('div');
+      row.dataset.tierId = t.id;
+      row.className = 'flex items-center justify-between bg-surface border border-line rounded-lg px-3 py-2';
+      row.innerHTML = `
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700 dark:text-violet-300">
+            ${advLabel}
+          </span>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-700">
+            ${stayLabel}
+          </span>
+          <span class="text-sm font-semibold text-green-600 dark:text-green-300">${t.pct}%</span>
+        </div>
+        <button type="button"
+                data-tier-id="${t.id}"
+                data-cd-id="${cdId}"
+                class="cal-tier-remove-btn text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300 font-semibold px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
+          Remover
+        </button>`;
+      list.appendChild(row);
+    });
+  }
+
+  function fecharCalendarModal() {
+    document.getElementById('calModal').classList.add('hidden');
+    _calCurrentDate = null;
+    _calCurrentCdId = null;
+  }
+
+  // ── Modal de data especial (Calendário Global) ────────────────────────────
+  const EVENTO_URLS = {
+    criar:   "{{ url_for('reservas.admin_calendar_evento_criar') }}",
+    // 0 é placeholder trocado pelo id real — evita montar URL na mão no JS.
+    editar:  "{{ url_for('reservas.admin_calendar_evento_editar', event_id=0) }}",
+    deletar: "{{ url_for('reservas.admin_calendar_evento_deletar', event_id=0) }}",
+  };
+
+  function _preencherContextoEvento() {
+    const srcSel = document.getElementById('calSourceSelect');
+    const src = srcSel ? srcSel.value : '';
+    [['eventoCalSource', src], ['eventoDelCalSource', src],
+     ['eventoOpenYear', window._calYear || ''], ['eventoDelOpenYear', window._calYear || ''],
+     ['eventoOpenMonth', window._calMonth || ''], ['eventoDelOpenMonth', window._calMonth || '']
+    ].forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    });
+  }
+
+  function abrirEventoNovo(dateStr) {
+    fecharCalendarModal();
+    const [y, m, d] = (dateStr || '').split('-');
+
+    document.getElementById('eventoModalTitle').textContent =
+      dateStr ? `Data especial — ${d}/${m}/${y}` : 'Nova data especial';
+    document.getElementById('eventoForm').action = EVENTO_URLS.criar;
+    document.getElementById('eventoTitulo').value = '';
+    document.getElementById('eventoDataInicio').value = dateStr || '';
+    document.getElementById('eventoDataFim').value = '';
+    document.getElementById('eventoTipo').value = 'HIGH_SEASON';
+    document.getElementById('eventoRecorrente').checked = false;
+
+    document.getElementById('eventoReadonlyAviso').classList.add('hidden');
+    document.getElementById('eventoAjuda').classList.remove('hidden');
+    document.getElementById('eventoAcoes').classList.remove('hidden');
+    document.getElementById('eventoDeleteForm').classList.add('hidden');
+    _setEventoCamposDesabilitados(false);
+
+    _preencherContextoEvento();
+    document.getElementById('eventoModal').classList.remove('hidden');
+  }
+
+  function abrirEventoModal(dateStr, evento) {
+    if (_replicaMode) { _toggleReplicaDate(dateStr); return; }
+
+    document.getElementById('eventoModalTitle').textContent = evento.titulo;
+    document.getElementById('eventoTitulo').value = evento.titulo;
+    document.getElementById('eventoDataInicio').value = evento.data_inicio;
+    document.getElementById('eventoDataFim').value =
+      evento.data_fim !== evento.data_inicio ? evento.data_fim : '';
+    document.getElementById('eventoTipo').value = evento.tipo;
+    document.getElementById('eventoRecorrente').checked = !!evento.recorrente_anual;
+
+    const editavel = !!evento.editavel;
+    document.getElementById('eventoReadonlyAviso').classList.toggle('hidden', editavel);
+    document.getElementById('eventoAjuda').classList.toggle('hidden', !editavel);
+    document.getElementById('eventoAcoes').classList.toggle('hidden', !editavel);
+    document.getElementById('eventoDeleteForm').classList.toggle('hidden', !editavel);
+    _setEventoCamposDesabilitados(!editavel);
+
+    if (editavel) {
+      document.getElementById('eventoForm').action =
+        EVENTO_URLS.editar.replace('/evento/0/', `/evento/${evento.id}/`);
+      document.getElementById('eventoDeleteForm').action =
+        EVENTO_URLS.deletar.replace('/evento/0/', `/evento/${evento.id}/`);
+    }
+
+    _preencherContextoEvento();
+    document.getElementById('eventoModal').classList.remove('hidden');
+  }
+
+  function _setEventoCamposDesabilitados(travado) {
+    ['eventoTitulo','eventoDataInicio','eventoDataFim','eventoTipo','eventoRecorrente']
+      .forEach(id => { document.getElementById(id).disabled = travado; });
+  }
+
+  function fecharEventoModal() {
+    document.getElementById('eventoModal').classList.add('hidden');
+  }
+
+  function filtrarCalModalCategorias() {
+    const sourceId = document.getElementById('calModalSource').value;
+    const select   = document.getElementById('calModalCategory');
+    Array.from(select.options).forEach(opt => {
+      if (!opt.value) return;
+      opt.hidden = opt.dataset.source !== sourceId;
+    });
+    const sel = select.options[select.selectedIndex];
+    if (sel && sel.dataset.source && sel.dataset.source !== sourceId) select.value = '';
+  }
+
+  // Preenche hidden fields de ano/mês antes do submit dos formulários do calendário
+  document.addEventListener('DOMContentLoaded', function () {
+    function _setCalOpenFields(formEl) {
+      if (!formEl) return;
+      formEl.addEventListener('submit', function () {
+        const calSourceSel = document.getElementById('calSourceSelect');
+        const src = calSourceSel ? calSourceSel.value : '';
+
+        // campos open_year / open_month
+        ['calModalOpenYear','edit_cal_open_year'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = window._calYear || new Date().getFullYear();
+        });
+        ['calModalOpenMonth','edit_cal_open_month'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = window._calMonth || (new Date().getMonth() + 1);
+        });
+
+        // campo cal_source nos formulários que não têm source_id próprio
+        const srcHidden = formEl.querySelector('[name=cal_source]');
+        if (srcHidden) srcHidden.value = src;
+      });
+    }
+    _setCalOpenFields(document.querySelector('#calModalFormSection form'));
+    _setCalOpenFields(document.getElementById('calEditForm'));
+    _setCalOpenFields(document.getElementById('calDeleteForm'));
+    _setCalOpenFields(document.getElementById('calAddTierForm'));
+
+    // Sincroniza variáveis globais de ano/mês com o módulo interno
+    document.getElementById('calPrev').addEventListener('click', () => {
+      window._calYear  = parseInt(document.getElementById('calMonthLabel').dataset.year  || new Date().getFullYear());
+      window._calMonth = parseInt(document.getElementById('calMonthLabel').dataset.month || (new Date().getMonth()+1));
+    });
+
+    // Delegated handler para botões "Remover" de tiers (gerados dinamicamente)
+    document.getElementById('calTiersList').addEventListener('click', function(e) {
+      const btn = e.target.closest('.cal-tier-remove-btn');
+      if (!btn) return;
+      if (!confirm('Remover este tier?')) return;
+
+      const tierId = btn.dataset.tierId;
+      const cdId   = btn.dataset.cdId;
+      btn.disabled = true;
+      fetch(`/reservas/admin/config/ajustes-preco/calendar/${cdId}/tiers/${tierId}/deletar`, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          _calCurrentTiers = _calCurrentTiers.filter(t => t.id !== parseInt(tierId));
+          _renderCalTiers(cdId, _calCurrentTiers);
+        } else {
+          alert(data.error || 'Erro ao remover tier.');
+          btn.disabled = false;
+        }
+      })
+      .catch(() => { alert('Erro ao comunicar com o servidor.'); btn.disabled = false; });
+    });
+
+    // Handler AJAX do formulário "Adicionar tier" — mantém modal aberto
+    document.getElementById('calAddTierForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const form      = this;
+      const errDiv    = document.getElementById('calTierError');
+      const submitBtn = form.querySelector('button[type=submit]');
+
+      errDiv.classList.add('hidden');
+      errDiv.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Adicionando…';
+
+      fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form),
+      })
+      .then(r => r.json())
+      .then(data => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '+ Adicionar tier';
+        if (data.ok) {
+          _calCurrentTiers.push(data.tier);
+          _renderCalTiers(_calCurrentCdId, _calCurrentTiers);
+          form.querySelectorAll('input[type=number]').forEach(i => i.value = '');
+        } else {
+          errDiv.textContent = data.error || 'Erro ao criar tier.';
+          errDiv.classList.remove('hidden');
+        }
+      })
+      .catch(() => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '+ Adicionar tier';
+        errDiv.textContent = 'Erro ao comunicar com o servidor.';
+        errDiv.classList.remove('hidden');
+      });
+    });
+  });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharCalendarModal(); });
+</script>
+
+{# ── Modal de desconto de calendário ── #}
+<div id="calModal"
+     class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+     onclick="if(event.target===this) fecharCalendarModal()">
+  <div class="bg-surface rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden">
+
+    <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+      <h3 id="calModalTitle" class="font-bold text-content"></h3>
+      <button type="button" onclick="fecharCalendarModal()"
+              class="text-content-muted hover:text-content-muted transition-colors p-1">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="px-6 py-5 overflow-y-auto max-h-[80vh]">
+
+      {# Seção: criar novo desconto (célula vazia clicada) #}
+      <div id="calModalFormSection">
+        <p class="text-xs text-content-muted mb-4 leading-relaxed">
+          Marque esta data para desconto e, em seguida, adicione os tiers de antecedência
+          que definem o percentual conforme o quão cedo o cliente reservar.
+        </p>
+
+        <button type="button" onclick="abrirEventoNovo(_calCurrentDate)"
+                class="w-full mb-4 min-h-[44px] px-4 rounded-lg border border-dashed border-line
+                       text-sm font-semibold text-content-muted hover:text-content
+                       hover:border-content-muted transition-colors">
+          + Cadastrar feriado ou alta temporada neste dia
+        </button>
+        <form method="POST" action="{{ url_for('reservas.admin_calendar_discount_criar') }}">
+          <input type="hidden" name="discount_date" id="calModalDate">
+          <input type="hidden" name="open_year"  id="calModalOpenYear">
+          <input type="hidden" name="open_month" id="calModalOpenMonth">
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-content-muted mb-1">Fonte *</label>
+              <select name="source_id" id="calModalSource" required
+                      onchange="filtrarCalModalCategorias()"
+                      class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                             focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <option value="">Selecione…</option>
+                {% for s in sources %}
+                  <option value="{{ s.id }}">{{ s.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-content-muted mb-1">Categoria</label>
+              <select name="category_id" id="calModalCategory"
+                      class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                             focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <option value="">Todas as categorias</option>
+                {% for c in categories %}
+                  <option value="{{ c.id }}" data-source="{{ c.source_id }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <label class="block text-xs font-semibold text-content-muted mb-1">Rótulo</label>
+            <input type="text" name="label" id="calModalLabel"
+                   maxlength="100" placeholder="Ex: Black Friday"
+                   class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                          focus:outline-none focus:ring-2 focus:ring-amber-400">
+          </div>
+
+          <div class="flex items-center gap-2 mt-4">
+            <input type="checkbox" id="calModalActive" name="is_active" value="1" checked
+                   class="w-4 h-4 rounded text-amber-600 dark:text-amber-300 focus:ring-amber-400">
+            <label for="calModalActive" class="text-sm text-content-muted">Ativo imediatamente</label>
+          </div>
+
+          <div class="flex gap-3 mt-5">
+            <button type="submit"
+                    class="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors">
+              Criar data especial
+            </button>
+            <button type="button" onclick="fecharCalendarModal()"
+                    class="px-4 py-2 bg-surface-2 hover:bg-surface-2 text-content-muted text-sm font-semibold rounded-lg transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {# Seção: editar data especial existente #}
+      <div id="calModalEditSection" class="hidden">
+        <form method="POST" id="calEditForm">
+          <input type="hidden" name="open_year"  id="edit_cal_open_year">
+          <input type="hidden" name="open_month" id="edit_cal_open_month">
+
+          <div>
+            <label class="block text-xs font-semibold text-content-muted mb-1">Rótulo</label>
+            <input type="text" id="edit_cal_label" name="label" maxlength="100"
+                   class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                          focus:outline-none focus:ring-2 focus:ring-amber-400">
+          </div>
+
+          <div class="flex items-center gap-2 mt-4">
+            <input type="checkbox" id="edit_cal_active" name="is_active" value="1"
+                   class="w-4 h-4 rounded text-amber-600 dark:text-amber-300 focus:ring-amber-400">
+            <label for="edit_cal_active" class="text-sm text-content-muted">Ativo</label>
+          </div>
+
+          <div class="flex gap-3 mt-4">
+            <button type="submit"
+                    class="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors">
+              Salvar alterações
+            </button>
+            <button type="button" onclick="fecharCalendarModal()"
+                    class="px-4 py-2 bg-surface-2 hover:bg-surface-2 text-content-muted text-sm font-semibold rounded-lg transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </form>
+
+        {# Botão de remoção separado #}
+        <form method="POST" id="calDeleteForm"
+              onsubmit="return confirm('Remover este desconto e todos os seus tiers?')"
+              class="mt-2">
+          <button id="calModalDeleteBtn" type="submit"
+                  class="w-full px-4 py-2 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-800/40 text-red-600 dark:text-red-400 text-sm font-semibold rounded-lg border border-red-200 dark:border-red-800 transition-colors">
+            Remover desconto
+          </button>
+        </form>
+
+        {# Replicar para outros dias #}
+        <div class="mt-4 pt-4 border-t border-line">
+          <button type="button" onclick="entrarModoReplica()"
+                  class="w-full flex items-center justify-center gap-2 px-4 py-2.5
+                         bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-700 dark:text-blue-300 text-sm font-semibold
+                         rounded-lg border border-blue-200 dark:border-blue-800 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            Replicar para outros dias
+          </button>
+        </div>
+
+        {# Tiers de antecedência do desconto de calendário #}
+        <div class="mt-6 pt-5 border-t border-line">
+          <div class="flex items-center gap-2 mb-2">
+            <h4 class="text-sm font-bold text-content">Tiers por antecedência</h4>
+          </div>
+          <p class="text-xs text-content-muted mb-4 leading-relaxed">
+            Defina percentuais para cada nível de antecedência. O tier com maior antecedência
+            mínima que o cliente ainda qualifica é aplicado. Se nenhum qualificar, esta data
+            não produz desconto.
+          </p>
+          <div id="calTiersList" class="space-y-2 mb-4"></div>
+          <form method="POST" id="calAddTierForm"
+                class="bg-surface-2 rounded-xl p-4 border border-line">
+            <p class="text-xs font-semibold text-content-muted mb-3">Adicionar tier</p>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs text-content-muted mb-1">Antecedência mínima (dias) *</label>
+                <input type="number" name="min_days_in_advance" min="1" max="365" required
+                       placeholder="Ex: 30"
+                       class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                              focus:outline-none focus:ring-2 focus:ring-violet-400 bg-surface">
+              </div>
+              <div>
+                <label class="block text-xs text-content-muted mb-1">Estadia mínima (noites)</label>
+                <input type="number" name="min_stay_days" min="1" max="365"
+                       placeholder="Opcional"
+                       class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                              focus:outline-none focus:ring-2 focus:ring-sky-400 bg-surface">
+              </div>
+              <div>
+                <label class="block text-xs text-content-muted mb-1">Desconto (%) *</label>
+                <input type="number" name="discount_percentage" min="0.01" max="100" step="0.01" required
+                       placeholder="Ex: 25.00"
+                       class="w-full border border-line rounded-lg px-3 py-2 text-sm
+                              focus:outline-none focus:ring-2 focus:ring-violet-400 bg-surface">
+              </div>
+            </div>
+            <p class="text-xs text-content-muted mt-2">Estadia mínima é opcional. Deixe em branco para aplicar a qualquer duração de estadia.</p>
+            <div id="calTierError" class="hidden mt-2 text-xs text-red-600 dark:text-red-400 font-semibold bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2"></div>
+            <button type="submit"
+                    class="mt-3 w-full px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-lg transition-colors">
+              + Adicionar tier
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>{# /overflow #}
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════
+   Modal de data especial (feriado / alta temporada)
+
+   Grava no Calendário Global (`sistur_global_events`), não numa tabela do
+   módulo. O evento nasce afetando SÓ precificação; promovê-lo a feriado de
+   folha é prerrogativa do super admin em /admin/configuracoes/.
+══════════════════════════════════════════════════════════════════════ #}
+<div id="eventoModal"
+     class="hidden fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+     onclick="if(event.target===this) fecharEventoModal()">
+  <div class="bg-surface rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden">
+
+    <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+      <h3 id="eventoModalTitle" class="font-bold text-content"></h3>
+      <button type="button" onclick="fecharEventoModal()"
+              class="text-content-muted hover:text-content transition-colors p-1">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="px-6 py-5 overflow-y-auto max-h-[80vh]">
+
+      <div id="eventoReadonlyAviso"
+           class="hidden mb-4 rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm text-content-muted leading-relaxed">
+        Este evento é gerenciado nas <strong>Configurações Globais</strong> — ele afeta
+        folha de ponto e/ou foi cadastrado fora do módulo de Reservas. Aqui ele é
+        somente leitura; ele continua valendo para a precificação.
+      </div>
+
+      <p id="eventoAjuda" class="text-xs text-content-muted mb-4 leading-relaxed">
+        Datas especiais usam a tarifa <strong>Preço Data Especial</strong> de cada item,
+        no lugar da tarifa de dia útil ou fim de semana. Vale para todas as fontes.
+      </p>
+
+      <form id="eventoForm" method="POST" action="">
+        <input type="hidden" name="cal_source"  id="eventoCalSource">
+        <input type="hidden" name="open_year"   id="eventoOpenYear">
+        <input type="hidden" name="open_month"  id="eventoOpenMonth">
+
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-content-muted mb-1" for="eventoTitulo">
+            Título
+          </label>
+          <input type="text" id="eventoTitulo" name="titulo" required maxlength="150"
+                 placeholder="Ex: Carnaval, Alta Temporada Julho"
+                 class="w-full min-h-[44px] border border-line rounded-lg px-3 text-sm
+                        bg-surface text-content focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-xs font-semibold text-content-muted mb-1" for="eventoDataInicio">
+              Data inicial
+            </label>
+            <input type="date" id="eventoDataInicio" name="data_evento" required
+                   class="w-full min-h-[44px] border border-line rounded-lg px-3 text-sm
+                          bg-surface text-content focus:outline-none focus:ring-2 focus:ring-amber-400">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-content-muted mb-1" for="eventoDataFim">
+              Data final <span class="font-normal">(opcional)</span>
+            </label>
+            <input type="date" id="eventoDataFim" name="data_fim"
+                   class="w-full min-h-[44px] border border-line rounded-lg px-3 text-sm
+                          bg-surface text-content focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <p class="text-[11px] text-content-muted mt-1">Vazio = evento de um dia só.</p>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-content-muted mb-1" for="eventoTipo">
+            Tipo
+          </label>
+          <select id="eventoTipo" name="tipo" required
+                  class="w-full min-h-[44px] border border-line rounded-lg px-3 text-sm
+                         bg-surface text-content focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <option value="HIGH_SEASON">Alta Temporada</option>
+            <option value="NATIONAL_HOLIDAY">Feriado Nacional</option>
+            <option value="LOCAL_HOLIDAY">Feriado Local</option>
+          </select>
+        </div>
+
+        <label class="flex items-center gap-2 mb-5 text-sm text-content min-h-[44px] cursor-pointer">
+          <input type="checkbox" id="eventoRecorrente" name="recorrente_anual" value="1"
+                 class="w-4 h-4 accent-amber-500">
+          Repete todo ano (mesmo dia e mês)
+        </label>
+
+        <div id="eventoAcoes" class="flex flex-col sm:flex-row gap-2">
+          <button type="submit"
+                  class="flex-1 min-h-[44px] px-4 rounded-lg bg-amber-500 hover:bg-amber-600
+                         text-white text-sm font-semibold transition-colors">
+            Salvar data especial
+          </button>
+          <button type="button" onclick="fecharEventoModal()"
+                  class="min-h-[44px] px-4 rounded-lg text-sm font-semibold
+                         text-content-muted hover:text-content transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </form>
+
+      <form id="eventoDeleteForm" method="POST" action="" class="hidden mt-3"
+            onsubmit="return confirm('Remover esta data especial do calendário?');">
+        <input type="hidden" name="cal_source" id="eventoDelCalSource">
+        <input type="hidden" name="open_year"  id="eventoDelOpenYear">
+        <input type="hidden" name="open_month" id="eventoDelOpenMonth">
+        <button type="submit"
+                class="w-full min-h-[44px] px-4 rounded-lg border border-red-200 dark:border-red-800
+                       text-red-600 dark:text-red-400 text-sm font-semibold
+                       hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
+          Remover data especial
+        </button>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+{# ── Barra flutuante do modo replicação ── #}
+<div id="replicaBar"
+     class="hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-line shadow-2xl">
+  <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+    <div class="text-sm text-content-muted leading-tight">
+      <span class="font-semibold text-blue-700 dark:text-blue-300"><span id="replicaCount">0</span> dia(s) selecionado(s)</span>
+      <span class="text-xs text-content-muted ml-2">Clique nas datas destino no calendário</span>
+    </div>
+    <div class="flex gap-2 shrink-0">
+      <button type="button" onclick="sairModoReplica()"
+              class="px-4 py-2 text-sm font-semibold text-content-muted bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+        Cancelar
+      </button>
+      <button type="button" id="replicaConfirmBtn" onclick="confirmarReplicacao()" disabled
+              class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+        Replicar
+      </button>
+    </div>
+  </div>
+</div>
+
+{# ── Modal de resolução de conflito ── #}
+<div id="replicaConflictModal"
+     class="hidden fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+  <div class="bg-surface rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex items-start gap-3 mb-4">
+      <div class="shrink-0 w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center">
+        <svg class="w-5 h-5 text-amber-600 dark:text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="font-bold text-content text-sm mb-1">Conflito detectado</h3>
+        <p id="replicaConflictMsg" class="text-sm text-content-muted leading-relaxed"></p>
+      </div>
+    </div>
+    <div class="flex flex-col gap-2">
+      <button type="button" onclick="resolverConflito('overwrite')"
+              class="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg transition-colors">
+        Substituir todos (sobrescreve os dias conflitantes)
+      </button>
+      <button type="button" onclick="resolverConflito('skip')"
+              class="w-full px-4 py-2.5 bg-surface-2 hover:bg-surface-2 text-content text-sm font-semibold rounded-lg transition-colors">
+        Pular os conflitantes (replica só os dias livres)
+      </button>
+      <button type="button" onclick="document.getElementById('replicaConflictModal').classList.add('hidden')"
+              class="w-full px-4 py-2 text-content-muted hover:text-content-muted text-sm rounded-lg transition-colors">
+        Voltar (rever seleção)
+      </button>
+    </div>
+  </div>
+</div>
+
+{# ── Banner de sucesso da replicação ── #}
+<div id="replicaSuccessBanner"
+     class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-50
+            bg-green-600 text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-lg
+            flex items-center gap-2">
+  <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+  </svg>
+  <span id="replicaSuccessMsg"></span>
+</div>
+
+{% endblock %}

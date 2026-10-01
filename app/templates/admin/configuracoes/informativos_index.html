@@ -1,0 +1,424 @@
+{% extends 'reservas/reservas_base.html' %}
+{#
+  Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved
+  Admin — Informativos (Gerenciamento Centralizado de Informações)
+#}
+
+{% block html_title %}Informações{% endblock %}
+
+{% block page_title %}Informações{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-slate-400 mt-0.5 hidden sm:block">
+  Avisos e termos de uso exibidos durante o processo de reserva
+</p>
+{% endblock %}
+
+{% block page_actions %}
+<button onclick="openSlugsModal()"
+        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50
+               border border-slate-200 text-slate-600 text-sm font-semibold rounded-lg transition-colors">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round"
+          d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
+  </svg>
+  Ver Slugs
+</button>
+<button onclick="openModal()"
+        class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-violet-600 hover:bg-violet-700
+               text-white text-sm font-semibold rounded-lg transition-colors">
+  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+  Novo Informativo
+</button>
+{% endblock %}
+
+{% block reservas_content %}
+
+<!-- Quill CSS -->
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet" />
+<style>
+  /* ─── Card ─── */
+  .inf-card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; overflow:hidden; }
+  .inf-header { display:flex; align-items:center; gap:12px; padding:14px 16px; cursor:pointer; user-select:none; }
+  .inf-header:hover { background:#f8fafc; }
+  .inf-icon { width:36px; height:36px; border-radius:8px; background:#f5f3ff; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:1rem; }
+  .inf-meta { flex:1; min-width:0; }
+  .inf-title { font-size:.9375rem; font-weight:700; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .inf-sub { font-size:.75rem; color:#64748b; margin-top:2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .badge { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:20px; font-size:.6875rem; font-weight:600; white-space:nowrap; }
+  .badge-wp  { background:#dbeafe; color:#1d4ed8; }
+  .badge-off { background:#f1f5f9; color:#94a3b8; }
+  .chevron { color:#94a3b8; font-size:.75rem; transition:transform .2s; }
+  .chevron.open { transform:rotate(180deg); }
+
+  /* ─── Collapsible body ─── */
+  .inf-body { display:none; border-top:1px solid #e2e8f0; padding:20px 16px; }
+  .inf-body.open { display:block; }
+
+  /* ─── Form ─── */
+  .form-grid { display:grid; grid-template-columns:1fr; gap:14px; }
+  @media(min-width:640px){ .form-grid { grid-template-columns:1fr 1fr; } }
+  .form-full { grid-column:1/-1; }
+  .field label { display:block; font-size:.8125rem; font-weight:600; color:#64748b; margin-bottom:5px; }
+  .field input[type="text"] { width:100%; border:1px solid #e2e8f0; border-radius:8px; padding:9px 12px; font-size:.875rem; font-family:inherit; color:#1e293b; background:#fff; outline:none; }
+  .field input[type="text"]:focus { border-color:#7c3aed; box-shadow:0 0 0 3px #ede9fe; }
+  .slug-hint { font-size:.7rem; color:#94a3b8; margin-top:4px; }
+  .toggle-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; }
+  .toggle-row input[type="checkbox"] { width:16px; height:16px; accent-color:#7c3aed; flex-shrink:0; }
+  .toggle-label { font-size:.875rem; font-weight:500; color:#1e293b; }
+  .toggle-desc { font-size:.75rem; color:#64748b; margin-top:1px; }
+  .form-footer { display:flex; align-items:center; justify-content:space-between; margin-top:18px; flex-wrap:wrap; gap:8px; }
+
+  /* ─── Quill ─── */
+  .ql-wrapper { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#fff; }
+  .ql-wrapper:focus-within { border-color:#7c3aed; box-shadow:0 0 0 3px #ede9fe; }
+  .ql-wrapper .ql-toolbar { border:none; border-bottom:1px solid #e2e8f0; background:#f8fafc; padding:6px 8px; }
+  .ql-wrapper .ql-container { border:none; font-family:'Inter',sans-serif; font-size:.875rem; }
+  .ql-wrapper .ql-editor { min-height:240px; padding:12px 14px; color:#1e293b; }
+  .ql-wrapper .ql-editor.ql-blank::before { color:#94a3b8; font-style:normal; }
+  .ql-wrapper .ql-toolbar .ql-stroke { stroke:#64748b; }
+  .ql-wrapper .ql-toolbar .ql-fill  { fill:#64748b; }
+  .ql-wrapper .ql-toolbar button:hover .ql-stroke { stroke:#7c3aed; }
+  .ql-wrapper .ql-toolbar button:hover .ql-fill  { fill:#7c3aed; }
+  .ql-wrapper .ql-toolbar button.ql-active .ql-stroke { stroke:#7c3aed; }
+  .ql-wrapper .ql-toolbar button.ql-active .ql-fill  { fill:#7c3aed; }
+  .ql-wrapper .ql-toolbar .ql-picker-label { color:#64748b; }
+
+  /* ─── Modal ─── */
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:flex-start; justify-content:center; padding:3rem 1rem 2rem; overflow-y:auto; }
+  .modal-backdrop.open { display:flex; }
+  .modal { background:#fff; border-radius:14px; width:100%; max-width:740px; box-shadow:0 20px 60px rgba(0,0,0,.2); }
+  .modal-header { padding:18px 20px 14px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; }
+  .modal-title { font-size:1rem; font-weight:700; color:#1e293b; }
+  .modal-close { background:none; border:none; font-size:1.25rem; cursor:pointer; color:#64748b; padding:4px; min-height:36px; min-width:36px; border-radius:6px; }
+  .modal-close:hover { background:#f1f5f9; }
+  .modal-body { padding:20px; }
+  .modal-footer { padding:14px 20px; border-top:1px solid #e2e8f0; display:flex; gap:8px; justify-content:flex-end; }
+</style>
+
+{% if not registros %}
+<!-- Estado vazio -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm py-16 text-center">
+  <div class="text-5xl mb-4">📋</div>
+  <p class="text-slate-700 font-semibold">Nenhum Informativo cadastrado</p>
+  <p class="text-slate-400 text-sm mt-1 mb-6">Clique em "+ Novo Informativo" para começar.</p>
+  <button onclick="openModal()"
+          class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-700
+                 text-white text-sm font-semibold rounded-lg transition-colors">
+    ➕ Criar Primeiro Informativo
+  </button>
+</div>
+
+{% else %}
+
+<p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
+  {{ registros | length }} informativo(s) cadastrado(s)
+</p>
+
+{% for reg in registros %}
+<div class="inf-card">
+  <!-- Cabeçalho colapsável -->
+  <div class="inf-header" onclick="toggleCard({{ reg.id }})">
+    <div class="inf-icon">📄</div>
+    <div class="inf-meta">
+      <div class="inf-title">{{ reg.title }}</div>
+      <div class="inf-sub">
+        <code style="font-family:monospace;font-size:.7rem;color:#64748b">{{ reg.slug }}</code>
+        {% if reg.sync_wordpress %}<span class="badge badge-wp">🌐 WordPress</span>
+        {% else %}<span class="badge badge-off">WordPress off</span>{% endif %}
+        <span style="color:#94a3b8;font-size:.7rem">Atualizado {{ reg.updated_at | to_brasilia_datetime }}</span>
+      </div>
+    </div>
+    <span class="chevron" id="chevron-{{ reg.id }}">▼</span>
+  </div>
+
+  <!-- Formulário de edição -->
+  <div class="inf-body" id="body-{{ reg.id }}">
+    <form method="POST"
+          action="{{ url_for('configuracoes.informativos_editar', informativo_id=reg.id) }}"
+          onsubmit="syncEditor('editor-{{ reg.id }}', 'content-{{ reg.id }}')">
+      <div class="form-grid">
+
+        <div class="field form-full">
+          <label for="title-{{ reg.id }}">Título</label>
+          <input type="text" id="title-{{ reg.id }}" name="title"
+                 value="{{ reg.title }}" required maxlength="200" />
+        </div>
+
+        <div class="field form-full">
+          <label>Conteúdo</label>
+          <div class="ql-wrapper">
+            <div id="editor-{{ reg.id }}">{{ reg.content | safe if reg.content else '' }}</div>
+          </div>
+          <input type="hidden" id="content-{{ reg.id }}" name="content" />
+        </div>
+
+        <div class="field">
+          <label>Sincronização WordPress</label>
+          <div class="toggle-row">
+            <input type="checkbox" name="sync_wordpress" {% if reg.sync_wordpress %}checked{% endif %} />
+            <div>
+              <div class="toggle-label">Enviar para WordPress</div>
+              <div class="toggle-desc">Atualiza a página "{{ reg.slug }}" a cada salvar.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="form-footer">
+        <form method="POST"
+              action="{{ url_for('configuracoes.informativos_deletar', informativo_id=reg.id) }}"
+              onsubmit="return confirm('Remover \"{{ reg.title }}\"? Esta ação não pode ser desfeita.');"
+              style="margin:0">
+          <button type="submit"
+                  class="inline-flex items-center gap-1.5 px-3 py-2 border border-red-300
+                         text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition-colors">
+            🗑 Remover
+          </button>
+        </form>
+        <button type="submit"
+                class="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700
+                       text-white text-sm font-semibold rounded-lg transition-colors">
+          Salvar alterações
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- ─── Modal: Ver Slugs ─── -->
+<div class="modal-backdrop" id="slugsModalBackdrop" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <span class="modal-title">🔗 Slugs cadastrados</span>
+      <button class="modal-close" onclick="closeSlugsModal()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px 20px">
+      {% if not registros %}
+      <p style="color:#94a3b8;font-size:.875rem;text-align:center;padding:1rem 0">
+        Nenhum informativo cadastrado ainda.
+      </p>
+      {% else %}
+      <p style="font-size:.8125rem;color:#64748b;margin-bottom:12px">
+        Use estes slugs para vincular páginas no WordPress. Clique em qualquer slug para copiar.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        {% for reg in registros %}
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+                    background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.8125rem;font-weight:600;color:#1e293b;
+                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              {{ reg.title }}
+            </div>
+            <code id="slug-text-{{ reg.id }}"
+                  style="font-family:monospace;font-size:.75rem;color:#7c3aed">
+              {{ reg.slug }}
+            </code>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            {% if reg.sync_wordpress %}
+            <span style="font-size:.65rem;font-weight:600;padding:2px 6px;border-radius:20px;
+                         background:#dbeafe;color:#1d4ed8">WP</span>
+            {% endif %}
+            <button onclick="copySlug('{{ reg.slug }}', this)"
+                    title="Copiar slug"
+                    style="display:inline-flex;align-items:center;gap:4px;padding:5px 9px;
+                           background:#fff;border:1px solid #e2e8f0;border-radius:6px;
+                           font-size:.75rem;font-weight:600;color:#64748b;cursor:pointer;
+                           transition:all .15s">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+              </svg>
+              Copiar
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="modal-footer" style="justify-content:flex-end">
+      <button onclick="closeSlugsModal()"
+              class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700
+                     text-sm font-semibold rounded-lg transition-colors">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Modal: Novo Informativo ─── -->
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Novo Informativo</span>
+      <button class="modal-close" onclick="closeModal()" aria-label="Fechar">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('configuracoes.informativos_criar') }}"
+          onsubmit="syncEditor('editor-new', 'content-new')">
+      <div class="modal-body">
+        <div class="form-grid">
+
+          <div class="field form-full">
+            <label for="new-title">Título *</label>
+            <input type="text" id="new-title" name="title" required maxlength="200"
+                   placeholder="Ex: Termo de Uso — Camping" />
+          </div>
+
+          <div class="field form-full">
+            <label for="new-slug">Slug *</label>
+            <input type="text" id="new-slug" name="slug" required maxlength="100"
+                   pattern="[a-z0-9_-]+" style="font-family:monospace;font-size:.8125rem"
+                   title="Apenas letras minúsculas, dígitos, hífen ou underscore"
+                   placeholder="Ex: termo-de-uso-camping" />
+            <div class="slug-hint">Letras minúsculas, dígitos, hífen ou underscore. Deve coincidir com o slug da página WordPress de destino.</div>
+          </div>
+
+          <div class="field form-full">
+            <label>Conteúdo (opcional)</label>
+            <div class="ql-wrapper">
+              <div id="editor-new"></div>
+            </div>
+            <input type="hidden" id="content-new" name="content" />
+          </div>
+
+          <div class="field">
+            <label>Sincronização WordPress</label>
+            <div class="toggle-row">
+              <input type="checkbox" name="sync_wordpress" />
+              <div>
+                <div class="toggle-label">Enviar para WordPress</div>
+                <div class="toggle-desc">Requer página com o mesmo slug no WordPress.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" onclick="closeModal()"
+                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700
+                       text-sm font-semibold rounded-lg transition-colors">
+          Cancelar
+        </button>
+        <button type="submit"
+                class="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white
+                       text-sm font-semibold rounded-lg transition-colors">
+          Criar Informativo
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+  const TOOLBAR = [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    ['blockquote', 'code-block'],
+    [{ align: [] }],
+    ['link'],
+    ['clean'],
+  ];
+
+  const _quills = {};
+
+  function initQuill(divId, placeholder) {
+    const q = new Quill('#' + divId, {
+      theme: 'snow',
+      placeholder: placeholder || 'Digite o conteúdo...',
+      modules: { toolbar: TOOLBAR },
+    });
+    _quills[divId] = q;
+    return q;
+  }
+
+  function syncEditor(editorId, hiddenId) {
+    const q = _quills[editorId];
+    if (q) document.getElementById(hiddenId).value = q.root.innerHTML;
+  }
+
+  /* Inicializa editores dos cards existentes */
+  {% for reg in registros %}
+  initQuill('editor-{{ reg.id }}', 'Digite o conteúdo do informativo...');
+  {% endfor %}
+
+  /* Editor do modal */
+  initQuill('editor-new', 'Digite o conteúdo inicial...');
+
+  /* Modal: Ver Slugs */
+  function openSlugsModal() {
+    document.getElementById('slugsModalBackdrop').classList.add('open');
+  }
+  function closeSlugsModal() {
+    document.getElementById('slugsModalBackdrop').classList.remove('open');
+  }
+  document.getElementById('slugsModalBackdrop').addEventListener('click', function(e) {
+    if (e.target === this) closeSlugsModal();
+  });
+
+  function copySlug(slug, btn) {
+    navigator.clipboard.writeText(slug).then(function() {
+      const original = btn.innerHTML;
+      btn.innerHTML = '✓ Copiado';
+      btn.style.background = '#d1fae5';
+      btn.style.color = '#059669';
+      btn.style.borderColor = '#6ee7b7';
+      setTimeout(function() {
+        btn.innerHTML = original;
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }, 2000);
+    });
+  }
+
+  /* Modal: Novo Informativo */
+  function openModal() {
+    document.getElementById('modalBackdrop').classList.add('open');
+    setTimeout(() => document.getElementById('new-title').focus(), 50);
+  }
+  function closeModal() {
+    document.getElementById('modalBackdrop').classList.remove('open');
+  }
+  document.getElementById('modalBackdrop').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  /* Auto-slug no modal */
+  document.getElementById('new-title').addEventListener('input', function() {
+    const s = document.getElementById('new-slug');
+    if (!s._userEdited) {
+      s.value = this.value
+        .toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+  });
+  document.getElementById('new-slug').addEventListener('input', function() {
+    this._userEdited = this.value.length > 0;
+  });
+
+  /* Collapsible cards */
+  function toggleCard(id) {
+    document.getElementById('body-' + id).classList.toggle('open');
+    document.getElementById('chevron-' + id).classList.toggle('open');
+  }
+</script>
+{% endblock %}

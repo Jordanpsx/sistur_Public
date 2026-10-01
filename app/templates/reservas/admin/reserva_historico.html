@@ -1,0 +1,424 @@
+{% extends 'reservas/reservas_base.html' %}
+{# Copyright (c) 2026 Jordan Barbosa Machado — All Rights Reserved #}
+
+{% block html_title %}Histórico · Reserva {{ versao_atual.group_id[:8] }}…{% endblock %}
+
+{% block page_title %}Histórico de Alterações{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-xs text-content-muted mt-0.5 hidden sm:block">
+  group_id {{ versao_atual.group_id[:8] }}… · {{ versoes|length }} versão(ões)
+</p>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('reservas.detalhe', reserva_id=versao_atual.id) }}"
+   class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-content-muted
+          bg-surface-2 hover:bg-surface-2 rounded-lg transition-colors">
+  ← Voltar ao Detalhe
+</a>
+{% endblock %}
+
+{% block reservas_content %}
+
+{# ── Legenda ── #}
+<div class="flex flex-wrap items-center gap-3 mb-6 text-xs">
+  <span class="font-semibold text-content-muted">Legenda:</span>
+  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-full text-teal-700 dark:text-teal-300 font-semibold">
+    ● Versão Atual
+  </span>
+  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface-2 border border-line rounded-full text-content-muted font-semibold">
+    ● Versão Arquivada
+  </span>
+  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-full text-amber-700 dark:text-amber-300 font-semibold">
+    ▲ Campo Alterado
+  </span>
+</div>
+
+{# ── Timeline — newer versions at top ── #}
+<div class="relative">
+
+  {# Vertical line #}
+  <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-surface-2 hidden sm:block" aria-hidden="true"></div>
+
+  <div class="space-y-6">
+
+    {% set versoes_reversed = versoes | reverse | list %}
+
+    {% for v in versoes_reversed %}
+
+      {#
+        Build a diff map comparing this version to the PREVIOUS one.
+        "previous" here means the version immediately before in chronological order
+        (lower version number). In the reversed loop: next iteration = previous version.
+      #}
+      {% set loop_idx = loop.index0 %}
+      {% set prev = versoes_reversed[loop_idx + 1] if loop_idx + 1 < versoes_reversed|length else none %}
+
+      {% set is_atual    = (v.id == versao_atual.id) %}
+      {% set is_original = (v.version == 1) %}
+      {% set sv          = v.status.value %}
+
+      {# ── Dot + Card wrapper ── #}
+      <div class="flex gap-4 sm:gap-5 items-start">
+
+        {# Timeline dot #}
+        <div class="relative z-10 shrink-0">
+          <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-extrabold
+                      {% if is_atual %}
+                        border-teal-500 bg-teal-500 text-white
+                      {% elif sv == 'CANCELED' %}
+                        border-red-400 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400
+                      {% else %}
+                        border-line bg-surface text-content-muted
+                      {% endif %}">
+            v{{ v.version }}
+          </div>
+        </div>
+
+        {# Card #}
+        <div class="flex-1 min-w-0 bg-surface rounded-xl border shadow-sm overflow-hidden
+                    {% if is_atual %}border-teal-300{% elif sv == 'CANCELED' %}border-red-200 dark:border-red-800{% else %}border-line{% endif %}">
+
+          {# Card header #}
+          <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5
+                      {% if is_atual %}bg-teal-50 dark:bg-teal-900/30{% elif sv == 'CANCELED' %}bg-red-50 dark:bg-red-900/30{% else %}bg-surface-2{% endif %}
+                      border-b
+                      {% if is_atual %}border-teal-200 dark:border-teal-800{% elif sv == 'CANCELED' %}border-red-200 dark:border-red-800{% else %}border-line{% endif %}">
+
+            <div class="flex items-center flex-wrap gap-2">
+              {# Version badge #}
+              <span class="text-sm font-bold
+                           {% if is_atual %}text-teal-700 dark:text-teal-300{% elif sv == 'CANCELED' %}text-red-700 dark:text-red-300{% else %}text-content-muted{% endif %}">
+                Versão {{ v.version }}
+              </span>
+
+              {# Role label #}
+              {% if is_atual %}
+              <span class="px-2 py-0.5 bg-teal-600 text-white text-[10px] font-bold rounded-full uppercase tracking-wide">
+                Atual
+              </span>
+              {% elif is_original %}
+              <span class="px-2 py-0.5 bg-slate-600 text-white text-[10px] font-bold rounded-full uppercase tracking-wide">
+                Original
+              </span>
+              {% endif %}
+
+              {# Status badge #}
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide
+                           {% if sv == 'PAID' %}bg-green-100 text-green-700 dark:text-green-300
+                           {% elif sv == 'COMPLETED' %}bg-teal-100 dark:bg-teal-800/40 text-teal-700 dark:text-teal-300
+                           {% elif sv == 'CANCELED' %}bg-red-100 dark:bg-red-800/40 text-red-700 dark:text-red-300
+                           {% elif sv == 'ARCHIVED_VERSION' %}bg-surface-2 text-content-muted
+                           {% else %}bg-amber-100 text-amber-700 dark:text-amber-300{% endif %}">
+                {{ sv }}
+              </span>
+
+              {# Deleted badge #}
+              {% if v.deleted_at %}
+              <span class="px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-800/40 text-red-600 dark:text-red-400 text-[10px] font-bold uppercase tracking-wide">
+                Deletado
+              </span>
+              {% endif %}
+            </div>
+
+            <div class="text-xs text-content-muted text-right shrink-0">
+              <div>
+                {% if v.version == 1 %}Criado{% else %}Editado{% endif %} em:
+                <strong>{{ v.criado_em.strftime('%d/%m/%Y %H:%M') }}</strong>
+              </div>
+              {% if v.criado_por %}
+              <div class="mt-0.5 font-medium text-content-muted">
+                por {{ v.criado_por.nome }}
+              </div>
+              {% endif %}
+              <div class="mt-0.5">ID: <code class="font-mono text-[10px]">#{{ v.id }}</code></div>
+            </div>
+          </div>
+
+          {# Card body — 2-column info grid #}
+          <div class="p-5 space-y-4">
+
+            {# ── Row 1: Cliente ── #}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+              {# Nome #}
+              <div>
+                <div class="text-[10px] font-bold text-content-muted uppercase tracking-wide mb-0.5">Nome</div>
+                <div class="text-sm font-semibold text-content
+                            {% if prev and v.customer_name != prev.customer_name %}
+                              bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800
+                            {% endif %}">
+                  {{ v.customer_name }}
+                  {% if prev and v.customer_name != prev.customer_name %}
+                  <span class="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-300 uppercase">alterado</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              {# CPF / CNPJ #}
+              <div>
+                <div class="text-[10px] font-bold text-content-muted uppercase tracking-wide mb-0.5">CPF / CNPJ</div>
+                <div class="text-sm font-mono text-content
+                            {% if prev and v.customer_document != prev.customer_document %}
+                              bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800
+                            {% endif %}">
+                  {% if v.customer_document %}
+                    {{ v.customer_document }}
+                    {% if prev and v.customer_document != prev.customer_document %}
+                    <span class="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-300 uppercase">alterado</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-content-muted">—</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              {# Telefone from metadata #}
+              {% set tel = v.metadata_info.get('telefone', '') if v.metadata_info else '' %}
+              {% set tel_prev = prev.metadata_info.get('telefone', '') if (prev and prev.metadata_info) else '' %}
+              <div>
+                <div class="text-[10px] font-bold text-content-muted uppercase tracking-wide mb-0.5">Telefone</div>
+                <div class="text-sm text-content
+                            {% if prev and tel != tel_prev %}
+                              bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800
+                            {% endif %}">
+                  {% if tel %}
+                    <span class="inline-flex items-center gap-1"><svg class="r-icon r-icon-resource" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg> {{ tel }}</span>
+                    {% if prev and tel != tel_prev %}
+                    <span class="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-300 uppercase">alterado</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-content-muted">—</span>
+                  {% endif %}
+                </div>
+              </div>
+
+            </div>
+
+            {# ── Row 2: Datas & Valores ── #}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-3 border-t border-line">
+
+              {# Check-in #}
+              <div>
+                <div class="text-[10px] font-bold text-content-muted uppercase tracking-wide mb-0.5">Check-in</div>
+                <div class="text-sm font-semibold text-content
+                            {% if prev and v.check_in_date != prev.check_in_date %}
+                              bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800
+                            {% endif %}">
+                  {{ v.check_in_date.strftime('%d/%m/%Y %H:%M') }}
+                  {% if prev and v.check_in_date != prev.check_in_date %}
+                  <span class="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-300 uppercase">alterado</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              {# Check-out #}
+              <div>
+                <div class="text-[10px] font-bold text-content-muted uppercase tracking-wide mb-0.5">Check-out</div>
+                <div class="text-sm font-semibold text-content
+                            {% if prev and v.check_out_date != prev.check_out_date %}
+                              bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800
+                            {% endif %}">
+                  {% if v.check_out_date %}
+                    {{ v.check_out_date.strftime('%d/%m/%Y %H:%M') }}
+                    {% if prev and v.check_out_date != prev.check_out_date %}
+                    <span class="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-300 uppercase">alterado</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-content-muted">—</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              {# Total #}
+              <div>
+                <div class="text-[10px] font-bold text-content-muted uppercase tracking-wide mb-0.5">Total</div>
+                <div class="text-sm font-extrabold
+                            {% if prev and v.total_amount != prev.total_amount %}
+                              text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800
+                            {% else %}
+                              text-teal-700 dark:text-teal-300
+                            {% endif %}">
+                  {% if v.total_amount %}
+                    R$ {{ "%.2f"|format(v.total_amount|float) }}
+                    {% if prev and v.total_amount != prev.total_amount %}
+                    <span class="ml-1 text-[9px] font-bold text-amber-600 dark:text-amber-300 uppercase">alterado</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-content-muted font-normal">N/D</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              {# Origem #}
+              <div>
+                <div class="text-[10px] font-bold text-content-muted uppercase tracking-wide mb-0.5">Origem</div>
+                <div class="text-sm text-content-muted">{{ v.origin.value if v.origin else '—' }}</div>
+              </div>
+
+            </div>
+
+            {# ── Row 3: Itens ── #}
+            {% set itens_ativos = v.items | selectattr('deleted_at', 'equalto', none) | list %}
+            {% if itens_ativos %}
+            <div class="pt-3 border-t border-line">
+              <div class="text-[10px] font-bold text-content-muted uppercase tracking-wide mb-2">Itens</div>
+              <div class="overflow-x-auto rounded-lg border border-line">
+                <table class="r-table text-sm">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th class="text-center">Qtd</th>
+                      <th class="text-right">Preço Unitário</th>
+                      <th class="text-right">Total Item</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for link in itens_ativos %}
+                    <tr>
+                      <td class="font-medium text-content">
+                        {{ link.item.name if link.item else '(item removido)' }}
+                      </td>
+                      <td class="text-center font-semibold">{{ link.quantity }}</td>
+                      <td class="text-right font-mono text-content-muted">
+                        {% if link.unit_price %}
+                          R$ {{ "%.2f"|format(link.unit_price|float) }}
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
+                      <td class="text-right font-semibold text-content">
+                        R$ {{ "%.2f"|format(link.locked_price|float) }}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {% else %}
+            <div class="pt-3 border-t border-line">
+              <div class="text-xs text-content-muted">Nenhum item registrado nesta versão.</div>
+            </div>
+            {% endif %}
+
+            {# ── Pricing breakdown (collapsible) ── #}
+            {% if v.subtotal_amount or v.discount_amount or v.service_fee_amount %}
+            <div class="pt-2">
+              <details class="group">
+                <summary class="cursor-pointer text-xs font-semibold text-content-muted hover:text-content
+                               flex items-center gap-1.5 select-none list-none">
+                  <svg class="w-3 h-3 transition-transform group-open:rotate-90 shrink-0"
+                       fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                  Detalhamento de Preço
+                </summary>
+                <div class="mt-2 pl-5 text-xs text-content-muted space-y-1">
+                  {% if v.subtotal_amount %}
+                  <div class="flex justify-between max-w-xs">
+                    <span>Subtotal</span>
+                    <span class="font-mono">R$ {{ "%.2f"|format(v.subtotal_amount|float) }}</span>
+                  </div>
+                  {% endif %}
+                  {% if v.discount_amount and v.discount_amount > 0 %}
+                  <div class="flex justify-between max-w-xs text-green-700 dark:text-green-300">
+                    <span>Desconto</span>
+                    <span class="font-mono">− R$ {{ "%.2f"|format(v.discount_amount|float) }}</span>
+                  </div>
+                  {% endif %}
+                  {% if v.service_fee_amount and v.service_fee_amount > 0 %}
+                  <div class="flex justify-between max-w-xs text-content-muted">
+                    <span>Taxa de serviço</span>
+                    <span class="font-mono">+ R$ {{ "%.2f"|format(v.service_fee_amount|float) }}</span>
+                  </div>
+                  {% endif %}
+                  {% if v.total_amount %}
+                  <div class="flex justify-between max-w-xs font-bold border-t border-line pt-1 mt-1 text-teal-700 dark:text-teal-300">
+                    <span>Total</span>
+                    <span class="font-mono">R$ {{ "%.2f"|format(v.total_amount|float) }}</span>
+                  </div>
+                  {% endif %}
+                </div>
+              </details>
+            </div>
+            {% endif %}
+
+            {# ── Read-only notice for archived versions ── #}
+            {% if not is_atual %}
+            <div class="flex items-center gap-2 px-3 py-2 bg-surface-2 border border-line rounded-lg text-xs text-content-muted">
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2"
+                   viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              Versão somente-leitura — o histórico não pode ser editado.
+            </div>
+            {% else %}
+            <div class="flex items-center gap-2">
+              <a href="{{ url_for('reservas.admin_editar_reserva_form', reserva_id=v.id) }}"
+                 class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-600 hover:bg-teal-700
+                        text-white text-xs font-semibold rounded-lg transition-colors">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.125em" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg> Editar esta reserva
+              </a>
+              <a href="{{ url_for('reservas.detalhe', reserva_id=v.id) }}"
+                 class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-surface-2 hover:bg-surface-2
+                        text-content-muted text-xs font-semibold rounded-lg transition-colors">
+                Ver Detalhe
+              </a>
+            </div>
+            {% endif %}
+
+          </div>
+          {# /card body #}
+        </div>
+        {# /card #}
+
+      </div>
+      {# /timeline item #}
+
+      {# Arrow between versions #}
+      {% if not loop.last %}
+      <div class="flex gap-4 sm:gap-5 items-center">
+        <div class="w-10 shrink-0 flex justify-center">
+          <div class="text-content-muted text-lg leading-none">↓</div>
+        </div>
+        <div class="text-xs text-content-muted italic">editado</div>
+      </div>
+      {% endif %}
+
+    {% endfor %}
+
+  </div>
+  {# /timeline #}
+
+</div>
+
+{# ── Summary strip ── #}
+<div class="mt-8 px-5 py-4 bg-surface rounded-xl border border-line shadow-sm">
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+    <div>
+      <div class="text-2xl font-extrabold text-teal-700 dark:text-teal-300">{{ versoes|length }}</div>
+      <div class="text-xs text-content-muted mt-0.5">versão(ões)</div>
+    </div>
+    <div>
+      <div class="text-2xl font-extrabold text-content">v{{ versao_atual.version }}</div>
+      <div class="text-xs text-content-muted mt-0.5">versão atual</div>
+    </div>
+    <div>
+      <div class="text-sm font-bold text-content leading-tight mt-1">
+        {{ versoes[0].criado_em.strftime('%d/%m/%Y') if versoes else '—' }}
+      </div>
+      <div class="text-xs text-content-muted mt-0.5">data original</div>
+    </div>
+    <div>
+      <div class="text-sm font-bold text-content leading-tight mt-1">
+        {{ versao_atual.criado_em.strftime('%d/%m/%Y %H:%M') if versao_atual else '—' }}
+      </div>
+      <div class="text-xs text-content-muted mt-0.5">última versão</div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
